@@ -1,7 +1,21 @@
-# PayProof: product and build requirements (v2, 5 Oct 2026)
+# PayProof: product and build requirements (v3, 6 Oct 2026)
 
 > This is the document Claude Code builds against. `CLAUDE.md` holds the short always-on rules; `ROADMAP.md` holds the phase order and paste-ready prompts. Where this file says "must", it is a requirement; "should" is a strong preference; "could" is optional.
 > Placeholders: `[PROJECT_ID]`, `[REGION]`, `[GITHUB_USERNAME]`, `[LANG_1]`, `[LANG_2]` (default Hindi and Tamil), `[EXTRACTION_MODEL]`, `[EXPLAIN_MODEL]`. Always verify current Google GenAI SDK usage and Gemini model names in the official documentation before coding.
+
+## 0. Project facts (v3)
+
+| Item | Value |
+|---|---|
+| Google Cloud and Firebase project | `payproof-nithin-2026` (billing is on) |
+| Region | `asia-south1` for Cloud Run and Firestore. Firestore already exists (native mode, Standard edition) |
+| Vertex AI location | `asia-south1` unless the chosen Gemini models are unavailable there; keep it configurable (`VERTEX_LOCATION`) and tell the owner |
+| Hosting rewrite | Firebase Hosting can rewrite to Cloud Run only in certain regions. Check the current Firebase documentation; if `asia-south1` is not supported, propose a supported Cloud Run region |
+| Credits | **None are provided by the hackathon.** We pay for usage, so cost controls are a requirement (section 19) |
+| Gemini backends | `aistudio` (API key, local tests, simulated images only) and `vertex` (deployed app). The $300 free-trial credit, if it applies, cannot pay for AI Studio Gemini costs, and the AI Studio free tier may use content to improve Google products, so the deployed app must use Vertex AI |
+| Owner's machine | Windows, PowerShell, VS Code. Give PowerShell commands, never bash. Python 3.13: report any dependency that does not support it |
+| Demo video | Up to 3 minutes (confirmed by Hack2skill support) |
+| Evaluation window | 19 Oct to 6 Nov; Top 50 announced 7 Nov. The app must stay live |
 
 ## 1. Goal, users and success
 
@@ -31,7 +45,7 @@ Judging weights: technical merit and Gen AI implementation 40%, problem alignmen
 | **Must** | Per-user and global usage limits to protect budget and quota |
 | **Should** | Evaluation on 60 to 80 simulated screenshots plus simulated histories, published in `eval/RESULTS.md` |
 | **Could** | "Listen" button: Gemini text to speech of a verified answer (section 7.4) |
-| **Won't** | Reinforcement learning, quantum packages, scraping or automating any real app, loans or credit scoring, advice on where to drive |
+| **Won't** | Reinforcement learning, quantum packages, scraping or automating any real app, loans or credit scoring, advice on where to drive, using the AI Studio free tier in the deployed app |
 
 ## 3. Input screen types
 
@@ -173,9 +187,10 @@ Wording rule for both: "possible change" or "no clear change", never "cheating",
 
 ## 6. Extraction requirements
 
-- Gemini (via Vertex AI) with structured JSON output against `ExtractionResult`, temperature 0. A fast model for extraction.
+- Gemini through the single client module (`GEMINI_BACKEND`: `aistudio` locally with simulated images only, `vertex` when deployed), structured JSON output against `ExtractionResult`, temperature 0. Use the cheapest model that meets accuracy (section 19), and tell the owner which model and the approximate cost per call.
 - The system prompt must say: copy only what is visible; null when not shown; never calculate totals or rates; amounts as plain numbers; keep labels as written; ISO dates only if fully visible; **do not extract names, phone numbers or addresses**; mark unclear fields in `low_confidence_fields` and set `needs_review`; for an order-offer screen return `screen_type="order_offer"`, no trips, and a note; for any non-earnings screen return `other`.
-- One retry on invalid output, then return `needs_review=true` with a safe message. Never show raw model output.
+- **Exactly one Gemini call per screenshot**, plus at most one retry on invalid output, then return `needs_review=true` with a safe message. Never loop. Never show raw model output.
+- Before sending an image, resize it on the server to at most `IMAGE_MAX_SIDE_PX` on the longest side, re-encode as JPEG at `IMAGE_JPEG_QUALITY`, and strip metadata (section 19). Check that accuracy does not drop.
 - Images are processed in memory only, never written to disk, Cloud Storage or logs. Limit size (suggested 8 MB) and types (PNG, JPEG, WebP); reject others with a friendly message. Set a timeout and handle it.
 - Multiple screenshots may be uploaded in one go; process them one at a time with a visible progress state.
 
@@ -246,14 +261,16 @@ Plain HTML, CSS and vanilla JavaScript in `frontend/`, mobile-first, minimal. No
 
 - The user id always comes from the verified Firebase token, never from the path or body.
 - Errors use one JSON shape: `{error_code, message, detail?}`; messages are user-safe.
-- **Usage limits** (configurable, suggested defaults): 40 extractions per user per day, 100 questions per user per day, and a global daily cap on Gemini calls, to protect budget and quota during judging. Over-limit returns a friendly message, not a crash.
+- **Usage limits** (configurable; defaults 12 extractions and 25 questions per user per day, and a global cap of 400 Gemini calls per day), kept as atomic counters in Firestore, to protect budget and quota during judging. Over-limit returns a friendly message, not a crash.
+- Log token counts per Gemini call (counts only, never content, images or personal data) so the owner can watch cost.
 - Structured logs without images or personal data.
 
 ## 11. Security and privacy
 
 - Firebase ID token verified (`firebase-admin`) on every `/api` route except `/health`.
 - Firestore security rules: a user can read and write only their own documents.
-- Secrets only in environment variables or Secret Manager; `.env` is git-ignored; `.env.example` lists names only.
+- Secrets only in environment variables or Secret Manager; `.env` is git-ignored; `.env.example` lists names only. Never print, read back or commit `.env`. The AI Studio key is for local use only and is left empty on Cloud Run, where Vertex AI uses the service account (no key files).
+- The Firebase web config (apiKey, authDomain, projectId, appId) is not secret and may live in `frontend/firebase-config.js`.
 - Least-privilege service account roles for Vertex AI and Firestore.
 - No images stored anywhere; no names, phone numbers or addresses extracted.
 - Demos, tests and docs use fictional platforms and simulated data only.
@@ -293,11 +310,13 @@ Plain HTML, CSS and vanilla JavaScript in `frontend/`, mobile-first, minimal. No
 
 Report real numbers, including weak ones, with the date, counts and model names. Never edit numbers by hand and never tune prompts to specific test images.
 
+**Cost gate:** every script that calls Gemini must print the number of calls and the estimated cost BEFORE running and wait for the owner's "go". Unit tests use mocked model output with no network calls.
+
 ## 14. Deployment and operations
 
-- Cloud Run: FastAPI service `payproof`, `[REGION]`, request timeout about 60 s, 1 GiB memory (adjust after testing), `--allow-unauthenticated` at the network level with app-level token checks. Keep the previous revision available for rollback.
+- Cloud Run: FastAPI service `payproof` in `asia-south1` (or the region the Hosting rewrite supports), `--max-instances=3`, minimum instances 0 for now, request timeout about 60 s, 1 GiB memory (adjust after testing), `--allow-unauthenticated` at the network level with app-level token checks. Keep the previous revision available for rollback.
 - Firebase Hosting: `frontend/` served publicly, with `/api/**` rewritten to the Cloud Run service. The Hosting URL is the **prototype link** we submit.
-- **Keep it live.** The roadmap shows prototype evaluation from 19 Oct to 6 Nov and the Top 50 announcement on 7 Nov. The app must be up, with working Gemini, Firestore and sign-in, until at least 7 Nov, and longer if we are shortlisted. Set minimum instances to 1 before recording and during evaluation; set billing budget alerts; add a Cloud Monitoring uptime check on `/health`; check the live app daily.
+- **Keep it live.** The roadmap shows prototype evaluation from 19 Oct to 6 Nov and the Top 50 announcement on 7 Nov. The app must be up, with working Gemini, Firestore and sign-in, until at least 7 Nov, and longer if we are shortlisted. Measure the cold-start time on 14 Oct. Set minimum instances to 1 only for recording, and for the evaluation window only if cold starts are a problem and the cost is acceptable to the owner. Set billing budget alerts; add a Cloud Monitoring uptime check on `/health`; check the live app daily. If the billing account is a free trial, note its expiry date and upgrade to a paid account before it, or the app stops.
 - Deploy only from `main`, only after tests pass, and only with the owner's approval.
 
 ## 15. Repository and documentation
@@ -323,6 +342,7 @@ Report real numbers, including weak ones, with the date, counts and model names.
 | A10 | New visitor in a private window taps the sample button | Full flow completes with no sign-up, in under 60 seconds on a normal connection (measure and report; do not claim before measuring) |
 | A11 | User B requests user A's data | Rejected |
 | A12 | Daily limit exceeded | Friendly message, no crash |
+| A13 | One screenshot through the live app | Logs show exactly one Gemini call (or two with the one retry) and its token counts; no image or personal data in the logs |
 
 ## 17. Non-functional targets (measure, then report; do not claim before measuring)
 
@@ -336,5 +356,36 @@ Report real numbers, including weak ones, with the date, counts and model names.
 |---|---|---|
 | Challenge track | Sustainability and Social Impact, or Future of Work and Enterprise Productivity; read both descriptions | 14 Oct |
 | `[LANG_1]` and `[LANG_2]` | Languages the team can verify | 6 Oct |
-| Video length | Rules text says 3 to 4 minutes; form field says up to 3; aim for 2:55 to 3:00 and ask Hack2skill | 8 Oct |
+| Video length | **Settled:** up to 3 minutes (Hack2skill support). Aim for 2:50 and never exceed 3:00 | done |
+| Cloud Run region | `asia-south1`, unless Hosting cannot rewrite to it; Claude Code checks the documentation and the owner approves | Phase 1 |
+| Gemini models | Claude Code checks current documentation and pricing, proposes the cheapest model that meets accuracy; the owner approves | Phase 2 |
 | "Listen" feature | Build only if the core is finished by 11 Oct | 11 Oct |
+
+## 19. AI cost controls (we pay for every Gemini call)
+
+1. Check the current Vertex AI and Gemini documentation and pricing, pick the cheapest model that meets accuracy for extraction, and tell the owner the model names and the approximate cost per call. Keep model names in environment variables. Treat any price you read as unverified until the owner checks the pricing page.
+2. Exactly one Gemini call per screenshot; at most one retry on invalid output; never loop.
+3. Resize images before sending: longest side at most `IMAGE_MAX_SIDE_PX` (default 1280), JPEG at `IMAGE_JPEG_QUALITY` (default 85), metadata stripped. Make both configurable and check that accuracy does not drop.
+4. Cap output: about `EXTRACTION_MAX_OUTPUT_TOKENS` (1,500) for extraction and `ANSWER_MAX_OUTPUT_TOKENS` (400) for answers. Temperature 0. Turn off or minimise any "thinking" mode if the API allows it. Keep prompts short.
+5. Cache extraction results by image hash for the current session. For the curated SAMPLE images only (simulated, never user uploads), cache results in a shared Firestore collection, so the "Try with sample screenshots" button costs nothing after the first run while still running the real flow.
+6. Q&A: pass only compact engine JSON to Gemini, never images or long histories. At most two model calls per question (the draft, plus one retry after the verifier). The verifier is plain code.
+7. Usage limits as in section 10, enforced with atomic Firestore counters.
+8. Log token counts per call (counts only).
+9. Tests use mocked Gemini output. Evaluation scripts print the number of Gemini calls and the estimated cost first and wait for the owner's "go".
+10. Cloud Run: `--max-instances=3`; minimum instances 0 until the 14 Oct cold-start decision.
+11. A billing budget alert must exist before the first deploy. It warns but does not stop spending, so the in-app limits are the real guard.
+
+## 20. Environment variables (`.env.example` lists these; never commit `.env`)
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `PROJECT_ID` | Google Cloud project | `payproof-nithin-2026` |
+| `REGION` | Cloud Run and Firestore region | `asia-south1` |
+| `VERTEX_LOCATION` | Vertex AI location | `asia-south1` |
+| `GEMINI_BACKEND` | `aistudio` (local, simulated images only) or `vertex` (deployed) | `aistudio` locally |
+| `GEMINI_API_KEY` | AI Studio key, local only; empty on Cloud Run | empty |
+| `EXTRACTION_MODEL`, `EXPLAIN_MODEL` | Model names chosen after reading current docs and pricing | set in Phase 2 |
+| `IMAGE_MAX_SIDE_PX`, `IMAGE_JPEG_QUALITY`, `MAX_UPLOAD_MB` | Image preparation and upload limit | 1280, 85, 8 |
+| `EXTRACTION_MAX_OUTPUT_TOKENS`, `ANSWER_MAX_OUTPUT_TOKENS` | Output caps | 1500, 400 |
+| `GEMINI_TIMEOUT_SECONDS` | Per-call timeout | 30 |
+| `LIMIT_EXTRACTIONS_PER_USER_PER_DAY`, `LIMIT_QUESTIONS_PER_USER_PER_DAY`, `LIMIT_GLOBAL_GEMINI_CALLS_PER_DAY` | Usage limits | 12, 25, 400 |
