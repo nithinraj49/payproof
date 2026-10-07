@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PayProof</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 480px; padding: 0 1rem; }
+    #status { padding: 0.75rem; border-radius: 8px; background: #f0f0f0; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>PayProof</h1>
+  <p>Phase 1 skeleton: signs you in anonymously and checks the backend knows who you are.</p>
+  <div id="status">Signing in&hellip;</div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+    import { firebaseConfig } from "./firebase-config.js";
+
+    const statusEl = document.getElementById("status");
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        return;
+      }
+      try {
+        const idToken = await user.getIdToken();
+        const response = await fetch("/api/whoami", {
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+        if (!response.ok) {
+          statusEl.textContent = `Backend error: ${response.status}`;
+          return;
+        }
+        const data = await response.json();
+        statusEl.textContent = `Signed in. Backend sees user id: ${data.user_id}`;
+      } catch (err) {
+        statusEl.textContent = "Could not reach the backend. Check the console for details.";
+        console.error(err);
+      }
+    });
+
+    signInAnonymously(auth).catch((err) => {
+      statusEl.textContent = "Sign-in failed. Check the console for details.";
+      console.error(err);
+    });
+  </script>
+</body>
+</html>
