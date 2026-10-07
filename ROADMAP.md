@@ -14,7 +14,7 @@ With about 45 working hours left, the order matters more than the polish. Build 
 1. A new visitor opens the live link in a private window and taps **Try with sample screenshots**. No sign-up.
 2. A trip screenshot and a weekly payout screenshot are read into a table; an order-offer screenshot is rejected with a reason.
 3. The user confirms (a read-only table is acceptable at first), enters costs, and sees net earnings, **both hourly rates** (trip mode), pay per km and deduction share.
-4. One grounded question is answered in English and `[LANG_1]` with a "verified" label; an unanswerable question is refused.
+4. One grounded question is answered in English with a "verified" label; an unanswerable question is refused.
 5. The evidence pack opens; **Delete all my data** works.
 6. All of it runs on Firebase Hosting, Cloud Run, Firestore and Gemini (Vertex AI when deployed).
 
@@ -22,7 +22,7 @@ With about 45 working hours left, the order matters more than the polish. Build 
 
 | Area | Solo rule |
 |---|---|
-| Languages | English plus `[LANG_1]` (default Hindi) only. Add `[LANG_2]` only if the gate passes with time to spare |
+| Languages | **English only for now.** A regional language is a stretch goal (see "Stretch" below), decided after the floor works, and only if you can check every string |
 | Simulator | Start with layouts L1, L3 and N1. Add L2 and N2 only if time allows |
 | Weekly mode | Extraction, engine and results: yes. Weekly pay-change detection: **not built** |
 | Trip mode | Everything, including the bootstrap pay-change signal |
@@ -83,7 +83,7 @@ After submitting: keep the app live and check it daily (15 minutes) through the 
 3. Before any bulk Gemini run (evaluation, batch tests): the number of calls and the estimated cost, then wait for your "go".
 4. After the first extraction accuracy table.
 5. Before a dependency or a change to the spec, and before any task that would cost more than about an hour and is not on the floor.
-6. When the `[LANG_1]` strings are ready for you to check.
+6. Before adding any non-English feature (none for now).
 
 ### AI cost rules (we pay for every Gemini call; full list in REQUIREMENTS.md section 19)
 
@@ -119,7 +119,7 @@ Commit after each numbered item. Stop and summarise what I should verify.
 
 ```
 Read CLAUDE.md and REQUIREMENTS.md sections 3, 4.1 and 12, and ROADMAP.md Solo overrides. Do step A of Phase 2 only.
-1. eval/generate_data.py with Pillow: FICTIONAL platforms only; layouts L1 (trip detail), L3 (weekly payout) and N1 (order offer), in English and [LANG_1] with Noto fonts (tell me where you got them and their licence). Noise: blur, tilt, crop, dark mode, JPEG compression. Include variants that omit distance or minutes. Ground-truth JSON beside every image, validated against extraction/schema.py. Fixed seed. A deny list of real platform names checked before writing any file. Never copy a real platform's design.
+1. eval/generate_data.py with Pillow: FICTIONAL platforms only; layouts L1 (trip detail), L3 (weekly payout) and N1 (order offer), in English, with a free font (tell me where you got it and its licence). Noise: blur, tilt, crop, dark mode, JPEG compression. Include variants that omit distance or minutes. Ground-truth JSON beside every image, validated against extraction/schema.py. Fixed seed. A deny list of real platform names checked before writing any file. Never copy a real platform's design.
 2. Generate 30 images and show me 6 so I can judge realism. No Gemini calls in this step.
 Commit after each item.
 ```
@@ -132,7 +132,7 @@ Read CLAUDE.md and REQUIREMENTS.md sections 3, 4.1, 6, 10, 19 and 20. Do step B 
 2. Image preparation before sending: resize to at most IMAGE_MAX_SIDE_PX, JPEG at IMAGE_JPEG_QUALITY, strip metadata. In memory only.
 3. POST /api/extract (multipart, Firebase token required): size and type limits, timeout handling, friendly errors. Never write the image anywhere or log it. Log token counts only.
 4. Usage limits as atomic Firestore counters with the defaults in section 10, and a friendly over-limit message. Cache extraction results by image hash for the session.
-5. eval/run_extraction_eval.py: field-level accuracy by screen type, language, layout and noise, plus the rejection rate for N1. It must print the number of Gemini calls and the estimated cost first and wait for my "go". Write eval/RESULTS.md.
+5. eval/run_extraction_eval.py: field-level accuracy by screen type, layout and noise, plus the rejection rate for N1. It must print the number of Gemini calls and the estimated cost first and wait for my "go". Write eval/RESULTS.md.
 6. Tests for the schema, the rejection behaviour, the limits and image preparation using mocked model output. No network calls in tests.
 Commit after each item. Stop and show me the accuracy table and your recommendation.
 ```
@@ -161,12 +161,12 @@ Commit after each item. Stop and show me the test output.
 
 ## Phase 4: Grounded answers and evidence pack (Sat 10 Oct)
 
-**Goal:** Gemini explains in the worker's language and no unsupported number gets through. Skills: `grounding-audit`, `phase-check`.
+**Goal:** Gemini explains the results in plain English and no unsupported number gets through. Skills: `grounding-audit`, `phase-check`.
 
 ```
 Read CLAUDE.md and REQUIREMENTS.md sections 7, 8, 10 and 19, and ROADMAP.md Solo overrides. Do Phase 4 only.
-1. backend/qa.py: Gemini function calling with get_summary, get_changes, get_trip_stats and get_weekly returning compact engine JSON. The model may state only numbers those tools returned. Languages: English and [LANG_1] through a language parameter. Use the cheapest suitable model, capped output, at most two model calls per question.
-2. The number verifier exactly as in section 7.2 (including Indian digit grouping and the numerals of [LANG_1]), one retry then a refusal that names what is missing. Unit tests with passing, failing and edge cases; mocked model output, no network calls.
+1. backend/qa.py: Gemini function calling with get_summary, get_changes, get_trip_stats and get_weekly returning compact engine JSON. The model may state only numbers those tools returned. English only now; keep a `language` parameter (default `en`) in the API so a language can be added later. Use the cheapest suitable model, capped output, at most two model calls per question.
+2. The number verifier exactly as in section 7.2 (including Indian digit grouping such as 1,23,456), one retry then a refusal that names what is missing. Unit tests with passing, failing and edge cases; mocked model output, no network calls.
 3. Refusals per section 7.3.
 4. POST /api/ask returns a verified answer with an answer_id and stores it under users/{uid}/answers. Apply the per-user and global limits.
 5. GET /api/report returns a plain self-contained HTML evidence pack as in section 8.
@@ -174,7 +174,7 @@ Read CLAUDE.md and REQUIREMENTS.md sections 7, 8, 10 and 19, and ROADMAP.md Solo
 Commit after each item. Stop and show me one answerable and one unanswerable question working.
 ```
 
-**You verify:** an unanswerable question is refused; someone who reads `[LANG_1]` checks the answers; the report says "possible change", never "cheating"; `git tag phase-4`.
+**You verify:** an unanswerable question is refused; the report says "possible change", never "cheating"; `git tag phase-4`.
 
 ---
 
@@ -187,8 +187,8 @@ Commit after each item. Stop and show me one answerable and one unanswerable que
 ```
 Read CLAUDE.md and REQUIREMENTS.md sections 4, 9 and 10, and ROADMAP.md Solo overrides. Do step A of Phase 5 only. Work in frontend/. Plain HTML, CSS and vanilla JavaScript, mobile-first, minimal, no build step, system fonts, the Firebase web SDK only.
 1. One small api.js module that sends the Firebase ID token and handles every error and loading state in one place.
-2. Screens FE-1 to FE-12 from the document, using the real API: first screen with "Try with sample screenshots" and "Upload my screenshots"; table matching the screen type with yellow low-confidence cells; rejected screens with a clear reason; km and hours inputs for weekly mode; costs; results with BOTH hourly rates and a one-line explanation; changes; ask with a language selector and a verified label; evidence pack; delete.
-3. UI labels in English and [LANG_1].
+2. Screens FE-1 to FE-12 from the document, using the real API: first screen with "Try with sample screenshots" and "Upload my screenshots"; table matching the screen type with yellow low-confidence cells; rejected screens with a clear reason; km and hours inputs for weekly mode; costs; results with BOTH hourly rates and a one-line explanation; changes; ask with a verified label; evidence pack; delete.
+3. UI labels in English only, all kept in one strings file (frontend/strings.js) so a language can be added later. No language switcher for now.
 Commit per screen. Stop and tell me how to test on my phone.
 ```
 
@@ -241,9 +241,21 @@ Done in a separate session. Contents, for planning:
 
 ---
 
+## Stretch: a regional language (decide on 11 or 12 Oct, only if the floor works)
+
+Only if you can personally check every string. Order of steps, cheapest first:
+
+1. Add simulated screenshots in that language to the extraction test, to show "reads screenshots in any language".
+2. Let answers come back in that language through the `language` parameter, with the verifier extended to that language's numerals.
+3. Translate the UI labels (about 40 strings) only if time remains.
+
+Record the chosen language in `PROGRESS.md` first.
+
+---
+
 ## If you fall behind, cut in this order
 
-1. `[LANG_2]` (already cut) and the Listen feature (already cut)
+1. Any regional language (already cut) and the Listen feature (already cut)
 2. Editing of table rows (a read-only confirm table is acceptable)
 3. Weekly mode UI polish (keep the numbers)
 4. The evidence pack styling

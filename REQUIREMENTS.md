@@ -1,7 +1,7 @@
 # PayProof: product and build requirements (v3, 6 Oct 2026)
 
 > This is the document Claude Code builds against. `CLAUDE.md` holds the short always-on rules; `ROADMAP.md` holds the phase order and paste-ready prompts. Where this file says "must", it is a requirement; "should" is a strong preference; "could" is optional.
-> Placeholders: `[PROJECT_ID]`, `[REGION]`, `[GITHUB_USERNAME]`, `[LANG_1]`, `[LANG_2]` (default Hindi and Tamil), `[EXTRACTION_MODEL]`, `[EXPLAIN_MODEL]`. Always verify current Google GenAI SDK usage and Gemini model names in the official documentation before coding.
+> Placeholders: `[PROJECT_ID]`, `[REGION]`, `[GITHUB_USERNAME]`, `[EXTRACTION_MODEL]`, `[EXPLAIN_MODEL]`. Always verify current Google GenAI SDK usage and Gemini model names in the official documentation before coding.
 
 ## 0. Project facts (v3)
 
@@ -13,6 +13,7 @@
 | Hosting rewrite | Firebase Hosting can rewrite to Cloud Run only in certain regions. Check the current Firebase documentation; if `asia-south1` is not supported, propose a supported Cloud Run region |
 | Credits | **None are provided by the hackathon.** We pay for usage, so cost controls are a requirement (section 19) |
 | Gemini backends | `aistudio` (API key, local tests, simulated images only) and `vertex` (deployed app). The $300 free-trial credit, if it applies, cannot pay for AI Studio Gemini costs, and the AI Studio free tier may use content to improve Google products, so the deployed app must use Vertex AI |
+| Language scope | **English only for now.** A regional language is a future stretch goal; keep user-visible text in one strings file and a `language` API parameter (default `en`) so one can be added later |
 | Owner's machine | Windows, PowerShell, VS Code. Give PowerShell commands, never bash. Python 3.13: report any dependency that does not support it |
 | Demo video | Up to 3 minutes (confirmed by Hack2skill support) |
 | Evaluation window | 19 Oct to 6 Nov; Top 50 announced 7 Nov. The app must stay live |
@@ -23,7 +24,7 @@
 
 | Item | Definition |
 |---|---|
-| Primary user | A gig worker on a phone, possibly in Hindi or Tamil, with limited patience for forms |
+| Primary user | A gig worker on a phone, with limited patience for forms. A regional language is a possible future addition, not built now |
 | Evaluator (equally important) | A hackathon judge who opens our public link once, possibly with no real gig screenshots, and must see it work within a minute |
 | Core promise | True net pay per hour and per km after the worker's own costs, with every number exact and checkable |
 | Golden rule | Gemini reads and explains. Fixed formulas do all the arithmetic. No number reaches the user unless the engine produced it |
@@ -38,12 +39,13 @@ Judging weights: technical merit and Gen AI implementation 40%, problem alignmen
 | **Must** | Screenshot reading for three earnings screen types; reject non-earnings screens; confirm-and-edit table; worker costs input |
 | **Must** | Engine in two modes: per-trip and weekly summary; both hourly rates where data allows; pay per km; deduction share |
 | **Must** | Pay-change signal (trip mode: bootstrap; weekly mode: simple comparison), with "not enough data" and "cannot tell" states |
-| **Must** | Grounded answers with the number verifier and refusals, English plus `[LANG_1]` and `[LANG_2]` |
+| **Must** | Grounded answers with the number verifier and refusals, in English |
 | **Must** | Evidence pack (HTML), delete-all-my-data, privacy by design |
 | **Must** | **Try with sample screenshots** button so a judge can run the full flow with one tap |
 | **Must** | Firebase Hosting and Authentication, Firestore, Cloud Run, Gemini, all in use |
 | **Must** | Per-user and global usage limits to protect budget and quota |
 | **Should** | Evaluation on 60 to 80 simulated screenshots plus simulated histories, published in `eval/RESULTS.md` |
+| **Could** | A regional language (Hindi or Tamil, undecided): screenshots, then answers, then labels; only after the floor works (see ROADMAP.md "Stretch") |
 | **Could** | "Listen" button: Gemini text to speech of a verified answer (section 7.4) |
 | **Won't** | Reinforcement learning, quantum packages, scraping or automating any real app, loans or credit scoring, advice on where to drive, using the AI Studio free tier in the deployed app |
 
@@ -202,7 +204,7 @@ Gemini uses function calling with read-only tools that return engine results: `g
 
 ### 7.2 Number verifier (`backend/qa.py`)
 
-1. Extract every number from the draft answer, including percentages and numbers written with Indian digit grouping or Hindi and Tamil numerals.
+1. Extract every number from the draft answer, including percentages and numbers written with Indian digit grouping (for example 1,23,456). Numerals of other languages are handled only if a regional language is added later.
 2. Check each against the tool outputs, allowing rounding to 2 decimals and percentage forms.
 3. On any mismatch, regenerate once with a stricter instruction; if it still fails, return a refusal that names what is missing.
 4. Unit-test it with passing, failing and edge cases (no network calls).
@@ -228,7 +230,7 @@ Plain HTML, CSS and vanilla JavaScript in `frontend/`, mobile-first, minimal. No
 
 | ID | Requirement |
 |---|---|
-| FE-1 | First screen: one sentence on what PayProof does, a language switcher, **"Try with sample screenshots"** and "Upload my screenshots". Sign-in is automatic (anonymous); the judge never creates an account |
+| FE-1 | First screen: one sentence on what PayProof does, **"Try with sample screenshots"** and "Upload my screenshots". Sign-in is automatic (anonymous); the judge never creates an account |
 | FE-2 | Sample mode loads curated simulated screenshots from `frontend/samples/` (trip, weekly, an order offer to show rejection) and runs the real flow end to end |
 | FE-3 | After extraction, show a table matching the screen type: trips table or weekly table. Highlight low-confidence cells in yellow. Rows can be edited, added and deleted. Nothing is calculated until the user confirms |
 | FE-4 | Rejected screens (order offer, other) show a clear message explaining why, with no table |
@@ -236,9 +238,9 @@ Plain HTML, CSS and vanilla JavaScript in `frontend/`, mobile-first, minimal. No
 | FE-6 | Costs screen: fuel per km, maintenance per km, optional fixed daily cost, with a short "why we ask" line |
 | FE-7 | Results: net earnings; both hourly rates where available, clearly labelled, with a one-line explanation of why they differ; pay per km; deduction share; data-quality notes; "not available in weekly mode" where relevant |
 | FE-8 | Changes: possible change, no clear change or not enough data, with the numbers and, in trip mode, the range |
-| FE-9 | Ask: language selector, answer with the numbers it used and a "verified" label, refusal shown plainly |
+| FE-9 | Ask: answer with the numbers it used and a "verified" label, refusal shown plainly |
 | FE-10 | Evidence pack download; visible privacy note; "Delete all my data" that works |
-| FE-11 | UI labels in English, `[LANG_1]` and `[LANG_2]` |
+| FE-11 | UI labels in English only, all kept in one strings file (`frontend/strings.js`) so a language can be added later; no language switcher for now |
 | FE-12 | Every network step has loading, error and retry states; no raw errors, no blank screens |
 | FE-13 | Tap targets at least 44 px; text contrast at least 4.5:1; works on a current Chrome for Android over a slow network |
 | FE-14 | Never show a number the API did not return |
@@ -290,7 +292,7 @@ Plain HTML, CSS and vanilla JavaScript in `frontend/`, mobile-first, minimal. No
 | N1 order offer | negative | expected earning, pickup km, drop km, a pickup place and address | must be rejected |
 | N2 other screen | negative | settings or help screen | must be rejected |
 
-**Languages:** English, `[LANG_1]`, `[LANG_2]`, using Noto fonts for Devanagari and Tamil (record where fonts came from and their licence).
+**Languages:** English only for now. Use a free font and record where it came from and its licence. A regional language (with the matching Noto font) is a later stretch.
 **Noise:** blur, slight rotation, partial crop, dark mode, JPEG compression, and low brightness.
 **Ground truth:** a JSON file beside every image, validated against the schema.
 **Value ranges** (assumptions for testing, stored in `config`): distance 0.5 to 12 km; minutes from distance plus a waiting term; base pay from a fixed amount plus a per-km rate with random variation; occasional tips and incentives; occasional deductions. A fixed seed makes everything repeatable.
@@ -303,7 +305,7 @@ Plain HTML, CSS and vanilla JavaScript in `frontend/`, mobile-first, minimal. No
 
 | Script | Measures | Output |
 |---|---|---|
-| `run_extraction_eval.py` | Field-level accuracy by screen type, language, layout and noise; rejection rate of order-offer and other screens; `needs_review` precision on bad images | table in `eval/RESULTS.md` |
+| `run_extraction_eval.py` | Field-level accuracy by screen type, layout and noise; rejection rate of order-offer and other screens; `needs_review` precision on bad images | table in `eval/RESULTS.md` |
 | `run_change_eval.py` | Precision, recall and false-alarm rate for trip mode and weekly mode on injected versus stable histories | table |
 | `run_grounding_eval.py` | 30 questions including unanswerable ones: share of answers whose numbers all come from the engine, and share of correct refusals | table |
 | latency script | Seconds per screenshot and per answer on the deployed app | table |
@@ -331,7 +333,7 @@ Report real numbers, including weak ones, with the date, counts and model names.
 | ID | Scenario | Expected result |
 |---|---|---|
 | A1 | Trip-detail screenshot in English, then costs | Table matches ground truth; results equal the worked example |
-| A2 | Weekly payout screenshot in `[LANG_1]`, then km and hours | Weekly table; results equal the weekly worked example (127.50 per online hour, 15.77 per km) |
+| A2 | Weekly payout screenshot in English, then km and hours | Weekly table; results equal the weekly worked example (127.50 per online hour, 15.77 per km) |
 | A3 | Order-offer screenshot | Rejected with a clear reason; no numbers taken from it |
 | A4 | Blurred or cropped screenshot | `needs_review` true; unclear cells highlighted |
 | A5 | Six-week trip history with a 10% cut, and a stable one | "Possible change" for the first, "no clear change" for the second |
@@ -355,7 +357,7 @@ Report real numbers, including weak ones, with the date, counts and model names.
 | Decision | Options | Decide by |
 |---|---|---|
 | Challenge track | Sustainability and Social Impact, or Future of Work and Enterprise Productivity; read both descriptions | 14 Oct |
-| `[LANG_1]` and `[LANG_2]` | Languages the team can verify | 6 Oct |
+| Regional language (stretch) | Not now. Decide after the floor works, only if the owner can check every string | 11 to 12 Oct |
 | Video length | **Settled:** up to 3 minutes (Hack2skill support). Aim for 2:50 and never exceed 3:00 | done |
 | Cloud Run region | `asia-south1`, unless Hosting cannot rewrite to it; Claude Code checks the documentation and the owner approves | Phase 1 |
 | Gemini models | Claude Code checks current documentation and pricing, proposes the cheapest model that meets accuracy; the owner approves | Phase 2 |

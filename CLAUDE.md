@@ -18,6 +18,13 @@ This is our entry for the Google Cloud AI Builder Cup 2026. Submission closes 18
 - The owner works on Windows with PowerShell and VS Code, Python 3.13. Give PowerShell commands, never bash. Report any dependency that does not support Python 3.13.
 - The demo video limit is up to 3 minutes (confirmed by Hack2skill). The video, deck and submission documents are separate work, done after the prototype works.
 
+## Language scope (decided 6 Oct)
+
+- **English only for now.** Every screen, label, answer and test is in English. A regional language (Hindi or Tamil, undecided) is a future stretch goal, to be added only after the floor works and only if the owner can check every string.
+- Any mention of `[LANG_1]`, `[LANG_2]`, Hindi, Tamil, Devanagari, a language switcher or non-English numerals in `ROADMAP.md`, `REQUIREMENTS.md` or `.claude/skills/` is **future work: do not build it** until the owner says so.
+- Keep all user-visible text in one strings file (`frontend/strings.js` and `backend/strings.py`), and keep a `language` parameter in the API that defaults to `en`, so a language can be added later without touching the logic.
+- Extraction should still read screenshots whose labels are in another language (Gemini handles that), but we do not test it until the stretch step.
+
 ## Hard rules (never break these)
 
 1. **Fresh project only.** All code is written new in this repo. No code, files or assets from any earlier project. History starts with this repo's first commit.
@@ -42,7 +49,7 @@ This is our entry for the Google Cloud AI Builder Cup 2026. Submission closes 18
 
 ## Where to stop and ask the owner
 
-Before any deploy and any `git push` (show the exact command); when you need a secret (name the `.env` entry, never see the value); before bulk Gemini runs; after the first extraction accuracy table; before a new dependency or any spec change; before any task that would cost more than about an hour and is not on the floor; when the `[LANG_1]` strings are ready to check.
+Before any deploy and any `git push` (show the exact command); when you need a secret (name the `.env` entry, never see the value); before bulk Gemini runs; after the first extraction accuracy table; before a new dependency or any spec change; before any task that would cost more than about an hour and is not on the floor; before adding any non-English feature (there are none for now).
 
 ## How we work
 
