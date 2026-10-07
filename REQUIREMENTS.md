@@ -192,6 +192,7 @@ Wording rule for both: "possible change" or "no clear change", never "cheating",
 - Gemini through the single client module (`GEMINI_BACKEND`: `aistudio` locally with simulated images only, `vertex` when deployed), structured JSON output against `ExtractionResult`, temperature 0. Use the cheapest model that meets accuracy (section 19), and tell the owner which model and the approximate cost per call.
 - The system prompt must say: copy only what is visible; null when not shown; never calculate totals or rates; amounts as plain numbers; keep labels as written; ISO dates only if fully visible; **do not extract names, phone numbers or addresses**; mark unclear fields in `low_confidence_fields` and set `needs_review`; for an order-offer screen return `screen_type="order_offer"`, no trips, and a note; for any non-earnings screen return `other`.
 - **Exactly one Gemini call per screenshot**, plus at most one retry on invalid output, then return `needs_review=true` with a safe message. Never loop. Never show raw model output.
+- A 429 from Vertex AI or the Gemini API means the request was **not processed** (not a bad screenshot). Handle it with at most 2 short randomised pauses (jittered backoff), counted separately from the one schema-invalid-output retry above, then a friendly "PayProof is busy right now, please try again in a minute" message. Never loop beyond that. (Confirmed in practice: Vertex AI returned its own `429 RESOURCE_EXHAUSTED` during evaluation, a different quota from the AI Studio free tier's 15 requests/minute/model limit.)
 - Before sending an image, resize it on the server to at most `IMAGE_MAX_SIDE_PX` on the longest side, re-encode as JPEG at `IMAGE_JPEG_QUALITY`, and strip metadata (section 19). Check that accuracy does not drop.
 - Images are processed in memory only, never written to disk, Cloud Storage or logs. Limit size (suggested 8 MB) and types (PNG, JPEG, WebP); reject others with a friendly message. Set a timeout and handle it.
 - Multiple screenshots may be uploaded in one go; process them one at a time with a visible progress state.
@@ -369,13 +370,14 @@ Report real numbers, including weak ones, with the date, counts and model names.
 2. Exactly one Gemini call per screenshot; at most one retry on invalid output; never loop.
 3. Resize images before sending: longest side at most `IMAGE_MAX_SIDE_PX` (default 1280), JPEG at `IMAGE_JPEG_QUALITY` (default 85), metadata stripped. Make both configurable and check that accuracy does not drop.
 4. Cap output: about `EXTRACTION_MAX_OUTPUT_TOKENS` (1,500) for extraction and `ANSWER_MAX_OUTPUT_TOKENS` (400) for answers. Temperature 0. Turn off or minimise any "thinking" mode if the API allows it. Keep prompts short.
-5. Cache extraction results by image hash for the current session. For the curated SAMPLE images only (simulated, never user uploads), cache results in a shared Firestore collection, so the "Try with sample screenshots" button costs nothing after the first run while still running the real flow.
+5. Cache extraction results by image hash for the current session. For the curated SAMPLE images only (simulated, never user uploads), cache results in a shared Firestore collection, so repeat visitors tapping "Try with sample screenshots" cost zero Gemini calls after the first run, while still running the real flow end to end.
 6. Q&A: pass only compact engine JSON to Gemini, never images or long histories. At most two model calls per question (the draft, plus one retry after the verifier). The verifier is plain code.
 7. Usage limits as in section 10, enforced with atomic Firestore counters.
 8. Log token counts per call (counts only).
 9. Tests use mocked Gemini output. Evaluation scripts print the number of Gemini calls and the estimated cost first and wait for the owner's "go".
 10. Cloud Run: `--max-instances=3`; minimum instances 0 until the 14 Oct cold-start decision.
 11. A billing budget alert must exist before the first deploy. It warns but does not stop spending, so the in-app limits are the real guard.
+12. A 429 (rate-limit/quota-exhausted) response means the request was **not processed**. Retry with at most 2 short randomised pauses, counted separately from the one schema-invalid-output retry in rule 2, then a friendly "busy, try again" message — never loop beyond that. Both AI Studio (15 requests/minute/model on the free tier) and Vertex AI (its own, separate per-project quota) have been observed returning 429s during evaluation; the two are different limits and neither is a signal to switch model, backend or region on your own.
 
 ## 20. Environment variables (`.env.example` lists these; never commit `.env`)
 
