@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from google import genai
+from google.genai import errors as genai_errors
 from google.genai import types
 from pydantic import ValidationError
 
@@ -18,6 +19,18 @@ from extraction.prompt import SYSTEM_PROMPT
 from extraction.schema import ExtractionResult
 
 logger = logging.getLogger("payproof.extraction")
+
+
+class RateLimitError(RuntimeError):
+    """Raised instead of retrying/falling back, so callers can stop immediately
+    instead of hammering a rate-limited API (REQUIREMENTS.md section 19: never loop)."""
+
+
+def _is_rate_limit(exc: Exception) -> bool:
+    if isinstance(exc, genai_errors.ClientError) and getattr(exc, "code", None) == 429:
+        return True
+    message = str(exc).lower()
+    return "resource_exhausted" in message or "rate limit" in message or "quota" in message
 
 # gemini-3.1-flash-lite and gemini-3.5-flash-lite: MINIMAL is the lowest level.
 # gemini-3.8-flash: MINIMAL is rejected by the API (validation error); LOW is its lowest level.
@@ -92,6 +105,8 @@ def extract_screenshot(client: genai.Client, settings: Settings, model: str, jpe
         try:
             response, prompt_tokens, output_tokens, thinking_tokens = _call_once(client, settings, model, jpeg_bytes)
         except Exception as exc:  # network error, timeout, API error: no further retry here
+            if _is_rate_limit(exc):
+                raise RateLimitError(str(exc)) from exc
             logger.warning("Gemini call failed (model=%s, attempt=%s): %s", model, attempt, type(exc).__name__)
             return ExtractionCallResult(
                 result=_needs_review_fallback("Could not read this screenshot right now. Please try again."),

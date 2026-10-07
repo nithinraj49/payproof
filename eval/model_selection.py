@@ -19,7 +19,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Optional
 
-from extraction.extract import extract_screenshot
+from extraction.extract import RateLimitError, extract_screenshot
 from extraction.image_prep import prepare_image
 from extraction.schema import ExtractionResult
 from backend.config import get_settings
@@ -28,6 +28,7 @@ from backend.gemini_client import get_client
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST_PATH = ROOT / "eval" / "generated" / "manifest.json"
 RESULTS_PATH = ROOT / "eval" / "model_selection_results.json"
+PER_CALL_RESULTS_DIR = ROOT / "eval" / "results"
 
 MODELS = ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-3.8-flash"]
 
@@ -118,18 +119,31 @@ def score_payout_summary(predicted: ExtractionResult, truth: ExtractionResult) -
     return scores
 
 
+def _field_accuracy(checks_list: list) -> dict:
+    correct = sum(1 for checks in checks_list for v in checks.values() if v is True)
+    total = sum(1 for checks in checks_list for v in checks.values() if v is not None)
+    return {"accuracy": round(correct / total, 4) if total else None, "correct": correct, "total": total}
+
+
 def run(selection: list, settings) -> dict:
+    """Stops immediately on the first rate-limit/quota error (never loops retries).
+    Per-call results are written to eval/results/{model}/{name}.json as each call
+    completes, so completed work survives an early stop."""
     client = get_client(settings)
     results = {}
+    calls_completed_overall = 0
+    stopped_early = None
 
     for model in MODELS:
-        field_checks = []
+        field_checks_by_layout = {"L1": [], "L3": []}
         rejection_checks = []
         prompt_tokens_total = 0
         output_tokens_total = 0
         thinking_tokens_total = 0
         calls_made_total = 0
         per_image = []
+        model_dir = PER_CALL_RESULTS_DIR / model
+        model_dir.mkdir(parents=True, exist_ok=True)
 
         for entry in selection:
             image_path = ROOT / entry["image"]
@@ -138,8 +152,19 @@ def run(selection: list, settings) -> dict:
             raw = image_path.read_bytes()
             jpeg_bytes = prepare_image(raw, settings.image_max_side_px, settings.image_jpeg_quality)
 
-            outcome = extract_screenshot(client, settings, model, jpeg_bytes)
+            try:
+                outcome = extract_screenshot(client, settings, model, jpeg_bytes)
+            except RateLimitError as exc:
+                stopped_early = {
+                    "model": model,
+                    "image": entry["name"],
+                    "calls_completed_overall": calls_completed_overall,
+                    "message": str(exc),
+                }
+                break
+
             calls_made_total += outcome.calls_made
+            calls_completed_overall += outcome.calls_made
             prompt_tokens_total += outcome.prompt_tokens
             output_tokens_total += outcome.output_tokens
             thinking_tokens_total += outcome.thinking_tokens
@@ -147,10 +172,22 @@ def run(selection: list, settings) -> dict:
             if entry["layout"] == "N1":
                 rejection_checks.append(screen_rejected_correctly(outcome.result))
             elif entry["layout"] == "L1":
-                field_checks.append(score_trip_detail(outcome.result, truth))
+                field_checks_by_layout["L1"].append(score_trip_detail(outcome.result, truth))
             elif entry["layout"] == "L3":
-                field_checks.append(score_payout_summary(outcome.result, truth))
+                field_checks_by_layout["L3"].append(score_payout_summary(outcome.result, truth))
 
+            record = {
+                "name": entry["name"],
+                "layout": entry["layout"],
+                "model": model,
+                "predicted": outcome.result.model_dump(),
+                "needs_review": outcome.result.needs_review,
+                "calls_made": outcome.calls_made,
+                "prompt_tokens": outcome.prompt_tokens,
+                "output_tokens": outcome.output_tokens,
+                "thinking_tokens": outcome.thinking_tokens,
+            }
+            (model_dir / f"{entry['name']}.json").write_text(json.dumps(record, indent=2))
             per_image.append({
                 "name": entry["name"],
                 "layout": entry["layout"],
@@ -161,20 +198,18 @@ def run(selection: list, settings) -> dict:
 
             time.sleep(1.0)  # pace calls against the AI Studio free-tier rate limit
 
-        correct = sum(1 for checks in field_checks for v in checks.values() if v is True)
-        total = sum(1 for checks in field_checks for v in checks.values() if v is not None)
-        field_accuracy = round(correct / total, 4) if total else None
-        rejection_rate = round(sum(rejection_checks) / len(rejection_checks), 4) if rejection_checks else None
-
-        n_calls = len(selection)
+        n_calls = max(calls_made_total, 1)  # avoid div-by-zero if we stopped before any call completed for this model
         results[model] = {
-            "field_accuracy": field_accuracy,
-            "fields_correct": correct,
-            "fields_total": total,
-            "n1_rejection_rate": rejection_rate,
-            "avg_prompt_tokens": round(prompt_tokens_total / n_calls, 1),
-            "avg_output_tokens": round(output_tokens_total / n_calls, 1),
-            "avg_thinking_tokens": round(thinking_tokens_total / n_calls, 1),
+            "field_accuracy_overall": _field_accuracy(field_checks_by_layout["L1"] + field_checks_by_layout["L3"]),
+            "field_accuracy_by_layout": {
+                "L1": _field_accuracy(field_checks_by_layout["L1"]),
+                "L3": _field_accuracy(field_checks_by_layout["L3"]),
+            },
+            "n1_rejection_rate": round(sum(rejection_checks) / len(rejection_checks), 4) if rejection_checks else None,
+            "avg_prompt_tokens": round(prompt_tokens_total / n_calls, 1) if calls_made_total else None,
+            "avg_output_tokens": round(output_tokens_total / n_calls, 1) if calls_made_total else None,
+            "avg_thinking_tokens": round(thinking_tokens_total / n_calls, 1) if calls_made_total else None,
+            "images_completed": len(per_image),
             "total_calls_made": calls_made_total,
             "estimated_cost_usd": round(
                 prompt_tokens_total / 1_000_000 * PRICE_PER_1M[model]["input"]
@@ -184,7 +219,10 @@ def run(selection: list, settings) -> dict:
             "per_image": per_image,
         }
 
-    return results
+        if stopped_early:
+            break
+
+    return {"results": results, "stopped_early": stopped_early, "calls_completed_overall": calls_completed_overall}
 
 
 def main():
@@ -218,15 +256,25 @@ def main():
         raise SystemExit("Model selection must run with GEMINI_BACKEND=aistudio (simulated images only).")
 
     print("\nOwner said \"go\". Calling Gemini now...")
-    results = run(selection, settings)
-    RESULTS_PATH.write_text(json.dumps(results, indent=2))
+    print(f"Per-call results will be saved under {PER_CALL_RESULTS_DIR}/<model>/<image>.json")
+    outcome = run(selection, settings)
+    RESULTS_PATH.write_text(json.dumps(outcome, indent=2))
 
-    print("\n=== Results ===")
-    for model, r in results.items():
-        print(f"{model}: field_accuracy={r['field_accuracy']} ({r['fields_correct']}/{r['fields_total']}) "
+    print(f"\nTotal Gemini calls completed before stopping: {outcome['calls_completed_overall']}")
+    if outcome["stopped_early"]:
+        s = outcome["stopped_early"]
+        print(f"\n!!! STOPPED EARLY: rate-limit/quota error on model={s['model']} image={s['image']}")
+        print(f"!!! API message: {s['message']}")
+        print("!!! No retries were looped. Re-run --go later to continue once the limit resets.")
+
+    print("\n=== Results so far ===")
+    for model, r in outcome["results"].items():
+        print(f"{model}: images_completed={r['images_completed']} calls_made={r['total_calls_made']} "
+              f"field_accuracy_overall={r['field_accuracy_overall']} "
+              f"L1={r['field_accuracy_by_layout']['L1']} L3={r['field_accuracy_by_layout']['L3']} "
               f"n1_rejection_rate={r['n1_rejection_rate']} "
               f"avg_tokens(in/out/thinking)={r['avg_prompt_tokens']}/{r['avg_output_tokens']}/{r['avg_thinking_tokens']} "
-              f"calls_made={r['total_calls_made']} est_cost=${r['estimated_cost_usd']}")
+              f"est_cost=${r['estimated_cost_usd']}")
     print(f"\nFull results written to {RESULTS_PATH}")
 
 
