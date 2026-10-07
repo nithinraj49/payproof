@@ -44,6 +44,28 @@ firebase deploy --only hosting
 
 Owner still needs to: confirm Firebase Authentication (Anonymous + Google) is enabled in the console; create a billing budget alert before first deploy; note free-trial expiry date if applicable; fill in `frontend/firebase-config.js`.
 
+## Phase 2 step A: simulator-lite — done (Wed 7 Oct)
+
+### Done
+- `extraction/schema.py` exactly as REQUIREMENTS.md section 4.1.
+- `eval/sim_config.py`: fixed seed (20261006), fictional platform list, real-platform deny list, all value ranges from section 12.
+- `eval/generate_data.py`: renders L1 (trip detail), L3 (weekly payout), N1 (order offer, rejected) as JPEG screenshots with noise (blur, tilt, partial crop, dark mode, JPEG compression, low brightness) and trip_detail variants that omit distance or minutes. Ground truth JSON beside every image is built directly from `extraction.schema.ExtractionResult`, so it always validates. No Gemini calls.
+- Font: Noto Sans Regular/Bold v42 downloaded from Google Fonts (fonts.gstatic.com), SIL Open Font License 1.1 — `eval/assets/fonts/LICENSE.txt`.
+- Generated and committed 30 images (15 L1, 10 L3, 5 N1) to `eval/generated/` with `manifest.json`; owner reviewed 6 for realism.
+- New dependency added: `pillow==12.3.0` (named explicitly in ROADMAP.md's own Phase 2 step A prompt).
+- `pytest -q` still passes (2/2, unrelated to this step).
+
+### Decisions
+- Image canvas 480x960, teal header bar, generic card layout — no real platform's logo, colours or wording copied.
+- 30-image split: 15 L1 / 10 L3 / 5 N1 (L1 weighted highest as "the main per-trip case" per REQUIREMENTS section 12).
+
+### Security note (resolved)
+- Earlier in Phase 1, a live `GEMINI_API_KEY` value briefly appeared in tracked `.env.example`. Owner removed it and confirmed the key would be rotated. Re-confirm rotation before Phase 2 step B, since step B is the first step that actually calls Gemini.
+
+### Next — waiting for owner
+- **Do NOT run Phase 2 step B (extraction) yet.** Waiting for the owner to confirm the new `GEMINI_API_KEY` is in `.env` and to say "go".
+- Also waiting on, from Phase 1 (deploy still pending): owner fills `frontend/firebase-config.js`; confirms Firebase Authentication (Anonymous + Google) enabled; creates a billing budget alert; notes free-trial expiry if applicable; then approves the deploy commands above.
+
 ### Resume commands (PowerShell)
 ```powershell
 cd C:\dev\payproof
