@@ -1,0 +1,29 @@
+{
+  "platform_label": "ZipGo",
+  "currency": "INR",
+  "language_detected": "en",
+  "screen_type": "trip_detail",
+  "trips": [
+    {
+      "trip_date": "2026-09-08",
+      "order_id": "ORD-81514",
+      "order_type": "Passenger ride",
+      "base_pay": 47.96,
+      "incentive": null,
+      "tip": null,
+      "deductions": [
+        {
+          "label": "Convenience fee",
+          "amount": 10.06
+        }
+      ],
+      "total_payout": 37.9,
+      "distance_km": 2.5,
+      "duration_min": 10.0,
+      "low_confidence_fields": []
+    }
+  ],
+  "payout_summary": null,
+  "needs_review": false,
+  "notes": null
+}

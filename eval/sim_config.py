@@ -4,6 +4,7 @@ not scattered through generate_data.py.
 """
 
 SEED = 20261006  # fixed seed: everything the simulator produces is repeatable
+HARD_SEED = 20261007  # separate fixed seed for the "hard" tier, so it never disturbs the original 30 images
 
 IMAGE_SIZE = (480, 960)  # a plausible phone-screenshot canvas, portrait
 

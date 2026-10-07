@@ -268,5 +268,105 @@
     "dark_mode": true,
     "noise": "low_brightness",
     "layout": "N1"
+  },
+  {
+    "name": "H1_001",
+    "image": "eval/generated/images/H1_001.jpg",
+    "ground_truth": "eval/generated/ground_truth/H1_001.json",
+    "dark_mode": true,
+    "noise": "hard",
+    "layout": "H1",
+    "omit_distance": true,
+    "omit_minutes": false
+  },
+  {
+    "name": "H1_002",
+    "image": "eval/generated/images/H1_002.jpg",
+    "ground_truth": "eval/generated/ground_truth/H1_002.json",
+    "dark_mode": false,
+    "noise": "hard",
+    "layout": "H1",
+    "omit_distance": false,
+    "omit_minutes": false
+  },
+  {
+    "name": "H1_003",
+    "image": "eval/generated/images/H1_003.jpg",
+    "ground_truth": "eval/generated/ground_truth/H1_003.json",
+    "dark_mode": true,
+    "noise": "hard",
+    "layout": "H1",
+    "omit_distance": true,
+    "omit_minutes": false
+  },
+  {
+    "name": "H1_004",
+    "image": "eval/generated/images/H1_004.jpg",
+    "ground_truth": "eval/generated/ground_truth/H1_004.json",
+    "dark_mode": false,
+    "noise": "hard",
+    "layout": "H1",
+    "omit_distance": true,
+    "omit_minutes": false
+  },
+  {
+    "name": "H1_005",
+    "image": "eval/generated/images/H1_005.jpg",
+    "ground_truth": "eval/generated/ground_truth/H1_005.json",
+    "dark_mode": false,
+    "noise": "hard",
+    "layout": "H1",
+    "omit_distance": false,
+    "omit_minutes": false
+  },
+  {
+    "name": "H1_006",
+    "image": "eval/generated/images/H1_006.jpg",
+    "ground_truth": "eval/generated/ground_truth/H1_006.json",
+    "dark_mode": false,
+    "noise": "hard",
+    "layout": "H1",
+    "omit_distance": true,
+    "omit_minutes": true
+  },
+  {
+    "name": "H1_007",
+    "image": "eval/generated/images/H1_007.jpg",
+    "ground_truth": "eval/generated/ground_truth/H1_007.json",
+    "dark_mode": false,
+    "noise": "hard",
+    "layout": "H1",
+    "omit_distance": false,
+    "omit_minutes": false
+  },
+  {
+    "name": "H1_008",
+    "image": "eval/generated/images/H1_008.jpg",
+    "ground_truth": "eval/generated/ground_truth/H1_008.json",
+    "dark_mode": true,
+    "noise": "hard",
+    "layout": "H1",
+    "omit_distance": false,
+    "omit_minutes": false
+  },
+  {
+    "name": "H1_009",
+    "image": "eval/generated/images/H1_009.jpg",
+    "ground_truth": "eval/generated/ground_truth/H1_009.json",
+    "dark_mode": true,
+    "noise": "hard",
+    "layout": "H1",
+    "omit_distance": false,
+    "omit_minutes": false
+  },
+  {
+    "name": "H1_010",
+    "image": "eval/generated/images/H1_010.jpg",
+    "ground_truth": "eval/generated/ground_truth/H1_010.json",
+    "dark_mode": false,
+    "noise": "hard",
+    "layout": "H1",
+    "omit_distance": true,
+    "omit_minutes": false
   }
 ]

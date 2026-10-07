@@ -1,0 +1,24 @@
+{
+  "platform_label": "RideWave",
+  "currency": "INR",
+  "language_detected": "en",
+  "screen_type": "trip_detail",
+  "trips": [
+    {
+      "trip_date": "2026-09-30",
+      "order_id": "ORD-70600",
+      "order_type": "Parcel delivery",
+      "base_pay": 184.3,
+      "incentive": null,
+      "tip": null,
+      "deductions": [],
+      "total_payout": 184.3,
+      "distance_km": null,
+      "duration_min": 38.0,
+      "low_confidence_fields": []
+    }
+  ],
+  "payout_summary": null,
+  "needs_review": false,
+  "notes": null
+}

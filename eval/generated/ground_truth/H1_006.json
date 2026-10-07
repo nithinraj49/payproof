@@ -1,0 +1,29 @@
+{
+  "platform_label": "RideWave",
+  "currency": "INR",
+  "language_detected": "en",
+  "screen_type": "trip_detail",
+  "trips": [
+    {
+      "trip_date": "2026-09-08",
+      "order_id": "ORD-27931",
+      "order_type": "Passenger ride",
+      "base_pay": 74.49,
+      "incentive": null,
+      "tip": null,
+      "deductions": [
+        {
+          "label": "Platform fee",
+          "amount": 6.76
+        }
+      ],
+      "total_payout": 67.73,
+      "distance_km": null,
+      "duration_min": null,
+      "low_confidence_fields": []
+    }
+  ],
+  "payout_summary": null,
+  "needs_review": false,
+  "notes": null
+}

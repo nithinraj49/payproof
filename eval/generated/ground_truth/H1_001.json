@@ -1,0 +1,24 @@
+{
+  "platform_label": "QuickDash",
+  "currency": "INR",
+  "language_detected": "en",
+  "screen_type": "trip_detail",
+  "trips": [
+    {
+      "trip_date": "2026-09-05",
+      "order_id": "ORD-23525",
+      "order_type": "Parcel delivery",
+      "base_pay": 99.03,
+      "incentive": null,
+      "tip": 26.68,
+      "deductions": [],
+      "total_payout": 125.71,
+      "distance_km": null,
+      "duration_min": 30.0,
+      "low_confidence_fields": []
+    }
+  ],
+  "payout_summary": null,
+  "needs_review": false,
+  "notes": null
+}

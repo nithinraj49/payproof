@@ -182,6 +182,116 @@ def render_trip_detail(rng: random.Random, dark: bool):
     return image, ground_truth, meta
 
 
+# --- H1: trip detail, "hard" tier (small font, heavy blur, low resolution, a
+# number partly cropped off) — generation only; REQUIREMENTS.md section 13's
+# own evaluation gate still applies before any Gemini call is made on these. ---
+
+def render_trip_detail_hard(rng: random.Random, dark: bool):
+    platform = rng.choice(cfg.FICTIONAL_PLATFORMS)
+    check_deny_list(platform)
+    omit_distance = rng.random() < cfg.OMIT_DISTANCE_SHARE
+    omit_minutes = rng.random() < cfg.OMIT_MINUTES_SHARE
+    trip = build_trip(rng, omit_distance, omit_minutes)
+
+    image, draw, pal = new_canvas(dark)
+    f = fonts(size_title=18, size_body=11, size_small=9)  # small font
+    draw_header(draw, pal, f, platform, "Trip complete")
+
+    y = 90
+    draw_row(draw, pal, f, y, "Date", trip.trip_date); y += 20
+    draw_row(draw, pal, f, y, "Order", f"{trip.order_type} · {trip.order_id}"); y += 26
+    draw_divider(draw, pal, y); y += 14
+
+    draw_row(draw, pal, f, y, "Base pay", money(trip.base_pay)); y += 20
+    if trip.incentive is not None:
+        draw_row(draw, pal, f, y, "Incentive", money(trip.incentive)); y += 20
+    if trip.tip is not None:
+        draw_row(draw, pal, f, y, "Tip", money(trip.tip)); y += 20
+    for d in trip.deductions:
+        draw_row(draw, pal, f, y, d.label, f"-{money(d.amount)}", color=NEGATIVE); y += 20
+
+    y += 6
+    draw_divider(draw, pal, y); y += 14
+    total_row_y = y  # remembered so the crop step can cut exactly through this number
+    draw_row(draw, pal, f, y, "Total payout", money(trip.total_payout), bold=True); y += 32
+
+    if trip.distance_km is not None or trip.duration_min is not None:
+        parts = []
+        if trip.distance_km is not None:
+            parts.append(f"{trip.distance_km:g} km")
+        if trip.duration_min is not None:
+            parts.append(f"{trip.duration_min:g} min")
+        draw.text((20, y), " · ".join(parts), font=f["small"], fill=pal.muted)
+
+    ground_truth = ExtractionResult(
+        platform_label=platform,
+        currency=cfg.CURRENCY,
+        language_detected="en",
+        screen_type="trip_detail",
+        trips=[trip],
+        payout_summary=None,
+        needs_review=False,
+        notes=None,
+    )
+    meta = {"layout": "H1", "omit_distance": omit_distance, "omit_minutes": omit_minutes, "total_row_y": total_row_y}
+    return image, ground_truth, meta
+
+
+def apply_hard_noise(image: Image.Image, dark: bool, total_row_y: int, rng: random.Random) -> Image.Image:
+    """Stacks heavy blur, a low-resolution round-trip, and a crop through the
+    total payout row — deliberately harder than any single profile in
+    apply_noise(), to avoid the ceiling effect seen on the first 30 images."""
+    fill = DARK_BG if dark else LIGHT_BG
+
+    # Low resolution: downscale a lot, then upscale back, baking in blockiness.
+    small = image.resize((image.width // 4, image.height // 4), Image.BILINEAR)
+    image = small.resize(image.size, Image.NEAREST)
+
+    # Heavy blur on top of the pixelation.
+    image = image.filter(ImageFilter.GaussianBlur(radius=rng.uniform(3.0, 5.0)))
+
+    # Partly crop the total payout row: keep only its top half, replace the rest
+    # of the screen below it with background so the number is visibly cut off.
+    cut_at = total_row_y + rng.randint(8, 14)
+    canvas = Image.new(image.mode, image.size, fill)
+    canvas.paste(image.crop((0, 0, image.width, cut_at)), (0, 0))
+    return canvas
+
+
+def generate_hard_tier(n: int = 10):
+    IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    GROUND_TRUTH_DIR.mkdir(parents=True, exist_ok=True)
+    rng = random.Random(cfg.HARD_SEED)
+
+    manifest_path = OUT_DIR / "manifest.json"
+    manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else []
+
+    new_entries = []
+    for i in range(1, n + 1):
+        name = f"H1_{i:03d}"
+        dark = rng.random() < cfg.DARK_MODE_SHARE
+        image, ground_truth, meta = render_trip_detail_hard(rng, dark)
+        image = apply_hard_noise(image, dark, meta.pop("total_row_y"), rng)
+
+        image_path = IMAGES_DIR / f"{name}.jpg"
+        save_jpeg(image, image_path, cfg.JPEG_QUALITY_NORMAL)
+        gt_path = GROUND_TRUTH_DIR / f"{name}.json"
+        gt_path.write_text(ground_truth.model_dump_json(indent=2))
+
+        new_entries.append({
+            "name": name,
+            "image": str(image_path.relative_to(ROOT)).replace("\\", "/"),
+            "ground_truth": str(gt_path.relative_to(ROOT)).replace("\\", "/"),
+            "dark_mode": dark,
+            "noise": "hard",
+            **meta,
+        })
+
+    manifest = [e for e in manifest if not e["name"].startswith("H1_")] + new_entries
+    manifest_path.write_text(json.dumps(manifest, indent=2))
+    return new_entries
+
+
 # --- L3: weekly payout ---
 
 def render_weekly_payout(rng: random.Random, dark: bool):
@@ -363,12 +473,24 @@ def generate(n_l1: int = 15, n_l3: int = 10, n_n1: int = 5):
             **meta,
         })
 
-    (OUT_DIR / "manifest.json").write_text(json.dumps(manifest, indent=2))
+    manifest_path = OUT_DIR / "manifest.json"
+    existing_hard = []
+    if manifest_path.exists():
+        existing_hard = [e for e in json.loads(manifest_path.read_text()) if e["name"].startswith("H1_")]
+    manifest_path.write_text(json.dumps(manifest + existing_hard, indent=2))
     return manifest
 
 
 if __name__ == "__main__":
-    manifest = generate()
-    print(f"Generated {len(manifest)} images in {IMAGES_DIR} with ground truth in {GROUND_TRUTH_DIR}")
-    for entry in manifest[:6]:
-        print(f"  {entry['name']}: layout={entry['layout']} dark={entry['dark_mode']} noise={entry['noise']}")
+    import sys
+
+    if "--hard" in sys.argv:
+        entries = generate_hard_tier()
+        print(f"Generated {len(entries)} hard-tier images in {IMAGES_DIR} (names H1_001..H1_{len(entries):03d})")
+        for entry in entries:
+            print(f"  {entry['name']}: dark={entry['dark_mode']} noise={entry['noise']}")
+    else:
+        manifest = generate()
+        print(f"Generated {len(manifest)} images in {IMAGES_DIR} with ground truth in {GROUND_TRUTH_DIR}")
+        for entry in manifest[:6]:
+            print(f"  {entry['name']}: layout={entry['layout']} dark={entry['dark_mode']} noise={entry['noise']}")
