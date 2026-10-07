@@ -1,0 +1,13 @@
+Font: Noto Sans (Regular and Bold), version used: v42
+Source: Google Fonts, served from fonts.gstatic.com (the same files Google Fonts
+serves to browsers via https://fonts.googleapis.com/css2?family=Noto+Sans).
+Downloaded: 7 Oct 2026.
+
+Licence: SIL Open Font License, Version 1.1.
+Full licence text: https://openfontlicense.org/open-font-license-official-text/
+
+The OFL permits using, modifying and redistributing the font, including in a
+public repository, as long as the font itself is not sold on its own and any
+modified versions are renamed. These files are used unmodified here, only to
+render text in simulated screenshot images; the font files themselves are not
+sold or relicensed.
