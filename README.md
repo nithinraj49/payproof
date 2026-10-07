@@ -10,6 +10,12 @@ Built solo for the Google Cloud AI Builder Cup 2026.
 
 See `PROGRESS.md` for the current build phase.
 
+## Regions and models (current)
+
+- Cloud Run and Firestore: `asia-south1`.
+- Vertex AI (Gemini): `global` — the extraction model isn't available as a regional endpoint in `asia-south1`, only on `global`/`us`/`eu`.
+- `EXTRACTION_MODEL=gemini-3.1-flash-lite`, confirmed working identically on both the AI Studio and Vertex AI backends. See `PROGRESS.md` for how this was chosen.
+
 ## Local development (Windows, PowerShell)
 
 ```powershell

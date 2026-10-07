@@ -1,5 +1,12 @@
 # PayProof progress log
 
+## Environment and model decisions (current, 7 Oct 2026)
+
+- **Regions are split on purpose.** Cloud Run and Firestore run in `asia-south1` (REQUIREMENTS.md section 0). Vertex AI's Gemini endpoint runs at `VERTEX_LOCATION=global`, **not** `asia-south1` — none of the three candidate models (`gemini-3.1-flash-lite`, `gemini-3.5-flash-lite`, `gemini-3.8-flash`) are available as a regional endpoint there as of Oct 2026 (checked against the official model docs); all three are `global`/`us`/`eu` only. This is a deliberate, confirmed choice, not a placeholder.
+- **`EXTRACTION_MODEL=gemini-3.1-flash-lite`** (owner's choice, 7 Oct 2026), picked after a 20-image, 3-model comparison on the AI Studio free tier plus a 5-image Vertex AI smoke test. Confirmed equivalent behaviour on both backends: `thinking_level=MINIMAL` accepted (0 thinking tokens on every call on both backends), structured `response_schema` output validated every time, `temperature=0` accepted without error. `EXPLAIN_MODEL` is not yet chosen (Phase 4 decision).
+- **AI Studio free tier is 15 requests/minute per model, per project** (confirmed by hitting it directly — see the model-selection run below). Any script that calls Gemini on the `aistudio` backend paces calls at least 5 seconds apart (`eval/model_selection.py` uses 4.5s).
+- Full detail and the raw numbers behind these decisions are in the phase sections below.
+
 ## Phase 1: Skeleton and first deploy — in progress (Tue 6 / Wed 7 Oct)
 
 ### Done
@@ -77,14 +84,33 @@ Owner still needs to: confirm Firebase Authentication (Anonymous + Google) is en
 - Results: `gemini-3.1-flash-lite` 91.7% field accuracy headline (44/48), but tracing the one wrong image showed it was a dropped call (0 tokens, immediate fallback, not a misread) — genuine accuracy on answered calls was 100% (44/44). `gemini-3.5-flash-lite`: 100% (48/48), 20/20 calls clean. Both: 100% N1 (order-offer) rejection rate (3/3). Avg tokens: 3.1-flash-lite 1360.4 in / 185.7 out / 0.0 thinking (~$0.0006/call); 3.5-flash-lite 1432.0 in / 213.2 out / 0.0 thinking (~$0.001/call). Thinking tokens are 0 for both, confirming `thinking_level=MINIMAL` works.
 - Full data: `eval/model_selection_results.json` (summary) and `eval/results/<model>/<image>.json` (every individual call: parsed prediction + token counts, no images, no keys).
 
+**Note on how fallbacks were scored:** of the 60 calls, 1 fallback for `gemini-3.1-flash-lite`, 0 for `gemini-3.5-flash-lite`, 20/20 for `gemini-3.8-flash`. Checked the scoring code directly: a fallback's null fields are scored as misses against a non-null ground truth (not excluded from the denominator) — the 91.7%/100%/0% headline numbers above already account for every fallback as a miss. Only fields where ground truth itself is `None` are excluded (genuinely not applicable to that image).
+
 ### Decision
 - **`EXTRACTION_MODEL=gemini-3.1-flash-lite`** (owner's choice, 7 Oct 2026): cheapest of the two working candidates, and once the one dropped call is excluded it is exactly as accurate as `gemini-3.5-flash-lite`. `.env.example` updated.
 - Cascade (cheap model, retry with a stronger model only on schema/reconciliation failure): **not built**. At ~100% accuracy in this sample there is nothing for a cascade to catch yet; revisit after the Phase 6 full 40-image evaluation if real accuracy turns out lower on noisier/real-world images.
 - `gemini-3.8-flash` is set aside, unevaluated, for now: it is also the most expensive of the three, so even a successful evaluation would be unlikely to change the recommendation.
 
+### Accuracy audit and a "hard" difficulty tier
+- `eval/analyze_model_selection.py`: re-derives field accuracy from the saved per-call data (no new Gemini calls), confirming the exact tolerance (0.5), which fields count, and zero near-misses on either model on the original 20-image sample — the task was close to trivial whenever the call succeeded, a real ceiling effect.
+- `eval/generate_data.py --hard`: added a 10-image `H1` tier (own fixed seed, doesn't touch the original 30) stacking small fonts, heavy blur, a low-resolution round-trip, and a crop through the total-payout row. Generated only; not yet run through Gemini.
+
+### Vertex AI smoke test (GEMINI_BACKEND=vertex, VERTEX_LOCATION=global, application default credentials, 5 images)
+- 5/5 calls succeeded, 0 errors, no retries needed. `thinking_level=MINIMAL` respected (0 thinking tokens on every call, same as AI Studio). `response_schema` output validated every time. `temperature=0` accepted without error.
+- 4/5 matched the stored AI Studio result exactly; the 5th (`L1_001`) was Vertex succeeding where the AI Studio baseline was itself the known dropped-call fallback — not a Vertex error. Genuine agreement: 5/5.
+- Token counts ran higher on Vertex (~2433 input vs AI Studio's ~1360-1432 average) for the same JPEG bytes — plausibly a different default image tiling/resolution; cost per call stayed in the same range (~$0.0007-0.001). Worth watching in the Phase 6 full evaluation.
+- `.env` was never edited: `GEMINI_BACKEND`/`VERTEX_LOCATION` were set as PowerShell session variables for those two commands only.
+- Results: `eval/results/vertex_smoke/<image>.json`.
+
+### `POST /api/extract`, usage limits, caching — built, partially tested
+- `backend/usage_limits.py` (atomic Firestore counters via transaction, defaults from REQUIREMENTS.md section 10), `backend/extraction_cache.py` (in-memory SHA-256 cache, 500-entry FIFO), `backend/main.py` wires them into `POST /api/extract` (content-type/size checks, image prep, cache check, usage-limit check, one extraction call, log token counts only, cache the result).
+- Tested: 7 endpoint tests + 4 usage-limit tests, all mocked (Gemini, Firestore, auth), no network. 27/27 passing at the time.
+- **Known gap, not yet covered:** the real Firestore transaction code in `check_and_increment` has no test coverage — there is no Firestore emulator in this environment. Only the pure limit-check logic (`check_limits`) and a no-op mock of the whole function are tested. This needs verifying against real Firestore before relying on it in production.
+
 ### Next
-- Remaining Phase 2 step B items (not yet built): `POST /api/extract` endpoint (multipart, token required, size/type limits, timeout handling), usage limits as atomic Firestore counters, caching extraction results by image hash, `eval/run_extraction_eval.py` against the full 30-image set with `gemini-3.1-flash-lite` (its own cost gate — wait for "go" before running), writing `eval/RESULTS.md`.
+- `eval/run_extraction_eval.py` against the full 30-image set and the new 10-image hard tier, on the Vertex backend, two separate tables, its own cost gate (owner's "go" required).
 - Still pending from Phase 1 (deploy not yet run): owner fills `frontend/firebase-config.js`; confirms Firebase Authentication (Anonymous + Google) enabled; creates a billing budget alert; notes free-trial expiry if applicable; then approves the deploy commands in this file.
+- Firestore usage-limit counters still need verification against real Firestore (see gap above).
 
 ### Resume commands (PowerShell)
 ```powershell
