@@ -1,0 +1,28 @@
+{
+  "platform_label": "TownHop",
+  "currency": "INR",
+  "language_detected": "en",
+  "screen_type": "payout_summary",
+  "trips": [],
+  "payout_summary": {
+    "period_label": "14 Sep - 20 Sep",
+    "period_start": "2026-09-14",
+    "period_end": "2026-09-20",
+    "lines": [
+      {
+        "label": "Peak hour bonus",
+        "amount": 4077.78
+      },
+      {
+        "label": "Order earnings",
+        "amount": 4492.82
+      }
+    ],
+    "deductions": [],
+    "total_credited": 8570.6,
+    "credited_on": "2026-09-21",
+    "low_confidence_fields": []
+  },
+  "needs_review": false,
+  "notes": null
+}

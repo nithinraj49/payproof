@@ -1,0 +1,272 @@
+[
+  {
+    "name": "L1_001",
+    "image": "eval/generated/images/L1_001.jpg",
+    "ground_truth": "eval/generated/ground_truth/L1_001.json",
+    "dark_mode": false,
+    "noise": "none",
+    "layout": "L1",
+    "omit_distance": false,
+    "omit_minutes": false
+  },
+  {
+    "name": "L1_002",
+    "image": "eval/generated/images/L1_002.jpg",
+    "ground_truth": "eval/generated/ground_truth/L1_002.json",
+    "dark_mode": true,
+    "noise": "none",
+    "layout": "L1",
+    "omit_distance": false,
+    "omit_minutes": false
+  },
+  {
+    "name": "L1_003",
+    "image": "eval/generated/images/L1_003.jpg",
+    "ground_truth": "eval/generated/ground_truth/L1_003.json",
+    "dark_mode": false,
+    "noise": "none",
+    "layout": "L1",
+    "omit_distance": true,
+    "omit_minutes": false
+  },
+  {
+    "name": "L1_004",
+    "image": "eval/generated/images/L1_004.jpg",
+    "ground_truth": "eval/generated/ground_truth/L1_004.json",
+    "dark_mode": true,
+    "noise": "none",
+    "layout": "L1",
+    "omit_distance": false,
+    "omit_minutes": false
+  },
+  {
+    "name": "L1_005",
+    "image": "eval/generated/images/L1_005.jpg",
+    "ground_truth": "eval/generated/ground_truth/L1_005.json",
+    "dark_mode": false,
+    "noise": "none",
+    "layout": "L1",
+    "omit_distance": true,
+    "omit_minutes": false
+  },
+  {
+    "name": "L1_006",
+    "image": "eval/generated/images/L1_006.jpg",
+    "ground_truth": "eval/generated/ground_truth/L1_006.json",
+    "dark_mode": false,
+    "noise": "blur",
+    "layout": "L1",
+    "omit_distance": false,
+    "omit_minutes": false
+  },
+  {
+    "name": "L1_007",
+    "image": "eval/generated/images/L1_007.jpg",
+    "ground_truth": "eval/generated/ground_truth/L1_007.json",
+    "dark_mode": false,
+    "noise": "low_brightness",
+    "layout": "L1",
+    "omit_distance": true,
+    "omit_minutes": true
+  },
+  {
+    "name": "L1_008",
+    "image": "eval/generated/images/L1_008.jpg",
+    "ground_truth": "eval/generated/ground_truth/L1_008.json",
+    "dark_mode": false,
+    "noise": "crop",
+    "layout": "L1",
+    "omit_distance": false,
+    "omit_minutes": true
+  },
+  {
+    "name": "L1_009",
+    "image": "eval/generated/images/L1_009.jpg",
+    "ground_truth": "eval/generated/ground_truth/L1_009.json",
+    "dark_mode": false,
+    "noise": "tilt",
+    "layout": "L1",
+    "omit_distance": true,
+    "omit_minutes": false
+  },
+  {
+    "name": "L1_010",
+    "image": "eval/generated/images/L1_010.jpg",
+    "ground_truth": "eval/generated/ground_truth/L1_010.json",
+    "dark_mode": false,
+    "noise": "none",
+    "layout": "L1",
+    "omit_distance": false,
+    "omit_minutes": false
+  },
+  {
+    "name": "L1_011",
+    "image": "eval/generated/images/L1_011.jpg",
+    "ground_truth": "eval/generated/ground_truth/L1_011.json",
+    "dark_mode": false,
+    "noise": "low_brightness",
+    "layout": "L1",
+    "omit_distance": false,
+    "omit_minutes": false
+  },
+  {
+    "name": "L1_012",
+    "image": "eval/generated/images/L1_012.jpg",
+    "ground_truth": "eval/generated/ground_truth/L1_012.json",
+    "dark_mode": false,
+    "noise": "jpeg_low",
+    "layout": "L1",
+    "omit_distance": false,
+    "omit_minutes": false
+  },
+  {
+    "name": "L1_013",
+    "image": "eval/generated/images/L1_013.jpg",
+    "ground_truth": "eval/generated/ground_truth/L1_013.json",
+    "dark_mode": true,
+    "noise": "low_brightness",
+    "layout": "L1",
+    "omit_distance": false,
+    "omit_minutes": false
+  },
+  {
+    "name": "L1_014",
+    "image": "eval/generated/images/L1_014.jpg",
+    "ground_truth": "eval/generated/ground_truth/L1_014.json",
+    "dark_mode": false,
+    "noise": "none",
+    "layout": "L1",
+    "omit_distance": false,
+    "omit_minutes": true
+  },
+  {
+    "name": "L1_015",
+    "image": "eval/generated/images/L1_015.jpg",
+    "ground_truth": "eval/generated/ground_truth/L1_015.json",
+    "dark_mode": true,
+    "noise": "low_brightness",
+    "layout": "L1",
+    "omit_distance": false,
+    "omit_minutes": false
+  },
+  {
+    "name": "L3_001",
+    "image": "eval/generated/images/L3_001.jpg",
+    "ground_truth": "eval/generated/ground_truth/L3_001.json",
+    "dark_mode": false,
+    "noise": "jpeg_low",
+    "layout": "L3"
+  },
+  {
+    "name": "L3_002",
+    "image": "eval/generated/images/L3_002.jpg",
+    "ground_truth": "eval/generated/ground_truth/L3_002.json",
+    "dark_mode": true,
+    "noise": "tilt",
+    "layout": "L3"
+  },
+  {
+    "name": "L3_003",
+    "image": "eval/generated/images/L3_003.jpg",
+    "ground_truth": "eval/generated/ground_truth/L3_003.json",
+    "dark_mode": false,
+    "noise": "jpeg_low",
+    "layout": "L3"
+  },
+  {
+    "name": "L3_004",
+    "image": "eval/generated/images/L3_004.jpg",
+    "ground_truth": "eval/generated/ground_truth/L3_004.json",
+    "dark_mode": false,
+    "noise": "crop",
+    "layout": "L3"
+  },
+  {
+    "name": "L3_005",
+    "image": "eval/generated/images/L3_005.jpg",
+    "ground_truth": "eval/generated/ground_truth/L3_005.json",
+    "dark_mode": false,
+    "noise": "crop",
+    "layout": "L3"
+  },
+  {
+    "name": "L3_006",
+    "image": "eval/generated/images/L3_006.jpg",
+    "ground_truth": "eval/generated/ground_truth/L3_006.json",
+    "dark_mode": false,
+    "noise": "tilt",
+    "layout": "L3"
+  },
+  {
+    "name": "L3_007",
+    "image": "eval/generated/images/L3_007.jpg",
+    "ground_truth": "eval/generated/ground_truth/L3_007.json",
+    "dark_mode": false,
+    "noise": "tilt",
+    "layout": "L3"
+  },
+  {
+    "name": "L3_008",
+    "image": "eval/generated/images/L3_008.jpg",
+    "ground_truth": "eval/generated/ground_truth/L3_008.json",
+    "dark_mode": false,
+    "noise": "low_brightness",
+    "layout": "L3"
+  },
+  {
+    "name": "L3_009",
+    "image": "eval/generated/images/L3_009.jpg",
+    "ground_truth": "eval/generated/ground_truth/L3_009.json",
+    "dark_mode": false,
+    "noise": "crop",
+    "layout": "L3"
+  },
+  {
+    "name": "L3_010",
+    "image": "eval/generated/images/L3_010.jpg",
+    "ground_truth": "eval/generated/ground_truth/L3_010.json",
+    "dark_mode": false,
+    "noise": "none",
+    "layout": "L3"
+  },
+  {
+    "name": "N1_001",
+    "image": "eval/generated/images/N1_001.jpg",
+    "ground_truth": "eval/generated/ground_truth/N1_001.json",
+    "dark_mode": true,
+    "noise": "crop",
+    "layout": "N1"
+  },
+  {
+    "name": "N1_002",
+    "image": "eval/generated/images/N1_002.jpg",
+    "ground_truth": "eval/generated/ground_truth/N1_002.json",
+    "dark_mode": true,
+    "noise": "blur",
+    "layout": "N1"
+  },
+  {
+    "name": "N1_003",
+    "image": "eval/generated/images/N1_003.jpg",
+    "ground_truth": "eval/generated/ground_truth/N1_003.json",
+    "dark_mode": false,
+    "noise": "blur",
+    "layout": "N1"
+  },
+  {
+    "name": "N1_004",
+    "image": "eval/generated/images/N1_004.jpg",
+    "ground_truth": "eval/generated/ground_truth/N1_004.json",
+    "dark_mode": false,
+    "noise": "jpeg_low",
+    "layout": "N1"
+  },
+  {
+    "name": "N1_005",
+    "image": "eval/generated/images/N1_005.jpg",
+    "ground_truth": "eval/generated/ground_truth/N1_005.json",
+    "dark_mode": true,
+    "noise": "low_brightness",
+    "layout": "N1"
+  }
+]

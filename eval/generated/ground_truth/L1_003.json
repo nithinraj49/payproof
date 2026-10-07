@@ -1,0 +1,24 @@
+{
+  "platform_label": "ZipGo",
+  "currency": "INR",
+  "language_detected": "en",
+  "screen_type": "trip_detail",
+  "trips": [
+    {
+      "trip_date": "2026-09-24",
+      "order_id": "ORD-95839",
+      "order_type": "Food delivery",
+      "base_pay": 92.65,
+      "incentive": 35.51,
+      "tip": null,
+      "deductions": [],
+      "total_payout": 128.16,
+      "distance_km": null,
+      "duration_min": 17.0,
+      "low_confidence_fields": []
+    }
+  ],
+  "payout_summary": null,
+  "needs_review": false,
+  "notes": null
+}

@@ -1,0 +1,28 @@
+{
+  "platform_label": "ZipGo",
+  "currency": "INR",
+  "language_detected": "en",
+  "screen_type": "payout_summary",
+  "trips": [],
+  "payout_summary": {
+    "period_label": "08 Sep - 14 Sep",
+    "period_start": "2026-09-08",
+    "period_end": "2026-09-14",
+    "lines": [
+      {
+        "label": "Order earnings",
+        "amount": 5257.63
+      },
+      {
+        "label": "Daily incentive",
+        "amount": 3891.95
+      }
+    ],
+    "deductions": [],
+    "total_credited": 9149.58,
+    "credited_on": "2026-09-15",
+    "low_confidence_fields": []
+  },
+  "needs_review": false,
+  "notes": null
+}

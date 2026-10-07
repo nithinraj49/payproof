@@ -1,0 +1,29 @@
+{
+  "platform_label": "RideWave",
+  "currency": "INR",
+  "language_detected": "en",
+  "screen_type": "trip_detail",
+  "trips": [
+    {
+      "trip_date": "2026-09-14",
+      "order_id": "ORD-69536",
+      "order_type": "Passenger ride",
+      "base_pay": 105.51,
+      "incentive": 34.56,
+      "tip": null,
+      "deductions": [
+        {
+          "label": "Cancellation fee",
+          "amount": 13.89
+        }
+      ],
+      "total_payout": 126.18,
+      "distance_km": null,
+      "duration_min": null,
+      "low_confidence_fields": []
+    }
+  ],
+  "payout_summary": null,
+  "needs_review": false,
+  "notes": null
+}

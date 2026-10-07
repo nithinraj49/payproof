@@ -1,0 +1,24 @@
+{
+  "platform_label": "GoFleet",
+  "currency": "INR",
+  "language_detected": "en",
+  "screen_type": "payout_summary",
+  "trips": [],
+  "payout_summary": {
+    "period_label": "26 Sep - 02 Oct",
+    "period_start": "2026-09-26",
+    "period_end": "2026-10-02",
+    "lines": [
+      {
+        "label": "Peak hour bonus",
+        "amount": 4481.52
+      }
+    ],
+    "deductions": [],
+    "total_credited": 4481.52,
+    "credited_on": "2026-10-03",
+    "low_confidence_fields": []
+  },
+  "needs_review": false,
+  "notes": null
+}

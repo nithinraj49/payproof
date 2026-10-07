@@ -1,0 +1,29 @@
+{
+  "platform_label": "ZipGo",
+  "currency": "INR",
+  "language_detected": "en",
+  "screen_type": "trip_detail",
+  "trips": [
+    {
+      "trip_date": "2026-09-05",
+      "order_id": "ORD-53361",
+      "order_type": "Passenger ride",
+      "base_pay": 103.31,
+      "incentive": null,
+      "tip": null,
+      "deductions": [
+        {
+          "label": "Platform fee",
+          "amount": 12.96
+        }
+      ],
+      "total_payout": 90.35,
+      "distance_km": 9.5,
+      "duration_min": 34.0,
+      "low_confidence_fields": []
+    }
+  ],
+  "payout_summary": null,
+  "needs_review": false,
+  "notes": null
+}

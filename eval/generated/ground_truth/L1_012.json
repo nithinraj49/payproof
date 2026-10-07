@@ -1,0 +1,29 @@
+{
+  "platform_label": "RideWave",
+  "currency": "INR",
+  "language_detected": "en",
+  "screen_type": "trip_detail",
+  "trips": [
+    {
+      "trip_date": "2026-09-15",
+      "order_id": "ORD-31148",
+      "order_type": "Parcel delivery",
+      "base_pay": 93.43,
+      "incentive": null,
+      "tip": null,
+      "deductions": [
+        {
+          "label": "Cancellation fee",
+          "amount": 10.86
+        }
+      ],
+      "total_payout": 82.57,
+      "distance_km": 6.1,
+      "duration_min": 21.0,
+      "low_confidence_fields": []
+    }
+  ],
+  "payout_summary": null,
+  "needs_review": false,
+  "notes": null
+}

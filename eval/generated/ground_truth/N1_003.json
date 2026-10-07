@@ -1,0 +1,10 @@
+{
+  "platform_label": "QuickDash",
+  "currency": "INR",
+  "language_detected": "en",
+  "screen_type": "order_offer",
+  "trips": [],
+  "payout_summary": null,
+  "needs_review": false,
+  "notes": "Order offer: an expected earning is a promise, not confirmed pay."
+}

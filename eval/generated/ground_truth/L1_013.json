@@ -1,0 +1,29 @@
+{
+  "platform_label": "TownHop",
+  "currency": "INR",
+  "language_detected": "en",
+  "screen_type": "trip_detail",
+  "trips": [
+    {
+      "trip_date": "2026-09-11",
+      "order_id": "ORD-69132",
+      "order_type": "Food delivery",
+      "base_pay": 122.78,
+      "incentive": 57.37,
+      "tip": 16.69,
+      "deductions": [
+        {
+          "label": "Platform fee",
+          "amount": 11.95
+        }
+      ],
+      "total_payout": 184.89,
+      "distance_km": 10.2,
+      "duration_min": 37.0,
+      "low_confidence_fields": []
+    }
+  ],
+  "payout_summary": null,
+  "needs_review": false,
+  "notes": null
+}

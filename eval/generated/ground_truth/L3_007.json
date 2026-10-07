@@ -1,0 +1,37 @@
+{
+  "platform_label": "ZipGo",
+  "currency": "INR",
+  "language_detected": "en",
+  "screen_type": "payout_summary",
+  "trips": [],
+  "payout_summary": {
+    "period_label": "29 Sep - 05 Oct",
+    "period_start": "2026-09-29",
+    "period_end": "2026-10-05",
+    "lines": [
+      {
+        "label": "Peak hour bonus",
+        "amount": 2911.62
+      },
+      {
+        "label": "Daily incentive",
+        "amount": 5444.15
+      },
+      {
+        "label": "Order earnings",
+        "amount": 2103.78
+      }
+    ],
+    "deductions": [
+      {
+        "label": "Platform charges",
+        "amount": 113.16
+      }
+    ],
+    "total_credited": 10346.39,
+    "credited_on": "2026-10-06",
+    "low_confidence_fields": []
+  },
+  "needs_review": false,
+  "notes": null
+}

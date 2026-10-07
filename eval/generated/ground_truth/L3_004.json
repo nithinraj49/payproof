@@ -1,0 +1,29 @@
+{
+  "platform_label": "QuickDash",
+  "currency": "INR",
+  "language_detected": "en",
+  "screen_type": "payout_summary",
+  "trips": [],
+  "payout_summary": {
+    "period_label": "27 Sep - 03 Oct",
+    "period_start": "2026-09-27",
+    "period_end": "2026-10-03",
+    "lines": [
+      {
+        "label": "Order earnings",
+        "amount": 4865.28
+      }
+    ],
+    "deductions": [
+      {
+        "label": "Platform charges",
+        "amount": 139.12
+      }
+    ],
+    "total_credited": 4726.16,
+    "credited_on": "2026-10-04",
+    "low_confidence_fields": []
+  },
+  "needs_review": false,
+  "notes": null
+}

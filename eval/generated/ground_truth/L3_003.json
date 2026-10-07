@@ -1,0 +1,28 @@
+{
+  "platform_label": "RideWave",
+  "currency": "INR",
+  "language_detected": "en",
+  "screen_type": "payout_summary",
+  "trips": [],
+  "payout_summary": {
+    "period_label": "28 Sep - 04 Oct",
+    "period_start": "2026-09-28",
+    "period_end": "2026-10-04",
+    "lines": [
+      {
+        "label": "Peak hour bonus",
+        "amount": 7748.01
+      },
+      {
+        "label": "Order earnings",
+        "amount": 7158.27
+      }
+    ],
+    "deductions": [],
+    "total_credited": 14906.28,
+    "credited_on": "2026-10-05",
+    "low_confidence_fields": []
+  },
+  "needs_review": false,
+  "notes": null
+}
