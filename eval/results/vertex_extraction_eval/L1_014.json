@@ -1,0 +1,42 @@
+{
+  "name": "L1_014",
+  "layout": "L1",
+  "noise": "none",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": "RideWave",
+    "currency": "\u20b9",
+    "language_detected": "en",
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": "2026-09-13",
+        "order_id": "ORD-36536",
+        "order_type": "Food delivery",
+        "base_pay": 102.21,
+        "incentive": 28.25,
+        "tip": null,
+        "deductions": [
+          {
+            "label": "Cancellation fee",
+            "amount": 5.0
+          }
+        ],
+        "total_payout": 125.46,
+        "distance_km": 8.4,
+        "duration_min": null,
+        "low_confidence_fields": []
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": false,
+    "notes": null
+  },
+  "failed_call": false,
+  "error": null,
+  "calls_made": 1,
+  "prompt_tokens": 2433,
+  "output_tokens": 216,
+  "thinking_tokens": 0
+}

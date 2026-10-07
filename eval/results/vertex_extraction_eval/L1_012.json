@@ -1,0 +1,42 @@
+{
+  "name": "L1_012",
+  "layout": "L1",
+  "noise": "jpeg_low",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": "RideWave",
+    "currency": "INR",
+    "language_detected": "en",
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": "2026-09-15",
+        "order_id": "ORD-31148",
+        "order_type": "Parcel delivery",
+        "base_pay": 93.43,
+        "incentive": null,
+        "tip": null,
+        "deductions": [
+          {
+            "label": "Cancellation fee",
+            "amount": 10.86
+          }
+        ],
+        "total_payout": 82.57,
+        "distance_km": 6.1,
+        "duration_min": 21.0,
+        "low_confidence_fields": []
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": false,
+    "notes": null
+  },
+  "failed_call": false,
+  "error": null,
+  "calls_made": 1,
+  "prompt_tokens": 2433,
+  "output_tokens": 238,
+  "thinking_tokens": 0
+}

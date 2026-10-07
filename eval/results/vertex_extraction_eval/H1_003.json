@@ -1,0 +1,40 @@
+{
+  "name": "H1_003",
+  "layout": "H1",
+  "noise": "hard",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": "Optix",
+    "currency": null,
+    "language_detected": "en",
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": "2024-05-14",
+        "order_id": null,
+        "order_type": "Food Delivery",
+        "base_pay": 10.0,
+        "incentive": null,
+        "tip": 10.0,
+        "deductions": [],
+        "total_payout": null,
+        "distance_km": null,
+        "duration_min": null,
+        "low_confidence_fields": [
+          "base_pay",
+          "tip"
+        ]
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": true,
+    "notes": "The values for base pay and tip are blurry and difficult to read with certainty."
+  },
+  "failed_call": false,
+  "error": null,
+  "calls_made": 1,
+  "prompt_tokens": 2433,
+  "output_tokens": 232,
+  "thinking_tokens": 0
+}

@@ -1,0 +1,37 @@
+{
+  "name": "L1_010",
+  "layout": "L1",
+  "noise": "none",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": "RideWave",
+    "currency": "INR",
+    "language_detected": "en",
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": "2026-09-26",
+        "order_id": "ORD-66527",
+        "order_type": "Parcel delivery",
+        "base_pay": 121.2,
+        "incentive": 52.2,
+        "tip": null,
+        "deductions": [],
+        "total_payout": 173.4,
+        "distance_km": 8.6,
+        "duration_min": 30.0,
+        "low_confidence_fields": []
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": false,
+    "notes": null
+  },
+  "failed_call": false,
+  "error": null,
+  "calls_made": 1,
+  "prompt_tokens": 2433,
+  "output_tokens": 216,
+  "thinking_tokens": 0
+}

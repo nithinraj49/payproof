@@ -1,0 +1,41 @@
+{
+  "name": "L3_005",
+  "layout": "L3",
+  "noise": "crop",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": null,
+    "currency": "INR",
+    "language_detected": "en",
+    "screen_type": "payout_summary",
+    "trips": [],
+    "payout_summary": {
+      "period_label": "27 Sep - 03 Oct",
+      "period_start": null,
+      "period_end": null,
+      "lines": [
+        {
+          "label": "Peak hour bonus",
+          "amount": 8520.31
+        },
+        {
+          "label": "Order earnings",
+          "amount": 3453.93
+        }
+      ],
+      "deductions": [],
+      "total_credited": 11974.24,
+      "credited_on": "2026-10-04",
+      "low_confidence_fields": []
+    },
+    "needs_review": false,
+    "notes": null
+  },
+  "failed_call": false,
+  "error": null,
+  "calls_made": 1,
+  "prompt_tokens": 2433,
+  "output_tokens": 225,
+  "thinking_tokens": 0
+}

@@ -1,0 +1,23 @@
+{
+  "name": "H1_001",
+  "layout": "H1",
+  "noise": "hard",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": null,
+    "currency": null,
+    "language_detected": "en",
+    "screen_type": "other",
+    "trips": [],
+    "payout_summary": null,
+    "needs_review": true,
+    "notes": "This is not an earnings screen, it appears to be a settings or account screen with blurry text."
+  },
+  "failed_call": false,
+  "error": null,
+  "calls_made": 1,
+  "prompt_tokens": 2433,
+  "output_tokens": 91,
+  "thinking_tokens": 0
+}

@@ -1,0 +1,40 @@
+{
+  "name": "H1_008",
+  "layout": "H1",
+  "noise": "hard",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": "RideShare",
+    "currency": null,
+    "language_detected": "en",
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": null,
+        "order_id": null,
+        "order_type": null,
+        "base_pay": 10.0,
+        "incentive": 1.0,
+        "tip": null,
+        "deductions": [],
+        "total_payout": null,
+        "distance_km": null,
+        "duration_min": null,
+        "low_confidence_fields": [
+          "base_pay",
+          "incentive"
+        ]
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": true,
+    "notes": "The image is extremely blurry and low resolution, making it difficult to read the exact values for base pay and incentive."
+  },
+  "failed_call": false,
+  "error": null,
+  "calls_made": 1,
+  "prompt_tokens": 2433,
+  "output_tokens": 227,
+  "thinking_tokens": 0
+}

@@ -1,0 +1,41 @@
+{
+  "name": "L3_003",
+  "layout": "L3",
+  "noise": "jpeg_low",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": "RideWave",
+    "currency": "INR",
+    "language_detected": "en",
+    "screen_type": "payout_summary",
+    "trips": [],
+    "payout_summary": {
+      "period_label": "28 Sep - 04 Oct",
+      "period_start": null,
+      "period_end": null,
+      "lines": [
+        {
+          "label": "Peak hour bonus",
+          "amount": 7748.01
+        },
+        {
+          "label": "Order earnings",
+          "amount": 7158.27
+        }
+      ],
+      "deductions": [],
+      "total_credited": 14906.28,
+      "credited_on": "2026-10-05",
+      "low_confidence_fields": []
+    },
+    "needs_review": false,
+    "notes": null
+  },
+  "failed_call": false,
+  "error": null,
+  "calls_made": 1,
+  "prompt_tokens": 2433,
+  "output_tokens": 191,
+  "thinking_tokens": 0
+}

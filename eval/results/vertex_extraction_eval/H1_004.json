@@ -1,0 +1,41 @@
+{
+  "name": "H1_004",
+  "layout": "H1",
+  "noise": "hard",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": "RideWave",
+    "currency": null,
+    "language_detected": "en",
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": "2023-05-12",
+        "order_id": null,
+        "order_type": "Food Delivery",
+        "base_pay": 150.0,
+        "incentive": null,
+        "tip": null,
+        "deductions": [],
+        "total_payout": 150.0,
+        "distance_km": null,
+        "duration_min": null,
+        "low_confidence_fields": [
+          "trip_date",
+          "base_pay",
+          "total_payout"
+        ]
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": true,
+    "notes": "The image is very blurry, making it difficult to read the exact numbers and text."
+  },
+  "failed_call": false,
+  "error": null,
+  "calls_made": 1,
+  "prompt_tokens": 2433,
+  "output_tokens": 245,
+  "thinking_tokens": 0
+}

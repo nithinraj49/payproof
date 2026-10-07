@@ -1,0 +1,41 @@
+{
+  "name": "H1_005",
+  "layout": "H1",
+  "noise": "hard",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": "GrabMart",
+    "currency": null,
+    "language_detected": "en",
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": "2024-09-04",
+        "order_id": "98816211",
+        "order_type": null,
+        "base_pay": 15.0,
+        "incentive": null,
+        "tip": null,
+        "deductions": [],
+        "total_payout": null,
+        "distance_km": null,
+        "duration_min": null,
+        "low_confidence_fields": [
+          "trip_date",
+          "order_id",
+          "base_pay"
+        ]
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": true,
+    "notes": "The image is extremely blurry and low resolution, making it difficult to confirm the exact values for date, order ID, and base pay."
+  },
+  "failed_call": false,
+  "error": null,
+  "calls_made": 1,
+  "prompt_tokens": 2433,
+  "output_tokens": 254,
+  "thinking_tokens": 0
+}

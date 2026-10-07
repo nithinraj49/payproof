@@ -1,0 +1,45 @@
+{
+  "name": "L3_002",
+  "layout": "L3",
+  "noise": "tilt",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": "TownHop",
+    "currency": "INR",
+    "language_detected": "en",
+    "screen_type": "payout_summary",
+    "trips": [],
+    "payout_summary": {
+      "period_label": "09 Sep - 15 Sep",
+      "period_start": null,
+      "period_end": null,
+      "lines": [
+        {
+          "label": "Order earnings",
+          "amount": 6719.86
+        },
+        {
+          "label": "Daily incentive",
+          "amount": 1998.85
+        },
+        {
+          "label": "Peak hour bonus",
+          "amount": 8339.93
+        }
+      ],
+      "deductions": [],
+      "total_credited": 17058.64,
+      "credited_on": "2026-09-16",
+      "low_confidence_fields": []
+    },
+    "needs_review": false,
+    "notes": null
+  },
+  "failed_call": false,
+  "error": null,
+  "calls_made": 1,
+  "prompt_tokens": 2433,
+  "output_tokens": 219,
+  "thinking_tokens": 0
+}

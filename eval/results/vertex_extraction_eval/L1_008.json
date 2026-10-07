@@ -1,0 +1,37 @@
+{
+  "name": "L1_008",
+  "layout": "L1",
+  "noise": "crop",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": "QuickDash",
+    "currency": "\u20b9",
+    "language_detected": "en",
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": "2026-09-03",
+        "order_id": "ORD-47318",
+        "order_type": "Passenger ride",
+        "base_pay": 86.85,
+        "incentive": null,
+        "tip": null,
+        "deductions": [],
+        "total_payout": 86.85,
+        "distance_km": 5.6,
+        "duration_min": null,
+        "low_confidence_fields": []
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": false,
+    "notes": null
+  },
+  "failed_call": false,
+  "error": null,
+  "calls_made": 1,
+  "prompt_tokens": 2433,
+  "output_tokens": 207,
+  "thinking_tokens": 0
+}

@@ -1,0 +1,41 @@
+{
+  "name": "L3_010",
+  "layout": "L3",
+  "noise": "none",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": "ZipGo",
+    "currency": "INR",
+    "language_detected": "en",
+    "screen_type": "payout_summary",
+    "trips": [],
+    "payout_summary": {
+      "period_label": "08 Sep - 14 Sep",
+      "period_start": null,
+      "period_end": null,
+      "lines": [
+        {
+          "label": "Order earnings",
+          "amount": 5257.63
+        },
+        {
+          "label": "Daily incentive",
+          "amount": 3891.95
+        }
+      ],
+      "deductions": [],
+      "total_credited": 9149.58,
+      "credited_on": "2026-09-15",
+      "low_confidence_fields": []
+    },
+    "needs_review": false,
+    "notes": null
+  },
+  "failed_call": false,
+  "error": null,
+  "calls_made": 1,
+  "prompt_tokens": 2433,
+  "output_tokens": 189,
+  "thinking_tokens": 0
+}

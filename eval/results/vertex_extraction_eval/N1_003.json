@@ -1,0 +1,23 @@
+{
+  "name": "N1_003",
+  "layout": "N1",
+  "noise": "blur",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": "QuickDash",
+    "currency": "INR",
+    "language_detected": "en",
+    "screen_type": "order_offer",
+    "trips": [],
+    "payout_summary": null,
+    "needs_review": false,
+    "notes": "This is an order offer screen showing an expected earning, not a confirmed payout."
+  },
+  "failed_call": false,
+  "error": null,
+  "calls_made": 1,
+  "prompt_tokens": 2433,
+  "output_tokens": 92,
+  "thinking_tokens": 0
+}

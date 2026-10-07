@@ -1,0 +1,42 @@
+{
+  "name": "L3_004",
+  "layout": "L3",
+  "noise": "crop",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": null,
+    "currency": "INR",
+    "language_detected": "en",
+    "screen_type": "payout_summary",
+    "trips": [],
+    "payout_summary": {
+      "period_label": null,
+      "period_start": null,
+      "period_end": null,
+      "lines": [
+        {
+          "label": "Order earnings",
+          "amount": 4865.28
+        }
+      ],
+      "deductions": [
+        {
+          "label": "Platform charges",
+          "amount": 139.12
+        }
+      ],
+      "total_credited": 4726.16,
+      "credited_on": "2026-10-04",
+      "low_confidence_fields": []
+    },
+    "needs_review": false,
+    "notes": null
+  },
+  "failed_call": false,
+  "error": null,
+  "calls_made": 1,
+  "prompt_tokens": 2433,
+  "output_tokens": 217,
+  "thinking_tokens": 0
+}

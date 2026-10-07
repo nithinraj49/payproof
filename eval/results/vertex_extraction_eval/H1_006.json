@@ -1,0 +1,47 @@
+{
+  "name": "H1_006",
+  "layout": "H1",
+  "noise": "hard",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": "RideWave",
+    "currency": null,
+    "language_detected": "en",
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": null,
+        "order_id": "888-2763",
+        "order_type": "Passenger ride",
+        "base_pay": 113.68,
+        "incentive": null,
+        "tip": null,
+        "deductions": [
+          {
+            "label": "Platform fee",
+            "amount": 15.16
+          }
+        ],
+        "total_payout": 98.52,
+        "distance_km": null,
+        "duration_min": null,
+        "low_confidence_fields": [
+          "Date",
+          "Base pay",
+          "Platform fee",
+          "Total payout"
+        ]
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": true,
+    "notes": "The image is extremely blurry, making it difficult to confirm the exact values for base pay, platform fee, and total payout."
+  },
+  "failed_call": false,
+  "error": null,
+  "calls_made": 1,
+  "prompt_tokens": 2433,
+  "output_tokens": 282,
+  "thinking_tokens": 0
+}

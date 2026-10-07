@@ -1,0 +1,37 @@
+{
+  "name": "L1_003",
+  "layout": "L1",
+  "noise": "none",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": "ZipGo",
+    "currency": "\u20b9",
+    "language_detected": "en",
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": "2026-09-24",
+        "order_id": "ORD-95839",
+        "order_type": "Food delivery",
+        "base_pay": 92.65,
+        "incentive": 35.51,
+        "tip": null,
+        "deductions": [],
+        "total_payout": 128.16,
+        "distance_km": null,
+        "duration_min": 17.0,
+        "low_confidence_fields": []
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": false,
+    "notes": null
+  },
+  "failed_call": false,
+  "error": null,
+  "calls_made": 1,
+  "prompt_tokens": 2433,
+  "output_tokens": 184,
+  "thinking_tokens": 0
+}
