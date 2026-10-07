@@ -1,0 +1,39 @@
+{
+  "name": "L1_004",
+  "layout": "L1",
+  "model": "gemini-3.1-flash-lite",
+  "predicted": {
+    "platform_label": "ZipGo",
+    "currency": "INR",
+    "language_detected": "en",
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": "2026-09-05",
+        "order_id": "ORD-53361",
+        "order_type": "Passenger ride",
+        "base_pay": 103.31,
+        "incentive": null,
+        "tip": null,
+        "deductions": [
+          {
+            "label": "Platform fee",
+            "amount": 12.96
+          }
+        ],
+        "total_payout": 90.35,
+        "distance_km": 9.5,
+        "duration_min": 34.0,
+        "low_confidence_fields": []
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": false,
+    "notes": null
+  },
+  "needs_review": false,
+  "calls_made": 1,
+  "prompt_tokens": 1432,
+  "output_tokens": 239,
+  "thinking_tokens": 0
+}

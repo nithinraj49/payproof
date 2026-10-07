@@ -1,0 +1,39 @@
+{
+  "name": "L1_006",
+  "layout": "L1",
+  "model": "gemini-3.1-flash-lite",
+  "predicted": {
+    "platform_label": "RideWave",
+    "currency": "INR",
+    "language_detected": "en",
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": "2026-09-29",
+        "order_id": "ORD-64342",
+        "order_type": "Passenger ride",
+        "base_pay": 167.82,
+        "incentive": null,
+        "tip": null,
+        "deductions": [
+          {
+            "label": "Convenience fee",
+            "amount": 13.73
+          }
+        ],
+        "total_payout": 154.09,
+        "distance_km": 11.1,
+        "duration_min": 37.0,
+        "low_confidence_fields": []
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": false,
+    "notes": null
+  },
+  "needs_review": false,
+  "calls_made": 1,
+  "prompt_tokens": 1432,
+  "output_tokens": 227,
+  "thinking_tokens": 0
+}

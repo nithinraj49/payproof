@@ -1,0 +1,34 @@
+{
+  "name": "L3_006",
+  "layout": "L3",
+  "model": "gemini-3.5-flash-lite",
+  "predicted": {
+    "platform_label": "GoFleet",
+    "currency": "\u20b9",
+    "language_detected": "en",
+    "screen_type": "payout_summary",
+    "trips": [],
+    "payout_summary": {
+      "period_label": "26 Sep - 02 Oct",
+      "period_start": null,
+      "period_end": null,
+      "lines": [
+        {
+          "label": "Peak hour bonus",
+          "amount": 4481.52
+        }
+      ],
+      "deductions": [],
+      "total_credited": 4481.52,
+      "credited_on": "2026-10-03",
+      "low_confidence_fields": []
+    },
+    "needs_review": false,
+    "notes": null
+  },
+  "needs_review": false,
+  "calls_made": 1,
+  "prompt_tokens": 1432,
+  "output_tokens": 196,
+  "thinking_tokens": 0
+}

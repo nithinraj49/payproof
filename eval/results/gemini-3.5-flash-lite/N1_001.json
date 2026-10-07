@@ -1,0 +1,20 @@
+{
+  "name": "N1_001",
+  "layout": "N1",
+  "model": "gemini-3.5-flash-lite",
+  "predicted": {
+    "platform_label": null,
+    "currency": "\u20b9",
+    "language_detected": "en",
+    "screen_type": "order_offer",
+    "trips": [],
+    "payout_summary": null,
+    "needs_review": false,
+    "notes": "This is an expected earning from a new order request, not a confirmed payout."
+  },
+  "needs_review": false,
+  "calls_made": 1,
+  "prompt_tokens": 1432,
+  "output_tokens": 90,
+  "thinking_tokens": 0
+}

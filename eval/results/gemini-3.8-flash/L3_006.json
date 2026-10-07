@@ -1,0 +1,20 @@
+{
+  "name": "L3_006",
+  "layout": "L3",
+  "model": "gemini-3.8-flash",
+  "predicted": {
+    "platform_label": null,
+    "currency": null,
+    "language_detected": null,
+    "screen_type": "other",
+    "trips": [],
+    "payout_summary": null,
+    "needs_review": true,
+    "notes": "Could not read this screenshot right now. Please try again."
+  },
+  "needs_review": true,
+  "calls_made": 1,
+  "prompt_tokens": 0,
+  "output_tokens": 0,
+  "thinking_tokens": 0
+}

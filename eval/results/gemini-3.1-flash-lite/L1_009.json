@@ -1,0 +1,39 @@
+{
+  "name": "L1_009",
+  "layout": "L1",
+  "model": "gemini-3.1-flash-lite",
+  "predicted": {
+    "platform_label": "RideWave",
+    "currency": "INR",
+    "language_detected": "en",
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": "2026-09-14",
+        "order_id": "ORD-66507",
+        "order_type": "Food delivery",
+        "base_pay": 85.22,
+        "incentive": null,
+        "tip": 31.9,
+        "deductions": [
+          {
+            "label": "Cancellation fee",
+            "amount": 18.59
+          }
+        ],
+        "total_payout": 98.53,
+        "distance_km": null,
+        "duration_min": 21.0,
+        "low_confidence_fields": []
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": false,
+    "notes": null
+  },
+  "needs_review": false,
+  "calls_made": 1,
+  "prompt_tokens": 1432,
+  "output_tokens": 222,
+  "thinking_tokens": 0
+}

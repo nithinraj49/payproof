@@ -1,0 +1,34 @@
+{
+  "name": "L1_005",
+  "layout": "L1",
+  "model": "gemini-3.5-flash-lite",
+  "predicted": {
+    "platform_label": "RideWave",
+    "currency": "\u20b9",
+    "language_detected": "en",
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": "2026-09-27",
+        "order_id": "ORD-80688",
+        "order_type": "Food delivery",
+        "base_pay": 45.19,
+        "incentive": 11.68,
+        "tip": 29.32,
+        "deductions": [],
+        "total_payout": 86.19,
+        "distance_km": null,
+        "duration_min": 12.0,
+        "low_confidence_fields": []
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": false,
+    "notes": null
+  },
+  "needs_review": false,
+  "calls_made": 1,
+  "prompt_tokens": 1432,
+  "output_tokens": 223,
+  "thinking_tokens": 0
+}

@@ -1,0 +1,20 @@
+{
+  "name": "N1_003",
+  "layout": "N1",
+  "model": "gemini-3.1-flash-lite",
+  "predicted": {
+    "platform_label": "QuickDash",
+    "currency": "\u20b9",
+    "language_detected": "en",
+    "screen_type": "order_offer",
+    "trips": [],
+    "payout_summary": null,
+    "needs_review": false,
+    "notes": "This is an order offer screen showing an expected earning, not a confirmed payout."
+  },
+  "needs_review": false,
+  "calls_made": 1,
+  "prompt_tokens": 1432,
+  "output_tokens": 92,
+  "thinking_tokens": 0
+}

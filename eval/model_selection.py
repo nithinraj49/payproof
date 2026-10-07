@@ -19,7 +19,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Optional
 
-from extraction.extract import RateLimitError, extract_screenshot
+from extraction.extract import ExtractionCallResult, RateLimitError, extract_screenshot
 from extraction.image_prep import prepare_image
 from extraction.schema import ExtractionResult
 from backend.config import get_settings
@@ -137,37 +137,68 @@ def run(selection: list, settings) -> dict:
     for model in MODELS:
         field_checks_by_layout = {"L1": [], "L3": []}
         rejection_checks = []
-        prompt_tokens_total = 0
-        output_tokens_total = 0
-        thinking_tokens_total = 0
-        calls_made_total = 0
+        # "new_*" counts only API calls made in THIS run (for this run's cost estimate).
+        # "all_*" also includes calls reused from a previous run's cache (for averages/accuracy).
+        new_calls_made = 0
+        new_prompt_tokens = 0
+        new_output_tokens = 0
+        all_prompt_tokens = 0
+        all_output_tokens = 0
+        all_thinking_tokens = 0
         per_image = []
         model_dir = PER_CALL_RESULTS_DIR / model
         model_dir.mkdir(parents=True, exist_ok=True)
 
         for entry in selection:
-            image_path = ROOT / entry["image"]
             gt_path = ROOT / entry["ground_truth"]
             truth = ExtractionResult.model_validate_json(gt_path.read_text())
-            raw = image_path.read_bytes()
-            jpeg_bytes = prepare_image(raw, settings.image_max_side_px, settings.image_jpeg_quality)
+            cached_path = model_dir / f"{entry['name']}.json"
+            from_cache = cached_path.exists()
 
-            try:
-                outcome = extract_screenshot(client, settings, model, jpeg_bytes)
-            except RateLimitError as exc:
-                stopped_early = {
+            if from_cache:
+                cached = json.loads(cached_path.read_text())
+                outcome = ExtractionCallResult(
+                    result=ExtractionResult.model_validate(cached["predicted"]),
+                    calls_made=cached["calls_made"],
+                    prompt_tokens=cached["prompt_tokens"],
+                    output_tokens=cached["output_tokens"],
+                    thinking_tokens=cached["thinking_tokens"],
+                )
+            else:
+                image_path = ROOT / entry["image"]
+                raw = image_path.read_bytes()
+                jpeg_bytes = prepare_image(raw, settings.image_max_side_px, settings.image_jpeg_quality)
+                try:
+                    outcome = extract_screenshot(client, settings, model, jpeg_bytes)
+                except RateLimitError as exc:
+                    stopped_early = {
+                        "model": model,
+                        "image": entry["name"],
+                        "calls_completed_overall": calls_completed_overall,
+                        "message": str(exc),
+                    }
+                    break
+                new_calls_made += outcome.calls_made
+                calls_completed_overall += outcome.calls_made
+                new_prompt_tokens += outcome.prompt_tokens
+                new_output_tokens += outcome.output_tokens
+                record = {
+                    "name": entry["name"],
+                    "layout": entry["layout"],
                     "model": model,
-                    "image": entry["name"],
-                    "calls_completed_overall": calls_completed_overall,
-                    "message": str(exc),
+                    "predicted": outcome.result.model_dump(),
+                    "needs_review": outcome.result.needs_review,
+                    "calls_made": outcome.calls_made,
+                    "prompt_tokens": outcome.prompt_tokens,
+                    "output_tokens": outcome.output_tokens,
+                    "thinking_tokens": outcome.thinking_tokens,
                 }
-                break
+                cached_path.write_text(json.dumps(record, indent=2))
+                time.sleep(4.5)  # ~13 calls/min: safely under the observed 15 RPM free-tier limit
 
-            calls_made_total += outcome.calls_made
-            calls_completed_overall += outcome.calls_made
-            prompt_tokens_total += outcome.prompt_tokens
-            output_tokens_total += outcome.output_tokens
-            thinking_tokens_total += outcome.thinking_tokens
+            all_prompt_tokens += outcome.prompt_tokens
+            all_output_tokens += outcome.output_tokens
+            all_thinking_tokens += outcome.thinking_tokens
 
             if entry["layout"] == "N1":
                 rejection_checks.append(screen_rejected_correctly(outcome.result))
@@ -176,29 +207,16 @@ def run(selection: list, settings) -> dict:
             elif entry["layout"] == "L3":
                 field_checks_by_layout["L3"].append(score_payout_summary(outcome.result, truth))
 
-            record = {
-                "name": entry["name"],
-                "layout": entry["layout"],
-                "model": model,
-                "predicted": outcome.result.model_dump(),
-                "needs_review": outcome.result.needs_review,
-                "calls_made": outcome.calls_made,
-                "prompt_tokens": outcome.prompt_tokens,
-                "output_tokens": outcome.output_tokens,
-                "thinking_tokens": outcome.thinking_tokens,
-            }
-            (model_dir / f"{entry['name']}.json").write_text(json.dumps(record, indent=2))
             per_image.append({
                 "name": entry["name"],
                 "layout": entry["layout"],
                 "predicted_screen_type": outcome.result.screen_type,
                 "needs_review": outcome.result.needs_review,
                 "calls_made": outcome.calls_made,
+                "from_cache": from_cache,
             })
 
-            time.sleep(1.0)  # pace calls against the AI Studio free-tier rate limit
-
-        n_calls = max(calls_made_total, 1)  # avoid div-by-zero if we stopped before any call completed for this model
+        n_images = max(len(per_image), 1)
         results[model] = {
             "field_accuracy_overall": _field_accuracy(field_checks_by_layout["L1"] + field_checks_by_layout["L3"]),
             "field_accuracy_by_layout": {
@@ -206,14 +224,14 @@ def run(selection: list, settings) -> dict:
                 "L3": _field_accuracy(field_checks_by_layout["L3"]),
             },
             "n1_rejection_rate": round(sum(rejection_checks) / len(rejection_checks), 4) if rejection_checks else None,
-            "avg_prompt_tokens": round(prompt_tokens_total / n_calls, 1) if calls_made_total else None,
-            "avg_output_tokens": round(output_tokens_total / n_calls, 1) if calls_made_total else None,
-            "avg_thinking_tokens": round(thinking_tokens_total / n_calls, 1) if calls_made_total else None,
+            "avg_prompt_tokens": round(all_prompt_tokens / n_images, 1) if per_image else None,
+            "avg_output_tokens": round(all_output_tokens / n_images, 1) if per_image else None,
+            "avg_thinking_tokens": round(all_thinking_tokens / n_images, 1) if per_image else None,
             "images_completed": len(per_image),
-            "total_calls_made": calls_made_total,
-            "estimated_cost_usd": round(
-                prompt_tokens_total / 1_000_000 * PRICE_PER_1M[model]["input"]
-                + output_tokens_total / 1_000_000 * PRICE_PER_1M[model]["output"],
+            "new_calls_made_this_run": new_calls_made,
+            "estimated_cost_usd_this_run": round(
+                new_prompt_tokens / 1_000_000 * PRICE_PER_1M[model]["input"]
+                + new_output_tokens / 1_000_000 * PRICE_PER_1M[model]["output"],
                 4,
             ),
             "per_image": per_image,
@@ -234,18 +252,31 @@ def main():
 
     manifest = json.loads(MANIFEST_PATH.read_text())
     selection = select_images(manifest)
-    estimate = estimate_cost(len(selection))
+
+    remaining = {}
+    for model in MODELS:
+        model_dir = PER_CALL_RESULTS_DIR / model
+        done = {p.stem for p in model_dir.glob("*.json")} if model_dir.exists() else set()
+        remaining[model] = [e for e in selection if e["name"] not in done]
+    total_remaining = sum(len(v) for v in remaining.values())
+    estimate = estimate_cost(1)  # per-image, per-model cost; multiplied below per model's remaining count
 
     print(f"Selected {len(selection)} images across layouts: "
           f"{ {k: sum(1 for e in selection if e['layout']==k) for k in SELECTION_COUNTS} }")
     print(f"Models: {MODELS}")
-    print(f"Total Gemini calls planned: {estimate['total_calls']} "
-          f"({len(selection)} images x {len(MODELS)} models, 1 call each; a schema-invalid "
-          f"retry would add at most 1 more call per image per model)")
-    print("Estimated cost per model (paid-tier prices; these calls run on the AI Studio FREE tier, so actual charge is $0):")
+    for model in MODELS:
+        n_done = len(selection) - len(remaining[model])
+        print(f"  {model}: {n_done}/{len(selection)} already cached under eval/results/, {len(remaining[model])} remaining")
+    print(f"Gemini calls planned THIS run: {total_remaining} "
+          f"(already-cached images are skipped and reused, not re-called; a schema-invalid "
+          f"retry would add at most 1 more call per remaining image)")
+    print("Estimated cost for the calls planned this run (paid-tier prices; these calls run on the AI Studio FREE tier, so actual charge is $0):")
+    grand_total = 0.0
     for model, info in estimate["per_model"].items():
-        print(f"  {model}: {info['calls']} calls, ~${info['estimated_cost_usd']}")
-    print(f"Estimated total: ~${estimate['estimated_total_usd']} (paid-tier equivalent)")
+        model_total = info["estimated_cost_usd"] * len(remaining[model])
+        grand_total += model_total
+        print(f"  {model}: {len(remaining[model])} calls, ~${round(model_total, 4)}")
+    print(f"Estimated total: ~${round(grand_total, 4)} (paid-tier equivalent)")
 
     if args.dry_run:
         print("\n--dry-run: no Gemini call made. Re-run with --go after the owner says \"go\".")
@@ -269,12 +300,12 @@ def main():
 
     print("\n=== Results so far ===")
     for model, r in outcome["results"].items():
-        print(f"{model}: images_completed={r['images_completed']} calls_made={r['total_calls_made']} "
+        print(f"{model}: images_completed={r['images_completed']} new_calls_this_run={r['new_calls_made_this_run']} "
               f"field_accuracy_overall={r['field_accuracy_overall']} "
               f"L1={r['field_accuracy_by_layout']['L1']} L3={r['field_accuracy_by_layout']['L3']} "
               f"n1_rejection_rate={r['n1_rejection_rate']} "
               f"avg_tokens(in/out/thinking)={r['avg_prompt_tokens']}/{r['avg_output_tokens']}/{r['avg_thinking_tokens']} "
-              f"est_cost=${r['estimated_cost_usd']}")
+              f"est_cost_this_run=${r['estimated_cost_usd_this_run']}")
     print(f"\nFull results written to {RESULTS_PATH}")
 
 

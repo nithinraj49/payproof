@@ -1,0 +1,39 @@
+{
+  "name": "L3_004",
+  "layout": "L3",
+  "model": "gemini-3.5-flash-lite",
+  "predicted": {
+    "platform_label": null,
+    "currency": "\u20b9",
+    "language_detected": "en",
+    "screen_type": "payout_summary",
+    "trips": [],
+    "payout_summary": {
+      "period_label": null,
+      "period_start": null,
+      "period_end": null,
+      "lines": [
+        {
+          "label": "Order earnings",
+          "amount": 4865.28
+        }
+      ],
+      "deductions": [
+        {
+          "label": "Platform charges",
+          "amount": 139.12
+        }
+      ],
+      "total_credited": 4726.16,
+      "credited_on": "2026-10-04",
+      "low_confidence_fields": []
+    },
+    "needs_review": false,
+    "notes": null
+  },
+  "needs_review": false,
+  "calls_made": 1,
+  "prompt_tokens": 1432,
+  "output_tokens": 214,
+  "thinking_tokens": 0
+}

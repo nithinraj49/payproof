@@ -1,0 +1,570 @@
+{
+  "results": {
+    "gemini-3.1-flash-lite": {
+      "field_accuracy_overall": {
+        "accuracy": 0.9167,
+        "correct": 44,
+        "total": 48
+      },
+      "field_accuracy_by_layout": {
+        "L1": {
+          "accuracy": 0.9024,
+          "correct": 37,
+          "total": 41
+        },
+        "L3": {
+          "accuracy": 1.0,
+          "correct": 7,
+          "total": 7
+        }
+      },
+      "n1_rejection_rate": 1.0,
+      "avg_prompt_tokens": 1360.4,
+      "avg_output_tokens": 185.7,
+      "avg_thinking_tokens": 0.0,
+      "images_completed": 20,
+      "new_calls_made_this_run": 0,
+      "estimated_cost_usd_this_run": 0.0,
+      "per_image": [
+        {
+          "name": "L1_001",
+          "layout": "L1",
+          "predicted_screen_type": "other",
+          "needs_review": true,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L1_002",
+          "layout": "L1",
+          "predicted_screen_type": "trip_detail",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L1_003",
+          "layout": "L1",
+          "predicted_screen_type": "trip_detail",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L1_004",
+          "layout": "L1",
+          "predicted_screen_type": "trip_detail",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L1_005",
+          "layout": "L1",
+          "predicted_screen_type": "trip_detail",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L1_006",
+          "layout": "L1",
+          "predicted_screen_type": "trip_detail",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L1_007",
+          "layout": "L1",
+          "predicted_screen_type": "trip_detail",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L1_008",
+          "layout": "L1",
+          "predicted_screen_type": "trip_detail",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L1_009",
+          "layout": "L1",
+          "predicted_screen_type": "trip_detail",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L1_010",
+          "layout": "L1",
+          "predicted_screen_type": "trip_detail",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L3_001",
+          "layout": "L3",
+          "predicted_screen_type": "payout_summary",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L3_002",
+          "layout": "L3",
+          "predicted_screen_type": "payout_summary",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L3_003",
+          "layout": "L3",
+          "predicted_screen_type": "payout_summary",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L3_004",
+          "layout": "L3",
+          "predicted_screen_type": "payout_summary",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L3_005",
+          "layout": "L3",
+          "predicted_screen_type": "payout_summary",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L3_006",
+          "layout": "L3",
+          "predicted_screen_type": "payout_summary",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L3_007",
+          "layout": "L3",
+          "predicted_screen_type": "payout_summary",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "N1_001",
+          "layout": "N1",
+          "predicted_screen_type": "order_offer",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "N1_002",
+          "layout": "N1",
+          "predicted_screen_type": "order_offer",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "N1_003",
+          "layout": "N1",
+          "predicted_screen_type": "order_offer",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        }
+      ]
+    },
+    "gemini-3.5-flash-lite": {
+      "field_accuracy_overall": {
+        "accuracy": 1.0,
+        "correct": 48,
+        "total": 48
+      },
+      "field_accuracy_by_layout": {
+        "L1": {
+          "accuracy": 1.0,
+          "correct": 41,
+          "total": 41
+        },
+        "L3": {
+          "accuracy": 1.0,
+          "correct": 7,
+          "total": 7
+        }
+      },
+      "n1_rejection_rate": 1.0,
+      "avg_prompt_tokens": 1432.0,
+      "avg_output_tokens": 213.2,
+      "avg_thinking_tokens": 0.0,
+      "images_completed": 20,
+      "new_calls_made_this_run": 4,
+      "estimated_cost_usd_this_run": 0.0031,
+      "per_image": [
+        {
+          "name": "L1_001",
+          "layout": "L1",
+          "predicted_screen_type": "trip_detail",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L1_002",
+          "layout": "L1",
+          "predicted_screen_type": "trip_detail",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L1_003",
+          "layout": "L1",
+          "predicted_screen_type": "trip_detail",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L1_004",
+          "layout": "L1",
+          "predicted_screen_type": "trip_detail",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L1_005",
+          "layout": "L1",
+          "predicted_screen_type": "trip_detail",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L1_006",
+          "layout": "L1",
+          "predicted_screen_type": "trip_detail",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L1_007",
+          "layout": "L1",
+          "predicted_screen_type": "trip_detail",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L1_008",
+          "layout": "L1",
+          "predicted_screen_type": "trip_detail",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L1_009",
+          "layout": "L1",
+          "predicted_screen_type": "trip_detail",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L1_010",
+          "layout": "L1",
+          "predicted_screen_type": "trip_detail",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L3_001",
+          "layout": "L3",
+          "predicted_screen_type": "payout_summary",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L3_002",
+          "layout": "L3",
+          "predicted_screen_type": "payout_summary",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L3_003",
+          "layout": "L3",
+          "predicted_screen_type": "payout_summary",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L3_004",
+          "layout": "L3",
+          "predicted_screen_type": "payout_summary",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L3_005",
+          "layout": "L3",
+          "predicted_screen_type": "payout_summary",
+          "needs_review": true,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L3_006",
+          "layout": "L3",
+          "predicted_screen_type": "payout_summary",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": true
+        },
+        {
+          "name": "L3_007",
+          "layout": "L3",
+          "predicted_screen_type": "payout_summary",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": false
+        },
+        {
+          "name": "N1_001",
+          "layout": "N1",
+          "predicted_screen_type": "order_offer",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": false
+        },
+        {
+          "name": "N1_002",
+          "layout": "N1",
+          "predicted_screen_type": "order_offer",
+          "needs_review": true,
+          "calls_made": 1,
+          "from_cache": false
+        },
+        {
+          "name": "N1_003",
+          "layout": "N1",
+          "predicted_screen_type": "order_offer",
+          "needs_review": false,
+          "calls_made": 1,
+          "from_cache": false
+        }
+      ]
+    },
+    "gemini-3.8-flash": {
+      "field_accuracy_overall": {
+        "accuracy": 0.0,
+        "correct": 0,
+        "total": 48
+      },
+      "field_accuracy_by_layout": {
+        "L1": {
+          "accuracy": 0.0,
+          "correct": 0,
+          "total": 41
+        },
+        "L3": {
+          "accuracy": 0.0,
+          "correct": 0,
+          "total": 7
+        }
+      },
+      "n1_rejection_rate": 0.0,
+      "avg_prompt_tokens": 0.0,
+      "avg_output_tokens": 0.0,
+      "avg_thinking_tokens": 0.0,
+      "images_completed": 20,
+      "new_calls_made_this_run": 20,
+      "estimated_cost_usd_this_run": 0.0,
+      "per_image": [
+        {
+          "name": "L1_001",
+          "layout": "L1",
+          "predicted_screen_type": "other",
+          "needs_review": true,
+          "calls_made": 1,
+          "from_cache": false
+        },
+        {
+          "name": "L1_002",
+          "layout": "L1",
+          "predicted_screen_type": "other",
+          "needs_review": true,
+          "calls_made": 1,
+          "from_cache": false
+        },
+        {
+          "name": "L1_003",
+          "layout": "L1",
+          "predicted_screen_type": "other",
+          "needs_review": true,
+          "calls_made": 1,
+          "from_cache": false
+        },
+        {
+          "name": "L1_004",
+          "layout": "L1",
+          "predicted_screen_type": "other",
+          "needs_review": true,
+          "calls_made": 1,
+          "from_cache": false
+        },
+        {
+          "name": "L1_005",
+          "layout": "L1",
+          "predicted_screen_type": "other",
+          "needs_review": true,
+          "calls_made": 1,
+          "from_cache": false
+        },
+        {
+          "name": "L1_006",
+          "layout": "L1",
+          "predicted_screen_type": "other",
+          "needs_review": true,
+          "calls_made": 1,
+          "from_cache": false
+        },
+        {
+          "name": "L1_007",
+          "layout": "L1",
+          "predicted_screen_type": "other",
+          "needs_review": true,
+          "calls_made": 1,
+          "from_cache": false
+        },
+        {
+          "name": "L1_008",
+          "layout": "L1",
+          "predicted_screen_type": "other",
+          "needs_review": true,
+          "calls_made": 1,
+          "from_cache": false
+        },
+        {
+          "name": "L1_009",
+          "layout": "L1",
+          "predicted_screen_type": "other",
+          "needs_review": true,
+          "calls_made": 1,
+          "from_cache": false
+        },
+        {
+          "name": "L1_010",
+          "layout": "L1",
+          "predicted_screen_type": "other",
+          "needs_review": true,
+          "calls_made": 1,
+          "from_cache": false
+        },
+        {
+          "name": "L3_001",
+          "layout": "L3",
+          "predicted_screen_type": "other",
+          "needs_review": true,
+          "calls_made": 1,
+          "from_cache": false
+        },
+        {
+          "name": "L3_002",
+          "layout": "L3",
+          "predicted_screen_type": "other",
+          "needs_review": true,
+          "calls_made": 1,
+          "from_cache": false
+        },
+        {
+          "name": "L3_003",
+          "layout": "L3",
+          "predicted_screen_type": "other",
+          "needs_review": true,
+          "calls_made": 1,
+          "from_cache": false
+        },
+        {
+          "name": "L3_004",
+          "layout": "L3",
+          "predicted_screen_type": "other",
+          "needs_review": true,
+          "calls_made": 1,
+          "from_cache": false
+        },
+        {
+          "name": "L3_005",
+          "layout": "L3",
+          "predicted_screen_type": "other",
+          "needs_review": true,
+          "calls_made": 1,
+          "from_cache": false
+        },
+        {
+          "name": "L3_006",
+          "layout": "L3",
+          "predicted_screen_type": "other",
+          "needs_review": true,
+          "calls_made": 1,
+          "from_cache": false
+        },
+        {
+          "name": "L3_007",
+          "layout": "L3",
+          "predicted_screen_type": "other",
+          "needs_review": true,
+          "calls_made": 1,
+          "from_cache": false
+        },
+        {
+          "name": "N1_001",
+          "layout": "N1",
+          "predicted_screen_type": "other",
+          "needs_review": true,
+          "calls_made": 1,
+          "from_cache": false
+        },
+        {
+          "name": "N1_002",
+          "layout": "N1",
+          "predicted_screen_type": "other",
+          "needs_review": true,
+          "calls_made": 1,
+          "from_cache": false
+        },
+        {
+          "name": "N1_003",
+          "layout": "N1",
+          "predicted_screen_type": "other",
+          "needs_review": true,
+          "calls_made": 1,
+          "from_cache": false
+        }
+      ]
+    }
+  },
+  "stopped_early": null,
+  "calls_completed_overall": 24
+}

@@ -62,9 +62,29 @@ Owner still needs to: confirm Firebase Authentication (Anonymous + Google) is en
 ### Security note (resolved)
 - Earlier in Phase 1, a live `GEMINI_API_KEY` value briefly appeared in tracked `.env.example`. Owner removed it and confirmed the key would be rotated. Re-confirm rotation before Phase 2 step B, since step B is the first step that actually calls Gemini.
 
-### Next — waiting for owner
-- **Do NOT run Phase 2 step B (extraction) yet.** Waiting for the owner to confirm the new `GEMINI_API_KEY` is in `.env` and to say "go".
-- Also waiting on, from Phase 1 (deploy still pending): owner fills `frontend/firebase-config.js`; confirms Firebase Authentication (Anonymous + Google) enabled; creates a billing budget alert; notes free-trial expiry if applicable; then approves the deploy commands above.
+## Phase 2 step B: extraction and model selection — in progress (Wed 7 Oct)
+
+### Done
+- `extraction/prompt.py` (REQUIREMENTS.md section 6 rules), `extraction/image_prep.py` (resize/JPEG/strip metadata, in memory only), `extraction/extract.py` (one call + at most one retry on invalid JSON only, then `needs_review=true`; a 429/quota error raises `RateLimitError` instead of being retried or swallowed).
+- Checked current docs for all three candidate models: pricing confirmed exactly as the owner's unverified figures (`gemini-3.1-flash-lite` $0.25/$1.50 per 1M in/out, `gemini-3.5-flash-lite` $0.30/$2.50, `gemini-3.8-flash` $0.75/$3.75 through 31 Dec 2026, thinking billed as output on all three). `gemini-3.5-flash-lite` ignores custom temperature (not set there); `gemini-3.8-flash` rejects `thinking_level=MINIMAL` (uses `LOW` instead); the other two use `MINIMAL`.
+- `tests/test_extraction.py`: 14 tests, all mocked, no network (schema validation, image prep, per-model config, success/retry/fallback, no-retry-on-network-error, no-retry-on-rate-limit). `pytest -q` now **16 passed** (was 2).
+- `eval/model_selection.py`: cost-gated (`--dry-run` / `--go`), resumable (skips and reuses any image already saved under `eval/results/<model>/`, so a stop never wastes a completed call), paces calls at 4.5s apart (~13/min, under the observed 15 RPM free-tier limit), stops immediately on the first rate-limit/billing error with no retry loop.
+
+### Model selection run (AI Studio free tier, GEMINI_BACKEND=aistudio, 20 simulated images: 10 L1, 7 L3, 3 N1)
+- **Run 1** (old key): stopped at the very first call — HTTP 402, "prepayment credits are depleted" on that AI Studio project. 0 calls made, $0 spent.
+- **Run 2** (new free-tier key): completed 20/20 for `gemini-3.1-flash-lite`, then stopped at call 17 of `gemini-3.5-flash-lite` — HTTP 429, free-tier quota is 15 requests/minute/model for that model. 36 calls completed, $0 spent (free tier).
+- **Run 3** (resumed, skipped the 36 already-cached calls, 4.5s pacing): completed the remaining 4 images for `gemini-3.5-flash-lite` (20/20) and attempted all 20 for `gemini-3.8-flash` — **every one of the 20 `gemini-3.8-flash` calls failed** (ReadTimeout / ServerError), so it was not retried further (no blind retry loop) and could not be evaluated this session.
+- Results: `gemini-3.1-flash-lite` 91.7% field accuracy headline (44/48), but tracing the one wrong image showed it was a dropped call (0 tokens, immediate fallback, not a misread) — genuine accuracy on answered calls was 100% (44/44). `gemini-3.5-flash-lite`: 100% (48/48), 20/20 calls clean. Both: 100% N1 (order-offer) rejection rate (3/3). Avg tokens: 3.1-flash-lite 1360.4 in / 185.7 out / 0.0 thinking (~$0.0006/call); 3.5-flash-lite 1432.0 in / 213.2 out / 0.0 thinking (~$0.001/call). Thinking tokens are 0 for both, confirming `thinking_level=MINIMAL` works.
+- Full data: `eval/model_selection_results.json` (summary) and `eval/results/<model>/<image>.json` (every individual call: parsed prediction + token counts, no images, no keys).
+
+### Decision
+- **`EXTRACTION_MODEL=gemini-3.1-flash-lite`** (owner's choice, 7 Oct 2026): cheapest of the two working candidates, and once the one dropped call is excluded it is exactly as accurate as `gemini-3.5-flash-lite`. `.env.example` updated.
+- Cascade (cheap model, retry with a stronger model only on schema/reconciliation failure): **not built**. At ~100% accuracy in this sample there is nothing for a cascade to catch yet; revisit after the Phase 6 full 40-image evaluation if real accuracy turns out lower on noisier/real-world images.
+- `gemini-3.8-flash` is set aside, unevaluated, for now: it is also the most expensive of the three, so even a successful evaluation would be unlikely to change the recommendation.
+
+### Next
+- Remaining Phase 2 step B items (not yet built): `POST /api/extract` endpoint (multipart, token required, size/type limits, timeout handling), usage limits as atomic Firestore counters, caching extraction results by image hash, `eval/run_extraction_eval.py` against the full 30-image set with `gemini-3.1-flash-lite` (its own cost gate — wait for "go" before running), writing `eval/RESULTS.md`.
+- Still pending from Phase 1 (deploy not yet run): owner fills `frontend/firebase-config.js`; confirms Firebase Authentication (Anonymous + Google) enabled; creates a billing budget alert; notes free-trial expiry if applicable; then approves the deploy commands in this file.
 
 ### Resume commands (PowerShell)
 ```powershell

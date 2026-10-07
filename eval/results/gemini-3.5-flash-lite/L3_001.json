@@ -1,0 +1,47 @@
+{
+  "name": "L3_001",
+  "layout": "L3",
+  "model": "gemini-3.5-flash-lite",
+  "predicted": {
+    "platform_label": "TownHop",
+    "currency": "\u20b9",
+    "language_detected": "en",
+    "screen_type": "payout_summary",
+    "trips": [],
+    "payout_summary": {
+      "period_label": "20 Sep - 26 Sep",
+      "period_start": null,
+      "period_end": null,
+      "lines": [
+        {
+          "label": "Peak hour bonus",
+          "amount": 3252.03
+        },
+        {
+          "label": "Daily incentive",
+          "amount": 3118.28
+        },
+        {
+          "label": "Order earnings",
+          "amount": 5544.33
+        }
+      ],
+      "deductions": [
+        {
+          "label": "Platform charges",
+          "amount": 342.4
+        }
+      ],
+      "total_credited": 11572.24,
+      "credited_on": "2026-09-27",
+      "low_confidence_fields": []
+    },
+    "needs_review": false,
+    "notes": null
+  },
+  "needs_review": false,
+  "calls_made": 1,
+  "prompt_tokens": 1432,
+  "output_tokens": 282,
+  "thinking_tokens": 0
+}

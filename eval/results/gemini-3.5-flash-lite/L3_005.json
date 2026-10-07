@@ -1,0 +1,40 @@
+{
+  "name": "L3_005",
+  "layout": "L3",
+  "model": "gemini-3.5-flash-lite",
+  "predicted": {
+    "platform_label": null,
+    "currency": "\u20b9",
+    "language_detected": "en",
+    "screen_type": "payout_summary",
+    "trips": [],
+    "payout_summary": {
+      "period_label": null,
+      "period_start": null,
+      "period_end": null,
+      "lines": [
+        {
+          "label": "Peak hour bonus",
+          "amount": 8520.31
+        },
+        {
+          "label": "Order earnings",
+          "amount": 3453.93
+        }
+      ],
+      "deductions": [],
+      "total_credited": 11974.24,
+      "credited_on": "2026-10-04",
+      "low_confidence_fields": [
+        "period_label"
+      ]
+    },
+    "needs_review": true,
+    "notes": null
+  },
+  "needs_review": true,
+  "calls_made": 1,
+  "prompt_tokens": 1432,
+  "output_tokens": 234,
+  "thinking_tokens": 0
+}
