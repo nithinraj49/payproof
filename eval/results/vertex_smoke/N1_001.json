@@ -1,0 +1,18 @@
+{
+  "name": "N1_001",
+  "backend": "vertex",
+  "model": "gemini-3.1-flash-lite",
+  "predicted": {
+    "platform_label": null,
+    "currency": "INR",
+    "language_detected": "en",
+    "screen_type": "order_offer",
+    "trips": [],
+    "payout_summary": null,
+    "needs_review": false,
+    "notes": "This is an order offer screen showing an expected earning, not a confirmed payout."
+  },
+  "prompt_tokens": 2433,
+  "output_tokens": 90,
+  "thinking_tokens": 0
+}

@@ -1,0 +1,32 @@
+{
+  "name": "L1_001",
+  "backend": "vertex",
+  "model": "gemini-3.1-flash-lite",
+  "predicted": {
+    "platform_label": "QuickDash",
+    "currency": "INR",
+    "language_detected": "en",
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": "2026-09-28",
+        "order_id": "ORD-11504",
+        "order_type": "Food delivery",
+        "base_pay": 136.65,
+        "incentive": null,
+        "tip": null,
+        "deductions": [],
+        "total_payout": 136.65,
+        "distance_km": 9.5,
+        "duration_min": 31.0,
+        "low_confidence_fields": []
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": false,
+    "notes": null
+  },
+  "prompt_tokens": 2433,
+  "output_tokens": 211,
+  "thinking_tokens": 0
+}
