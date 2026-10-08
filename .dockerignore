@@ -1,0 +1,21 @@
+# Defense in depth alongside .gcloudignore and the Dockerfile's explicit COPY
+# list (requirements.txt, backend/, extraction/ only) — this way even a future
+# accidental "COPY . ." could not pull in secrets or unrelated files.
+.git
+.env
+.env.example
+.claude
+frontend
+tests
+eval
+docs
+*.md
+LICENSE
+PayProof_Roadmap_Tracker.xlsx
+.pytest_cache
+__pycache__
+*.pyc
+*serviceAccount*.json
+*service-account*.json
+*-key.json
+credentials.json

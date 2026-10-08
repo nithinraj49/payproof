@@ -1,0 +1,19 @@
+#!include:.gitignore
+
+# Only backend/, extraction/, requirements.txt and Dockerfile are needed to
+# build and run the Cloud Run service. Everything else below is excluded from
+# the Cloud Build upload entirely (smaller, faster, and nothing sensitive or
+# irrelevant ever leaves this machine for the build).
+.git/
+.gcloudignore
+.claude/
+frontend/
+tests/
+eval/
+docs/
+*.md
+LICENSE
+PayProof_Roadmap_Tracker.xlsx
+.pytest_cache/
+__pycache__/
+*.pyc
