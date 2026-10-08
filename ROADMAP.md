@@ -145,6 +145,8 @@ Commit after each item. Stop and show me the accuracy table and your recommendat
 
 **Goal:** exact, tested formulas for trip and weekly modes; every number the app shows comes from here. No LLM call in `engine/`. Skill: `phase-check`.
 
+**Reminder (added 8 Oct 2026, from the Phase 1/2 deploy review):** when `engine/` is added, the Dockerfile must also get `COPY engine/ engine/`. A missing `COPY extraction/ extraction/` nearly shipped a broken container in Phase 2 — `backend/main.py` imported from `extraction/` but the Dockerfile only copied `backend/`, which would have crashed on startup with `ModuleNotFoundError`. Check every `backend/*.py` import against the Dockerfile's `COPY` list before every deploy, not just the first one.
+
 ```
 Read CLAUDE.md and REQUIREMENTS.md sections 4.2, 5 and 10, and ROADMAP.md Solo overrides. Do Phase 3 only. No LLM or network call anywhere in engine/.
 1. engine/models.py and engine/earnings.py: trip mode and weekly mode with the exact definitions in sections 5.1 and 5.2. Return None, never zero, for zero denominators or missing data; include data_quality notes; reject negative inputs.

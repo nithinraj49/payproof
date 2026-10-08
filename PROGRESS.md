@@ -23,7 +23,8 @@
 - `VERTEX_LOCATION=global` (see above) instead of `asia-south1`.
 
 - Frontend skeleton: `frontend/index.html` (anonymous sign-in via Firebase modular JS SDK v12.19.0 from CDN, no build step, calls `/api/whoami`), `frontend/firebase-config.js` (placeholder, with instructions on where to copy the non-secret web config from).
-- `firebase.json` (Hosting serves `frontend/`, rewrites `/api/**` to Cloud Run service `payproof` in `asia-south1` before the SPA catch-all), `firestore.rules` (a user may read/write only `users/{uid}/**`), `firestore.indexes.json`, `.firebaserc` (default project `payproof-nithin-2026`).
+- `firebase.json` (Hosting serves `frontend/`, rewrites `/api/**` to Cloud Run service `payproof` in `asia-south1` before the SPA catch-all), `firestore.rules`, `firestore.indexes.json`, `.firebaserc` (default project `payproof-nithin-2026`).
+- `firestore.rules` **tightened on 8 Oct 2026** (during deploy review): the original per-user rule (`users/{uid}/{document=**}` readable/writable by that uid) let a signed-in user tamper with their own `users/{uid}/usage/{day}` counters directly via the client SDK, defeating the rate limit. Since the frontend never uses the Firestore client SDK (only Auth; all data goes through the backend's REST API via the Admin SDK, which ignores these rules), the fix is a single `match /{document=**} { allow read, write: if false; }` — no client can read or write anything directly, including usage counters and the (not yet built) shared sample-extraction cache.
 - `phase-check` run: 2/2 tests pass; no uncommitted work in Phase 1 files; secrets scan of tracked files clean; `.env` confirmed gitignored.
 
 ### Next
@@ -120,6 +121,13 @@ Owner still needs to: confirm Firebase Authentication (Anonymous + Google) is en
 - REQUIREMENTS.md sections 6 and 19 updated (7 Oct 2026) with: a 429 means the request wasn't processed, handle with at most 2 short randomised pauses separate from the schema retry, then a friendly busy message; sample-image results are cached so repeat visitors cost zero Gemini calls.
 - Still pending from Phase 1 (deploy not yet run): owner fills `frontend/firebase-config.js`; confirms Firebase Authentication (Anonymous + Google) enabled; creates a billing budget alert; notes free-trial expiry if applicable; then approves the deploy commands in this file.
 - Firestore usage-limit counters still need verification against real Firestore (see gap above).
+
+### Deploy review (8 Oct 2026) — found and fixed before approving anything
+- **Dockerfile was missing `COPY extraction/ extraction/`**: `backend/main.py` and `backend/extraction_cache.py` both import from `extraction.*`; the deployed container would have crashed on startup with `ModuleNotFoundError`. Fixed. **When `engine/` is added in Phase 3, it needs the same `COPY engine/ engine/` — check every `backend/*.py` import against the Dockerfile's `COPY` list before every deploy, not just the first one** (also noted in ROADMAP.md's Phase 3 section).
+- No `.gcloudignore` existed: created one (includes `.gitignore`'s patterns via `#!include:.gitignore`, plus excludes `frontend/`, `tests/`, `eval/`, docs, the `.xlsx` tracker — none of it is needed to build the Cloud Run image). Added `.dockerignore` too, as defense in depth.
+- IAM: owner created a dedicated service account `payproof-run@payproof-nithin-2026.iam.gserviceaccount.com` with only `roles/aiplatform.user` and `roles/datastore.user` (replacing reliance on the default compute service account's overly broad `roles/editor`), per REQUIREMENTS.md section 11's least-privilege requirement.
+- `firestore.rules` tightened (see Phase 1 section above): a per-user rule would have let a client reset their own usage counters; replaced with a single deny-all rule, since the frontend never uses the Firestore client SDK.
+- `EXPLAIN_MODEL` set to `gemini-3.1-flash-lite` on Cloud Run, matching the owner's `.env` and the `EXTRACTION_MODEL` decision (not yet exercised by any Phase 4 code).
 
 ### Resume commands (PowerShell)
 ```powershell

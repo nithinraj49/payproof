@@ -2,12 +2,15 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // A user may read and write only documents under their own uid
-    // (REQUIREMENTS.md section 4.2 and 11). The backend verifies the
-    // Firebase ID token separately; these rules are the second line of
-    // defence for any direct client access.
-    match /users/{uid}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+    // Every PayProof read and write goes through the backend's Firebase Admin
+    // SDK, which is not subject to these rules. No client — the frontend, a
+    // mobile app, or anyone else who grabs the public Firebase web config and
+    // writes their own script — may read or write anything directly. This
+    // also means a signed-in user cannot tamper with their own usage
+    // counters (users/{uid}/usage/{day}) or touch the shared
+    // sample-extraction cache: nothing is reachable from a client, period.
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
