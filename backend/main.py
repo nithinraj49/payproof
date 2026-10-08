@@ -16,6 +16,11 @@ logger = logging.getLogger("payproof.api")
 
 ALLOWED_CONTENT_TYPES = {"image/png", "image/jpeg", "image/webp"}
 
+# Calling this at import time (not just inside each request handler) means an
+# invalid Cloud Run configuration raises before uvicorn finishes starting, so
+# the container never comes up and never receives traffic.
+get_settings()
+
 app = FastAPI(title="PayProof API")
 app.add_exception_handler(ApiError, api_error_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)

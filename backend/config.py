@@ -41,8 +41,36 @@ class Settings:
     limit_global_gemini_calls_per_day: int
 
 
+def _running_on_cloud_run() -> bool:
+    # Cloud Run sets K_SERVICE automatically on every revision; nothing else
+    # does, so its presence is a reliable "we are deployed" signal.
+    return bool(os.environ.get("K_SERVICE"))
+
+
+def _validate_for_cloud_run(settings: "Settings") -> None:
+    """On Cloud Run, refuse to start with a configuration that would silently
+    fall back to the aistudio backend (empty GEMINI_API_KEY there) instead of
+    Vertex AI (REQUIREMENTS.md section 0: the deployed app must use Vertex
+    AI). Local/dev runs (no K_SERVICE) keep the aistudio default untouched.
+    The error message never includes any secret or key value.
+    """
+    if not _running_on_cloud_run():
+        return
+    problems = []
+    if settings.gemini_backend != "vertex":
+        problems.append(f'GEMINI_BACKEND must be "vertex" on Cloud Run (got {settings.gemini_backend!r})')
+    if not settings.project_id:
+        problems.append("PROJECT_ID must be set")
+    if not settings.vertex_location:
+        problems.append("VERTEX_LOCATION must be set")
+    if problems:
+        raise RuntimeError(
+            "Refusing to start on Cloud Run with an invalid configuration: " + "; ".join(problems)
+        )
+
+
 def get_settings() -> Settings:
-    return Settings(
+    settings = Settings(
         project_id=_env_str("PROJECT_ID", "payproof-nithin-2026"),
         region=_env_str("REGION", "asia-south1"),
         vertex_location=_env_str("VERTEX_LOCATION", "global"),
@@ -60,3 +88,5 @@ def get_settings() -> Settings:
         limit_questions_per_user_per_day=_env_int("LIMIT_QUESTIONS_PER_USER_PER_DAY", 25),
         limit_global_gemini_calls_per_day=_env_int("LIMIT_GLOBAL_GEMINI_CALLS_PER_DAY", 400),
     )
+    _validate_for_cloud_run(settings)
+    return settings

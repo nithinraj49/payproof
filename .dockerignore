@@ -8,6 +8,7 @@
 frontend
 tests
 eval
+deploy
 docs
 *.md
 LICENSE
