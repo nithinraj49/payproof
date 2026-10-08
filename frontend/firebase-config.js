@@ -6,8 +6,10 @@
 // -> gear icon / Project settings -> General tab -> "Your apps" -> the web app
 // (create one with </> if none exists yet) -> SDK setup and configuration -> Config.
 export const firebaseConfig = {
-  apiKey: "REPLACE_ME",
-  authDomain: "REPLACE_ME",
+  apiKey: "AIzaSyC6skFEw37plFW_BxLK240i85_ZwmgZ2Is",
+  authDomain: "payproof-nithin-2026.firebaseapp.com",
   projectId: "payproof-nithin-2026",
-  appId: "REPLACE_ME",
+  storageBucket: "payproof-nithin-2026.firebasestorage.app",
+  messagingSenderId: "1065840687031",
+  appId: "1:1065840687031:web:48bd30d37b9680113f9a32",
 };

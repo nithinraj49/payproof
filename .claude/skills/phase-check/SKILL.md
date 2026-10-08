@@ -12,7 +12,7 @@ Report facts only. If you cannot check something, write "cannot check" instead o
 1. Read `ROADMAP.md` and find the current phase. If unclear, ask once.
 2. Run `pytest -q`. Report passed and failed counts and name any failing test.
 3. Run `git status` and `git diff --stat`. Flag uncommitted work and very large changes.
-4. Secrets scan of tracked and staged files: private keys, service-account JSON, `.env` files, API-key-like strings (for example text starting with `AIza`). Confirm `.env` is in `.gitignore`.
+4. Secrets scan of tracked and staged files: private keys, service-account JSON, `.env` files, API-key-like strings (for example text starting with `AIza`). Confirm `.env` is in `.gitignore`. Exclude `frontend/firebase-config.js` from this scan: it intentionally holds the public Firebase web config (including an `AIza...` key), which is not a secret (REQUIREMENTS.md section 11) — scan everything else as normal.
 5. Check the Hard rules in `CLAUDE.md`:
    - no LLM or network call anywhere in `engine/`
    - uploaded images are never written to disk, storage or logs
