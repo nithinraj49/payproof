@@ -3,8 +3,10 @@
 Exactly one call per screenshot, plus at most one retry on invalid output,
 then needs_review=True (REQUIREMENTS.md sections 6 and 19). Structured JSON
 output against ExtractionResult. Gemini never does arithmetic: this module
-only ever returns what the model copied off the screen.
+only ever returns what the model copied off the screen, then applies
+deterministic, code-only safeguards (no extra Gemini calls) below.
 """
+import datetime
 import logging
 from dataclasses import dataclass
 from typing import Optional
@@ -19,6 +21,88 @@ from extraction.prompt import SYSTEM_PROMPT
 from extraction.schema import ExtractionResult
 
 logger = logging.getLogger("payproof.extraction")
+
+# --- Deterministic post-processing safeguards (plain code, no Gemini call) ---
+# Found necessary after the Phase 2 hard-tier evaluation: the model sometimes
+# flags a field as low-confidence (or the reconciliation implies it should be)
+# but still returns a guessed, wrong value instead of null.
+RECONCILIATION_TOLERANCE = 0.5
+PLAUSIBLE_DATE_MIN = datetime.date(2020, 1, 1)
+TRIP_MONEY_FIELDS = ["base_pay", "incentive", "tip", "total_payout"]
+
+
+def _is_plausible_date(date_str: Optional[str]) -> bool:
+    if not date_str:
+        return False
+    try:
+        d = datetime.date.fromisoformat(date_str)
+    except ValueError:
+        return False
+    return PLAUSIBLE_DATE_MIN <= d <= datetime.date.today()
+
+
+def _safeguard_trip(trip: dict) -> dict:
+    low_confidence = set(trip.get("low_confidence_fields") or [])
+
+    # (b) reconciliation, computed from the values as the model returned them,
+    # before any nulling: if it doesn't add up, the money fields are suspect
+    # even if the model didn't say so itself.
+    if trip.get("total_payout") is not None:
+        parts = (
+            (trip.get("base_pay") or 0)
+            + (trip.get("incentive") or 0)
+            + (trip.get("tip") or 0)
+            - sum(d["amount"] for d in trip.get("deductions") or [])
+        )
+        if abs(parts - trip["total_payout"]) > RECONCILIATION_TOLERANCE:
+            low_confidence.update(TRIP_MONEY_FIELDS)
+
+    # (a) any field named low-confidence (originally, or just added by the
+    # reconciliation check above) becomes null.
+    for field in low_confidence:
+        if trip.get(field) is not None:
+            trip[field] = None
+    trip["low_confidence_fields"] = sorted(low_confidence)
+
+    # (c) an implausible date becomes null.
+    if trip.get("trip_date") is not None and not _is_plausible_date(trip["trip_date"]):
+        trip["trip_date"] = None
+
+    # (d) zero or negative distance/duration becomes null (not a real trip value).
+    # Note: extraction/schema.py already enforces ge=0 on both fields, so a
+    # genuinely negative value can never reach here (it fails schema validation
+    # first, triggering the one allowed retry). Zero is schema-valid but still
+    # not a plausible real trip, so it's handled here.
+    if trip.get("distance_km") is not None and trip["distance_km"] <= 0:
+        trip["distance_km"] = None
+    if trip.get("duration_min") is not None and trip["duration_min"] <= 0:
+        trip["duration_min"] = None
+
+    return trip
+
+
+def apply_deterministic_safeguards(result: ExtractionResult) -> ExtractionResult:
+    """Runs rules (a)-(d) on every trip in the result. Scoped to Trip fields only
+    (base_pay/incentive/tip/deductions/total_payout, trip_date, distance_km,
+    duration_min) — PayoutSummary has no equivalent distance/duration fields
+    and a different reconciliation formula, so it is left untouched here.
+    Sets needs_review=True on the overall result whenever any field actually
+    changed (was non-null and became null), even if the model hadn't already
+    flagged it.
+    """
+    data = result.model_dump()
+    changed = False
+
+    for trip in data["trips"]:
+        before = dict(trip)
+        _safeguard_trip(trip)
+        if any(trip.get(f) != before.get(f) for f in TRIP_MONEY_FIELDS + ["trip_date", "distance_km", "duration_min"]):
+            changed = True
+
+    if changed:
+        data["needs_review"] = True
+
+    return ExtractionResult.model_validate(data)
 
 
 class RateLimitError(RuntimeError):
@@ -122,6 +206,7 @@ def extract_screenshot(client: genai.Client, settings: Settings, model: str, jpe
 
         try:
             result = ExtractionResult.model_validate_json(response.text)
+            result = apply_deterministic_safeguards(result)
             return ExtractionCallResult(
                 result=result,
                 calls_made=attempt + 1,
