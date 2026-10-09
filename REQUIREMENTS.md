@@ -241,7 +241,7 @@ Plain HTML, CSS and vanilla JavaScript in `frontend/`, mobile-first, minimal. No
 |---|---|
 | FE-1 | First screen: one sentence on what PayProof does, **"Try with sample screenshots"** and "Upload my screenshots". Sign-in is automatic (anonymous); the judge never creates an account |
 | FE-2 | Sample mode loads curated simulated screenshots from `frontend/samples/` (trip, weekly, an order offer to show rejection) and runs the real flow end to end |
-| FE-3 | After extraction, show a table matching the screen type: trips table or weekly table. Highlight low-confidence cells in yellow. Rows can be edited, added and deleted. Nothing is calculated until the user confirms |
+| FE-3 | After extraction, show a table matching the screen type: trips table or weekly table. Highlight low-confidence cells in yellow. Rows can be edited, added and deleted. Nothing is calculated until the user confirms. Show the worker's own uploaded screenshot (a client-side preview, generated in the browser from the file the worker just chose, never uploaded or stored anywhere) next to the extracted table, with the text "Check these numbers against your screenshot" — the final guard against a confident wrong number, added 9 Oct 2026 after the hard-tier evaluation found the model sometimes returns a wrong value instead of null even when flagged for review |
 | FE-4 | Rejected screens (order offer, other) show a clear message explaining why, with no table |
 | FE-5 | Weekly mode asks for km driven and hours online for that week; trip mode asks for optional hours online |
 | FE-6 | Costs screen: fuel per km, maintenance per km, optional fixed daily cost, with a short "why we ask" line |
