@@ -7,6 +7,7 @@ only ever returns what the model copied off the screen, then applies
 deterministic, code-only safeguards (no extra Gemini calls) below.
 """
 import datetime
+import json as jsonlib
 import logging
 from dataclasses import dataclass
 from typing import Optional
@@ -28,6 +29,80 @@ logger = logging.getLogger("payproof.extraction")
 # but still returns a guessed, wrong value instead of null.
 RECONCILIATION_TOLERANCE = 0.5
 PLAUSIBLE_DATE_MIN = datetime.date(2020, 1, 1)
+
+# --- low_confidence_fields label normalizer ---
+# extraction/schema.py now constrains low_confidence_fields to a Literal of the
+# real field names, so a compliant Gemini response_schema call can no longer
+# emit a label like "Base pay". This normalizer is a backstop: for any output
+# produced before that change, or from a model that doesn't fully comply, it
+# maps common human labels to the real field name, and treats anything it
+# can't recognize as a reason to distrust the whole record.
+TRIP_VALID_FIELDS = {
+    "trip_date", "order_id", "order_type", "base_pay", "incentive", "tip",
+    "total_payout", "distance_km", "duration_min",
+}
+TRIP_LABEL_ALIASES = {
+    "date": "trip_date", "trip date": "trip_date",
+    "order id": "order_id", "order": "order_id",
+    "order type": "order_type", "type": "order_type",
+    "base pay": "base_pay", "base": "base_pay",
+    "incentive": "incentive",
+    "tip": "tip",
+    "total payout": "total_payout", "total": "total_payout", "payout": "total_payout",
+    "distance": "distance_km", "distance km": "distance_km", "km": "distance_km",
+    "duration": "duration_min", "minutes": "duration_min", "duration min": "duration_min",
+}
+PAYOUT_VALID_FIELDS = {"period_label", "period_start", "period_end", "total_credited", "credited_on"}
+PAYOUT_LABEL_ALIASES = {
+    "period label": "period_label", "period": "period_label",
+    "period start": "period_start", "start": "period_start",
+    "period end": "period_end", "end": "period_end",
+    "total credited": "total_credited", "total": "total_credited", "credited": "total_credited",
+    "credited on": "credited_on", "date": "credited_on",
+}
+
+
+def _normalize_labels(low_confidence_fields, valid_fields: set, aliases: dict) -> tuple:
+    """Returns (normalized_sorted_list, any_unrecognized)."""
+    normalized = set()
+    unrecognized = False
+    for label in low_confidence_fields or []:
+        key = str(label).strip().lower()
+        if key in valid_fields:
+            normalized.add(key)
+        elif key in aliases:
+            normalized.add(aliases[key])
+        else:
+            unrecognized = True
+    return sorted(normalized), unrecognized
+
+
+def normalize_low_confidence_labels(data: dict) -> dict:
+    """Operates on the raw parsed-JSON dict, before Pydantic validation (a
+    non-canonical label would otherwise fail the Literal-constrained schema
+    outright). Any unrecognized label is treated conservatively: every money
+    field on that record is added to low_confidence_fields (apply_deterministic_
+    safeguards then nulls them) and needs_review is forced true.
+    """
+    forced_review = False
+    for trip in data.get("trips") or []:
+        normalized, unrecognized = _normalize_labels(trip.get("low_confidence_fields"), TRIP_VALID_FIELDS, TRIP_LABEL_ALIASES)
+        if unrecognized:
+            normalized = sorted(set(normalized) | set(TRIP_MONEY_FIELDS))
+            forced_review = True
+        trip["low_confidence_fields"] = normalized
+
+    summary = data.get("payout_summary")
+    if summary:
+        normalized, unrecognized = _normalize_labels(summary.get("low_confidence_fields"), PAYOUT_VALID_FIELDS, PAYOUT_LABEL_ALIASES)
+        if unrecognized:
+            normalized = sorted(set(normalized) | {"total_credited"})
+            forced_review = True
+        summary["low_confidence_fields"] = normalized
+
+    if forced_review:
+        data["needs_review"] = True
+    return data
 TRIP_MONEY_FIELDS = ["base_pay", "incentive", "tip", "total_payout"]
 
 
@@ -205,7 +280,9 @@ def extract_screenshot(client: genai.Client, settings: Settings, model: str, jpe
         total_thinking_tokens += thinking_tokens
 
         try:
-            result = ExtractionResult.model_validate_json(response.text)
+            raw_data = jsonlib.loads(response.text)
+            raw_data = normalize_low_confidence_labels(raw_data)
+            result = ExtractionResult.model_validate(raw_data)
             result = apply_deterministic_safeguards(result)
             return ExtractionCallResult(
                 result=result,

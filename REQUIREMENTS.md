@@ -76,6 +76,14 @@ from pydantic import BaseModel, Field
 
 ScreenType = Literal["trip_detail", "trip_list", "payout_summary", "order_offer", "other"]
 
+# Constrained to the real field names (added 9 Oct 2026, Phase 2 hard-tier
+# evaluation): the model sometimes wrote a human label ("Base pay") here
+# instead of the field name. response_schema enforcement now makes that
+# impossible; extraction/extract.py also normalizes any legacy/non-compliant
+# label as a backstop.
+TripField = Literal["trip_date", "order_id", "order_type", "base_pay", "incentive", "tip", "total_payout", "distance_km", "duration_min"]
+PayoutField = Literal["period_label", "period_start", "period_end", "total_credited", "credited_on"]
+
 class Deduction(BaseModel):
     label: str = Field(description="Deduction name exactly as shown")
     amount: float = Field(ge=0, description="Positive number")
@@ -91,7 +99,7 @@ class Trip(BaseModel):
     total_payout: Optional[float] = Field(None, ge=0)
     distance_km: Optional[float] = Field(None, ge=0)
     duration_min: Optional[float] = Field(None, ge=0)
-    low_confidence_fields: List[str] = []
+    low_confidence_fields: List[TripField] = []
 
 class PayoutLine(BaseModel):
     label: str = Field(description="Earning or incentive name exactly as shown")
@@ -105,7 +113,7 @@ class PayoutSummary(BaseModel):
     deductions: List[Deduction] = []
     total_credited: Optional[float] = Field(None, ge=0)
     credited_on: Optional[str] = None
-    low_confidence_fields: List[str] = []
+    low_confidence_fields: List[PayoutField] = []
 
 class ExtractionResult(BaseModel):
     platform_label: Optional[str] = None

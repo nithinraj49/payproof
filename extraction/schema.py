@@ -10,6 +10,18 @@ from pydantic import BaseModel, Field
 
 ScreenType = Literal["trip_detail", "trip_list", "payout_summary", "order_offer", "other"]
 
+# Constrained to the actual Trip/PayoutSummary field names (added after the Phase 2
+# hard-tier evaluation found the model sometimes wrote human labels like "Base pay"
+# or "Date" here instead of the schema field name). response_schema enforcement means
+# Gemini can no longer emit anything outside this list; extraction/extract.py's
+# normalizer is a backstop for any output produced before this change, or any model
+# that still doesn't comply.
+TripField = Literal[
+    "trip_date", "order_id", "order_type", "base_pay", "incentive", "tip",
+    "total_payout", "distance_km", "duration_min",
+]
+PayoutField = Literal["period_label", "period_start", "period_end", "total_credited", "credited_on"]
+
 
 class Deduction(BaseModel):
     label: str = Field(description="Deduction name exactly as shown")
@@ -27,7 +39,7 @@ class Trip(BaseModel):
     total_payout: Optional[float] = Field(None, ge=0)
     distance_km: Optional[float] = Field(None, ge=0)
     duration_min: Optional[float] = Field(None, ge=0)
-    low_confidence_fields: List[str] = []
+    low_confidence_fields: List[TripField] = []
 
 
 class PayoutLine(BaseModel):
@@ -43,7 +55,7 @@ class PayoutSummary(BaseModel):
     deductions: List[Deduction] = []
     total_credited: Optional[float] = Field(None, ge=0)
     credited_on: Optional[str] = None
-    low_confidence_fields: List[str] = []
+    low_confidence_fields: List[PayoutField] = []
 
 
 class ExtractionResult(BaseModel):

@@ -1,6 +1,6 @@
 """Tests for the deterministic post-extraction safeguards (extraction/extract.py).
 Pure code, no Gemini calls, no network."""
-from extraction.extract import apply_deterministic_safeguards
+from extraction.extract import apply_deterministic_safeguards, normalize_low_confidence_labels
 from extraction.schema import Deduction, ExtractionResult, Trip
 
 
@@ -113,3 +113,68 @@ def test_result_with_no_trips_is_a_no_op():
     out = apply_deterministic_safeguards(result)
     assert out.screen_type == "order_offer"
     assert out.needs_review is False
+
+
+# --- normalize_low_confidence_labels: the H1_006 regression ---
+
+def test_normalizer_h1_006_exact_labels():
+    # The exact raw output recorded for H1_006 during the Vertex hard-tier eval:
+    # human labels instead of schema field names, one of which ("Platform fee")
+    # doesn't correspond to any Trip field at all.
+    data = {
+        "screen_type": "trip_detail",
+        "needs_review": True,
+        "trips": [{
+            "trip_date": None, "order_id": "888-2763", "order_type": "Passenger ride",
+            "base_pay": 113.68, "incentive": None, "tip": None,
+            "deductions": [{"label": "Platform fee", "amount": 15.16}],
+            "total_payout": 98.52, "distance_km": None, "duration_min": None,
+            "low_confidence_fields": ["Date", "Base pay", "Platform fee", "Total payout"],
+        }],
+        "payout_summary": None,
+    }
+    normalized = normalize_low_confidence_labels(data)
+    trip = normalized["trips"][0]
+    # "Date" -> trip_date, "Base pay" -> base_pay, "Total payout" -> total_payout all recognized;
+    # "Platform fee" is NOT a Trip field, so the conservative fallback adds every money field.
+    assert set(trip["low_confidence_fields"]) == {"trip_date", "base_pay", "total_payout", "incentive", "tip"}
+    assert normalized["needs_review"] is True
+
+    # Running the full pipeline (normalize then safeguards) should null every money field.
+    result = apply_deterministic_safeguards(ExtractionResult.model_validate(normalized))
+    t = result.trips[0]
+    assert t.base_pay is None
+    assert t.incentive is None
+    assert t.tip is None
+    assert t.total_payout is None
+    assert result.needs_review is True
+
+
+def test_normalizer_recognizes_canonical_names_unchanged():
+    data = {
+        "screen_type": "trip_detail", "needs_review": False,
+        "trips": [{"base_pay": 10.0, "total_payout": 10.0, "low_confidence_fields": ["base_pay"]}],
+        "payout_summary": None,
+    }
+    normalized = normalize_low_confidence_labels(data)
+    assert normalized["trips"][0]["low_confidence_fields"] == ["base_pay"]
+    assert normalized["needs_review"] is False
+
+
+def test_normalizer_payout_summary_unrecognized_label_is_conservative():
+    data = {
+        "screen_type": "payout_summary", "needs_review": False, "trips": [],
+        "payout_summary": {
+            "lines": [], "deductions": [], "total_credited": 100.0,
+            "low_confidence_fields": ["Some Weird Label"],
+        },
+    }
+    normalized = normalize_low_confidence_labels(data)
+    assert normalized["payout_summary"]["low_confidence_fields"] == ["total_credited"]
+    assert normalized["needs_review"] is True
+
+
+def test_normalizer_no_trips_or_summary_is_a_no_op():
+    data = {"screen_type": "order_offer", "needs_review": False, "trips": [], "payout_summary": None}
+    normalized = normalize_low_confidence_labels(data)
+    assert normalized["needs_review"] is False
