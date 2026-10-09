@@ -9,6 +9,8 @@ deterministic, code-only safeguards (no extra Gemini calls) below.
 import datetime
 import json as jsonlib
 import logging
+import random
+import time
 from dataclasses import dataclass
 from typing import Optional
 
@@ -181,8 +183,10 @@ def apply_deterministic_safeguards(result: ExtractionResult) -> ExtractionResult
 
 
 class RateLimitError(RuntimeError):
-    """Raised instead of retrying/falling back, so callers can stop immediately
-    instead of hammering a rate-limited API (REQUIREMENTS.md section 19: never loop)."""
+    """Raised after a transient error (429 rate-limit/quota, or a 5xx server
+    error) survives its short pauses, so eval scripts can stop a bulk run and
+    backend/main.py can turn it into a friendly 503 -- never a crash either way
+    (REQUIREMENTS.md section 19 rule 12)."""
 
 
 def _is_rate_limit(exc: Exception) -> bool:
@@ -190,6 +194,46 @@ def _is_rate_limit(exc: Exception) -> bool:
         return True
     message = str(exc).lower()
     return "resource_exhausted" in message or "rate limit" in message or "quota" in message
+
+
+def _is_transient_error(exc: Exception) -> bool:
+    """429 (rate limit/quota) or any 5xx server error: REQUIREMENTS.md section
+    19 rule 12 treats both the same way -- the request was not processed, not
+    a bad screenshot."""
+    if _is_rate_limit(exc):
+        return True
+    if isinstance(exc, genai_errors.ServerError):
+        return True
+    code = getattr(exc, "code", None)
+    if isinstance(code, int) and code >= 500:
+        return True
+    return "servererror" in type(exc).__name__.lower()
+
+
+# At most 2 short randomised pauses before giving up on a transient error
+# (REQUIREMENTS.md section 19 rule 12), separate from the one schema-invalid-
+# output retry below. Only extract_screenshot() (the real app path) pauses and
+# retries like this; the eval scripts call _call_once directly and stop
+# immediately on any error instead, to keep bulk-evaluation costs predictable.
+MAX_TRANSIENT_RETRIES = 2
+TRANSIENT_RETRY_PAUSE_RANGE_SECONDS = (1.0, 3.0)
+
+
+def _call_with_transient_retry(client: genai.Client, settings: Settings, model: str, jpeg_bytes: bytes):
+    last_exc = None
+    for attempt in range(MAX_TRANSIENT_RETRIES + 1):
+        try:
+            return _call_once(client, settings, model, jpeg_bytes)
+        except Exception as exc:
+            if not _is_transient_error(exc):
+                raise  # not transient: the caller's existing non-transient handling applies
+            last_exc = exc
+            if attempt < MAX_TRANSIENT_RETRIES:
+                pause = random.uniform(*TRANSIENT_RETRY_PAUSE_RANGE_SECONDS)
+                logger.warning("Transient Gemini error (model=%s, attempt=%s): %s -- pausing %.1fs",
+                                model, attempt, type(exc).__name__, pause)
+                time.sleep(pause)
+    raise RateLimitError(str(last_exc)) from last_exc
 
 # gemini-3.1-flash-lite and gemini-3.5-flash-lite: MINIMAL is the lowest level.
 # gemini-3.8-flash: MINIMAL is rejected by the API (validation error); LOW is its lowest level.
@@ -262,10 +306,10 @@ def extract_screenshot(client: genai.Client, settings: Settings, model: str, jpe
 
     for attempt in range(2):  # one call + at most one retry
         try:
-            response, prompt_tokens, output_tokens, thinking_tokens = _call_once(client, settings, model, jpeg_bytes)
-        except Exception as exc:  # network error, timeout, API error: no further retry here
-            if _is_rate_limit(exc):
-                raise RateLimitError(str(exc)) from exc
+            response, prompt_tokens, output_tokens, thinking_tokens = _call_with_transient_retry(client, settings, model, jpeg_bytes)
+        except RateLimitError:
+            raise  # 429/5xx survived its pauses: let the caller turn this into a friendly "busy" response
+        except Exception as exc:  # anything else non-transient: no further retry here
             logger.warning("Gemini call failed (model=%s, attempt=%s): %s", model, attempt, type(exc).__name__)
             return ExtractionCallResult(
                 result=_needs_review_fallback("Could not read this screenshot right now. Please try again."),

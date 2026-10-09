@@ -164,7 +164,10 @@ def test_extract_screenshot_never_retries_on_transient_network_error():
     client.models.generate_content.assert_called_once()
 
 
-def test_extract_screenshot_raises_rate_limit_error_and_does_not_retry():
+def test_extract_screenshot_retries_429_with_pauses_then_raises(monkeypatch):
+    sleeps = []
+    monkeypatch.setattr("extraction.extract.time.sleep", lambda s: sleeps.append(s))
+
     error = genai_errors.ClientError(code=429, response_json={"error": {"message": "RESOURCE_EXHAUSTED"}})
     client = MagicMock()
     client.models.generate_content.side_effect = error
@@ -172,4 +175,39 @@ def test_extract_screenshot_raises_rate_limit_error_and_does_not_retry():
     with pytest.raises(RateLimitError):
         extract_screenshot(client, SETTINGS, "gemini-3.5-flash-lite", b"fake-jpeg")
 
-    client.models.generate_content.assert_called_once()
+    # 1 initial attempt + MAX_TRANSIENT_RETRIES (2) pauses-and-retries = 3 calls, 2 pauses
+    assert client.models.generate_content.call_count == 3
+    assert len(sleeps) == 2
+    for s in sleeps:
+        assert 1.0 <= s <= 3.0
+
+
+def test_extract_screenshot_retries_5xx_server_error_the_same_way_as_429(monkeypatch):
+    sleeps = []
+    monkeypatch.setattr("extraction.extract.time.sleep", lambda s: sleeps.append(s))
+
+    error = genai_errors.ServerError(code=503, response_json={"error": {"message": "UNAVAILABLE"}})
+    client = MagicMock()
+    client.models.generate_content.side_effect = error
+
+    with pytest.raises(RateLimitError):
+        extract_screenshot(client, SETTINGS, "gemini-3.1-flash-lite", b"fake-jpeg")
+
+    assert client.models.generate_content.call_count == 3
+    assert len(sleeps) == 2
+
+
+def test_extract_screenshot_5xx_never_crashes_the_caller(monkeypatch):
+    """backend/main.py catches RateLimitError and returns a friendly 503; this
+    confirms extract_screenshot raises that same, catchable type for a 5xx,
+    not an unhandled exception that would crash the request."""
+    monkeypatch.setattr("extraction.extract.time.sleep", lambda s: None)
+    error = genai_errors.ServerError(code=500, response_json={"error": {"message": "INTERNAL"}})
+    client = MagicMock()
+    client.models.generate_content.side_effect = error
+
+    try:
+        extract_screenshot(client, SETTINGS, "gemini-3.1-flash-lite", b"fake-jpeg")
+        assert False, "expected RateLimitError"
+    except RateLimitError:
+        pass  # exactly the catchable, documented outcome -- never a crash
