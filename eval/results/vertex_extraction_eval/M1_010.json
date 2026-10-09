@@ -1,0 +1,36 @@
+{
+  "name": "M1_010",
+  "layout": "M1",
+  "noise": "moderate",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": "TownHop",
+    "currency": "\u20b9",
+    "language_detected": "en",
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": "2026-09-30",
+        "order_id": "ORD-88214",
+        "order_type": "Parcel delivery",
+        "base_pay": 102.42,
+        "incentive": 11.16,
+        "tip": null,
+        "deductions": [],
+        "total_payout": 113.58,
+        "distance_km": 7.5,
+        "duration_min": 27.0,
+        "low_confidence_fields": []
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": false,
+    "notes": null
+  },
+  "gate_blocked": false,
+  "calls_made": 1,
+  "prompt_tokens": 2596,
+  "output_tokens": 187,
+  "thinking_tokens": 0
+}

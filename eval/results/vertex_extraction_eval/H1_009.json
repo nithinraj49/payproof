@@ -1,0 +1,19 @@
+{
+  "name": "H1_009",
+  "layout": "H1",
+  "noise": "hard",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "screen_type": "other",
+    "trips": [],
+    "payout_summary": null,
+    "needs_review": true
+  },
+  "gate_blocked": true,
+  "gate_reason": "too_blurry",
+  "calls_made": 0,
+  "prompt_tokens": 0,
+  "output_tokens": 0,
+  "thinking_tokens": 0
+}

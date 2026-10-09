@@ -1,5 +1,6 @@
 firebase-debug.log
 *-debug.log
+.firebase/
 .env
 
 # Service account keys and other credentials

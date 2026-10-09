@@ -1,0 +1,40 @@
+{
+  "name": "H1_010",
+  "layout": "H1",
+  "noise": "hard",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": "QuickCash",
+    "currency": null,
+    "language_detected": "en",
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": null,
+        "order_id": null,
+        "order_type": null,
+        "base_pay": null,
+        "incentive": null,
+        "tip": null,
+        "deductions": [],
+        "total_payout": null,
+        "distance_km": null,
+        "duration_min": null,
+        "low_confidence_fields": [
+          "base_pay",
+          "incentive",
+          "total_payout"
+        ]
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": true,
+    "notes": "The image is extremely blurry and text is barely legible."
+  },
+  "gate_blocked": false,
+  "calls_made": 1,
+  "prompt_tokens": 2596,
+  "output_tokens": 220,
+  "thinking_tokens": 0
+}

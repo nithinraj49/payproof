@@ -1,0 +1,41 @@
+{
+  "name": "M1_003",
+  "layout": "M1",
+  "noise": "moderate",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": "QuickDash",
+    "currency": "\u20b9",
+    "language_detected": null,
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": "2026-09-26",
+        "order_id": "ORD-21098",
+        "order_type": "Parcel delivery",
+        "base_pay": 41.89,
+        "incentive": 15.98,
+        "tip": null,
+        "deductions": [
+          {
+            "label": "Cancellation fee",
+            "amount": 16.87
+          }
+        ],
+        "total_payout": 41.0,
+        "distance_km": 1.3,
+        "duration_min": 6.0,
+        "low_confidence_fields": []
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": false,
+    "notes": null
+  },
+  "gate_blocked": false,
+  "calls_made": 1,
+  "prompt_tokens": 2596,
+  "output_tokens": 215,
+  "thinking_tokens": 0
+}

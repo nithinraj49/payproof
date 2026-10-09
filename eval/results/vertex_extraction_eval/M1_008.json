@@ -1,0 +1,41 @@
+{
+  "name": "M1_008",
+  "layout": "M1",
+  "noise": "moderate",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": "QuickDash",
+    "currency": "\u20b9",
+    "language_detected": "en",
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": "2026-09-22",
+        "order_id": "ORD-96162",
+        "order_type": "Passenger ride",
+        "base_pay": 38.27,
+        "incentive": null,
+        "tip": null,
+        "deductions": [
+          {
+            "label": "Cancellation fee",
+            "amount": 10.39
+          }
+        ],
+        "total_payout": 27.88,
+        "distance_km": 1.1,
+        "duration_min": 8.0,
+        "low_confidence_fields": []
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": false,
+    "notes": null
+  },
+  "gate_blocked": false,
+  "calls_made": 1,
+  "prompt_tokens": 2596,
+  "output_tokens": 213,
+  "thinking_tokens": 0
+}

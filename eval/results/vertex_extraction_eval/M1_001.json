@@ -1,0 +1,36 @@
+{
+  "name": "M1_001",
+  "layout": "M1",
+  "noise": "moderate",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": "RideWave",
+    "currency": "\u20b9",
+    "language_detected": null,
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": "2026-09-13",
+        "order_id": "ORD-71236",
+        "order_type": "Food delivery",
+        "base_pay": 134.61,
+        "incentive": null,
+        "tip": null,
+        "deductions": [],
+        "total_payout": 134.61,
+        "distance_km": 11.8,
+        "duration_min": null,
+        "low_confidence_fields": []
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": false,
+    "notes": null
+  },
+  "gate_blocked": false,
+  "calls_made": 1,
+  "prompt_tokens": 2596,
+  "output_tokens": 147,
+  "thinking_tokens": 0
+}

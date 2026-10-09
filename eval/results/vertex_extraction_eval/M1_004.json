@@ -1,0 +1,22 @@
+{
+  "name": "M1_004",
+  "layout": "M1",
+  "noise": "moderate",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": null,
+    "currency": null,
+    "language_detected": null,
+    "screen_type": "other",
+    "trips": [],
+    "payout_summary": null,
+    "needs_review": true,
+    "notes": "Could not read this screenshot right now. Please try again."
+  },
+  "gate_blocked": false,
+  "calls_made": 1,
+  "prompt_tokens": 0,
+  "output_tokens": 0,
+  "thinking_tokens": 0
+}
