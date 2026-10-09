@@ -32,11 +32,17 @@ def check_limits(user_count: int, global_count: int, user_limit: int, global_lim
         raise ApiError(503, "service_busy", "PayProof has reached its usage limit for today. Please try again tomorrow.")
 
 
-def check_and_increment(uid: str, kind: str, user_limit: int, global_limit: int, db: Optional["firestore.Client"] = None) -> None:
+def check_and_increment(
+    uid: str, kind: str, user_limit: int, global_limit: int,
+    db: Optional["firestore.Client"] = None, day: Optional[str] = None,
+) -> None:
     """kind is "extractions" or "questions". Raises ApiError if either limit is
-    already reached; otherwise atomically increments both counters for today."""
+    already reached; otherwise atomically increments both counters for today.
+    `day` defaults to today's date; eval/check_firestore_usage_limits.py passes
+    an obviously-fake day so its throwaway test never touches a real counter.
+    """
     db = db or get_db()
-    day = _today()
+    day = day or _today()
     user_ref = db.collection("users").document(uid).collection("usage").document(day)
     global_ref = db.collection("usage_global").document(day)
     transaction = db.transaction()
