@@ -5,18 +5,37 @@
   "model": "gemini-3.1-flash-lite",
   "backend": "vertex",
   "predicted": {
-    "platform_label": null,
-    "currency": null,
-    "language_detected": null,
-    "screen_type": "other",
-    "trips": [],
+    "platform_label": "TownHop",
+    "currency": "\u20b9",
+    "language_detected": "en",
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": "2026-09-26",
+        "order_id": "ORD-52092",
+        "order_type": "Parcel delivery",
+        "base_pay": 85.08,
+        "incentive": null,
+        "tip": 34.27,
+        "deductions": [
+          {
+            "label": "Cancellation fee",
+            "amount": 7.13
+          }
+        ],
+        "total_payout": 112.22,
+        "distance_km": 5.4,
+        "duration_min": null,
+        "low_confidence_fields": []
+      }
+    ],
     "payout_summary": null,
-    "needs_review": true,
-    "notes": "Could not read this screenshot right now. Please try again."
+    "needs_review": false,
+    "notes": null
   },
   "gate_blocked": false,
   "calls_made": 1,
-  "prompt_tokens": 0,
-  "output_tokens": 0,
+  "prompt_tokens": 2631,
+  "output_tokens": 213,
   "thinking_tokens": 0
 }
