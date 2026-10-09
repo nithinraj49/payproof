@@ -171,6 +171,33 @@ def test_extract_rate_limit_from_gemini_returns_503(monkeypatch):
     assert response.json()["error_code"] == "service_busy"
 
 
+def test_extract_sample_image_skips_usage_limit_and_uses_shared_cache(monkeypatch):
+    settings = _settings()
+    monkeypatch.setattr(main_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(main_module, "get_client", lambda s: MagicMock())
+
+    check_calls = []
+    monkeypatch.setattr(main_module, "check_and_increment", lambda *a, **k: check_calls.append(a))
+
+    sample_cache = {}
+    monkeypatch.setattr(main_module, "get_cached_sample", lambda h: sample_cache.get(h))
+    monkeypatch.setattr(main_module, "set_cached_sample", lambda h, r: sample_cache.__setitem__(h, r))
+
+    result = ExtractionResult(screen_type="order_offer", needs_review=False)
+    outcome = ExtractionCallResult(result=result, calls_made=1, prompt_tokens=100, output_tokens=50, thinking_tokens=0)
+    extract_mock = MagicMock(return_value=outcome)
+    monkeypatch.setattr(main_module, "extract_screenshot", extract_mock)
+
+    image_bytes = make_png_bytes(size=(340, 340))
+    r1 = client.post("/api/extract", data={"is_sample": "true"}, files={"file": ("s.png", image_bytes, "image/png")})
+    r2 = client.post("/api/extract", data={"is_sample": "true"}, files={"file": ("s.png", image_bytes, "image/png")})
+
+    assert r1.status_code == 200 and r2.status_code == 200
+    assert r1.json() == r2.json()
+    extract_mock.assert_called_once()  # second call served from the shared sample cache
+    assert len(check_calls) == 0  # usage limit never charged for a sample extraction
+
+
 def _settings(**overrides):
     from backend.config import get_settings
     base = get_settings()
