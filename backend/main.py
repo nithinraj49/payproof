@@ -11,6 +11,8 @@ from backend.gemini_client import get_client
 from backend.usage_limits import check_and_increment
 from extraction.extract import RateLimitError, extract_screenshot
 from extraction.image_prep import prepare_image
+from extraction.image_quality import QUALITY_MESSAGES, check_image_quality
+from extraction.schema import ExtractionResult
 
 logger = logging.getLogger("payproof.api")
 
@@ -52,6 +54,24 @@ async def extract(user_id: str = Depends(require_user_id), file: UploadFile = Fi
         jpeg_bytes = prepare_image(raw, settings.image_max_side_px, settings.image_jpeg_quality)
     except Exception:
         raise ApiError(400, "unreadable_image", "Could not read that image. Please upload a clear screenshot.")
+
+    # Deterministic quality gate, no Gemini call: a failing image costs nothing
+    # and never reaches the API or the usage-limit counters.
+    quality = check_image_quality(
+        jpeg_bytes,
+        settings.quality_min_short_side_px,
+        settings.quality_min_sharpness,
+        settings.quality_min_contrast,
+        settings.quality_min_brightness,
+        settings.quality_max_brightness,
+    )
+    if not quality.passed:
+        logger.info("extraction uid=%s rejected by quality gate reason=%s", user_id, quality.reason)
+        result = ExtractionResult(
+            screen_type="other", trips=[], payout_summary=None,
+            needs_review=True, notes=QUALITY_MESSAGES[quality.reason],
+        )
+        return result.model_dump()
 
     image_hash = hash_image(jpeg_bytes)
     cached = get_cached(image_hash)

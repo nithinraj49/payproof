@@ -21,6 +21,11 @@ def _env_int(name: str, default: int) -> int:
     return int(value) if value else default
 
 
+def _env_float(name: str, default: float) -> float:
+    value = os.environ.get(name)
+    return float(value) if value else default
+
+
 @dataclass(frozen=True)
 class Settings:
     project_id: str
@@ -39,6 +44,11 @@ class Settings:
     limit_extractions_per_user_per_day: int
     limit_questions_per_user_per_day: int
     limit_global_gemini_calls_per_day: int
+    quality_min_short_side_px: int
+    quality_min_sharpness: float
+    quality_min_contrast: float
+    quality_min_brightness: float
+    quality_max_brightness: float
 
 
 def _running_on_cloud_run() -> bool:
@@ -87,6 +97,13 @@ def get_settings() -> Settings:
         limit_extractions_per_user_per_day=_env_int("LIMIT_EXTRACTIONS_PER_USER_PER_DAY", 12),
         limit_questions_per_user_per_day=_env_int("LIMIT_QUESTIONS_PER_USER_PER_DAY", 25),
         limit_global_gemini_calls_per_day=_env_int("LIMIT_GLOBAL_GEMINI_CALLS_PER_DAY", 400),
+        # Tuned empirically on the 30 simulated standard images (none blocked); NOT
+        # validated on real screenshots. See extraction/image_quality.py and PROGRESS.md.
+        quality_min_short_side_px=_env_int("QUALITY_MIN_SHORT_SIDE_PX", 300),
+        quality_min_sharpness=_env_float("QUALITY_MIN_SHARPNESS", 3.9),
+        quality_min_contrast=_env_float("QUALITY_MIN_CONTRAST", 10.0),
+        quality_min_brightness=_env_float("QUALITY_MIN_BRIGHTNESS", 15.0),
+        quality_max_brightness=_env_float("QUALITY_MAX_BRIGHTNESS", 254.0),
     )
     _validate_for_cloud_run(settings)
     return settings

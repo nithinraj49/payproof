@@ -23,8 +23,16 @@ def teardown_module(module):
     app.dependency_overrides.pop(require_user_id, None)
 
 
-def make_png_bytes(size=(300, 200)) -> bytes:
-    image = Image.new("RGB", size, (10, 20, 30))
+def make_png_bytes(size=(320, 320)) -> bytes:
+    # A noisy checkerboard, not a flat color: must pass the quality gate
+    # (extraction/image_quality.py) so these tests exercise what they're
+    # meant to (the extraction/cache/limits path), not the quality gate
+    # itself (see tests/test_image_quality.py for that).
+    image = Image.new("RGB", size, (130, 130, 130))
+    pixels = image.load()
+    for x in range(0, size[0], 4):
+        for y in range(0, size[1], 4):
+            pixels[x, y] = (255, 255, 255) if (x + y) % 8 == 0 else (0, 0, 0)
     buf = io.BytesIO()
     image.save(buf, format="PNG")
     return buf.getvalue()
@@ -74,12 +82,34 @@ def test_extract_success_calls_model_once_and_enforces_limits(monkeypatch):
 
     response = client.post(
         "/api/extract",
-        files={"file": ("trip.png", make_png_bytes(size=(111, 222)), "image/png")},
+        files={"file": ("trip.png", make_png_bytes(size=(320, 340)), "image/png")},
     )
     assert response.status_code == 200
     assert response.json()["screen_type"] == "trip_detail"
     extract_mock.assert_called_once()
     assert len(check_calls) == 1
+
+
+def test_extract_blocks_low_quality_image_before_any_gemini_call(monkeypatch):
+    settings = _settings()
+    monkeypatch.setattr(main_module, "get_settings", lambda: settings)
+    extract_mock = MagicMock()
+    monkeypatch.setattr(main_module, "extract_screenshot", extract_mock)
+    check_calls = []
+    monkeypatch.setattr(main_module, "check_and_increment", lambda *a, **k: check_calls.append(a))
+
+    # A flat, uniform-color image: no edges, no contrast -> fails the quality gate.
+    flat_image = Image.new("RGB", (320, 320), (128, 128, 128))
+    buf = io.BytesIO()
+    flat_image.save(buf, format="PNG")
+
+    response = client.post("/api/extract", files={"file": ("flat.png", buf.getvalue(), "image/png")})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["needs_review"] is True
+    assert body["screen_type"] == "other"
+    extract_mock.assert_not_called()
+    assert len(check_calls) == 0  # no usage-limit charge for a gate rejection
 
 
 def test_extract_second_call_with_same_image_is_served_from_cache(monkeypatch):
@@ -116,7 +146,7 @@ def test_extract_over_limit_returns_429(monkeypatch):
 
     response = client.post(
         "/api/extract",
-        files={"file": ("x.png", make_png_bytes(size=(55, 66)), "image/png")},
+        files={"file": ("x.png", make_png_bytes(size=(320, 350)), "image/png")},
     )
     assert response.status_code == 429
     assert response.json()["error_code"] == "daily_limit_reached"
@@ -135,7 +165,7 @@ def test_extract_rate_limit_from_gemini_returns_503(monkeypatch):
 
     response = client.post(
         "/api/extract",
-        files={"file": ("y.png", make_png_bytes(size=(77, 88)), "image/png")},
+        files={"file": ("y.png", make_png_bytes(size=(320, 360)), "image/png")},
     )
     assert response.status_code == 503
     assert response.json()["error_code"] == "service_busy"

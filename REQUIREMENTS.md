@@ -401,3 +401,4 @@ Report real numbers, including weak ones, with the date, counts and model names.
 | `EXTRACTION_MAX_OUTPUT_TOKENS`, `ANSWER_MAX_OUTPUT_TOKENS` | Output caps | 1500, 400 |
 | `GEMINI_TIMEOUT_SECONDS` | Per-call timeout | 30 |
 | `LIMIT_EXTRACTIONS_PER_USER_PER_DAY`, `LIMIT_QUESTIONS_PER_USER_PER_DAY`, `LIMIT_GLOBAL_GEMINI_CALLS_PER_DAY` | Usage limits | 12, 25, 400 |
+| `QUALITY_MIN_SHORT_SIDE_PX`, `QUALITY_MIN_SHARPNESS`, `QUALITY_MIN_CONTRAST`, `QUALITY_MIN_BRIGHTNESS`, `QUALITY_MAX_BRIGHTNESS` | Image-quality gate before any Gemini call (extraction/image_quality.py); tuned on simulated data only, not validated on real screenshots | 300, 3.9, 10.0, 15.0, 254.0 |
