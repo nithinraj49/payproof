@@ -368,5 +368,115 @@
     "layout": "H1",
     "omit_distance": true,
     "omit_minutes": false
+  },
+  {
+    "name": "M1_001",
+    "image": "eval/generated/images/M1_001.jpg",
+    "ground_truth": "eval/generated/ground_truth/M1_001.json",
+    "dark_mode": false,
+    "noise": "moderate",
+    "layout": "M1",
+    "omit_distance": false,
+    "omit_minutes": true,
+    "degradation": "smaller_font"
+  },
+  {
+    "name": "M1_002",
+    "image": "eval/generated/images/M1_002.jpg",
+    "ground_truth": "eval/generated/ground_truth/M1_002.json",
+    "dark_mode": false,
+    "noise": "moderate",
+    "layout": "M1",
+    "omit_distance": false,
+    "omit_minutes": false,
+    "degradation": "light_blur"
+  },
+  {
+    "name": "M1_003",
+    "image": "eval/generated/images/M1_003.jpg",
+    "ground_truth": "eval/generated/ground_truth/M1_003.json",
+    "dark_mode": false,
+    "noise": "moderate",
+    "layout": "M1",
+    "omit_distance": false,
+    "omit_minutes": false,
+    "degradation": "mild_jpeg"
+  },
+  {
+    "name": "M1_004",
+    "image": "eval/generated/images/M1_004.jpg",
+    "ground_truth": "eval/generated/ground_truth/M1_004.json",
+    "dark_mode": false,
+    "noise": "moderate",
+    "layout": "M1",
+    "omit_distance": false,
+    "omit_minutes": true,
+    "degradation": "partial_crop"
+  },
+  {
+    "name": "M1_005",
+    "image": "eval/generated/images/M1_005.jpg",
+    "ground_truth": "eval/generated/ground_truth/M1_005.json",
+    "dark_mode": false,
+    "noise": "moderate",
+    "layout": "M1",
+    "omit_distance": true,
+    "omit_minutes": false,
+    "degradation": "smaller_font"
+  },
+  {
+    "name": "M1_006",
+    "image": "eval/generated/images/M1_006.jpg",
+    "ground_truth": "eval/generated/ground_truth/M1_006.json",
+    "dark_mode": false,
+    "noise": "moderate",
+    "layout": "M1",
+    "omit_distance": true,
+    "omit_minutes": false,
+    "degradation": "light_blur"
+  },
+  {
+    "name": "M1_007",
+    "image": "eval/generated/images/M1_007.jpg",
+    "ground_truth": "eval/generated/ground_truth/M1_007.json",
+    "dark_mode": true,
+    "noise": "moderate",
+    "layout": "M1",
+    "omit_distance": true,
+    "omit_minutes": false,
+    "degradation": "mild_jpeg"
+  },
+  {
+    "name": "M1_008",
+    "image": "eval/generated/images/M1_008.jpg",
+    "ground_truth": "eval/generated/ground_truth/M1_008.json",
+    "dark_mode": false,
+    "noise": "moderate",
+    "layout": "M1",
+    "omit_distance": false,
+    "omit_minutes": false,
+    "degradation": "partial_crop"
+  },
+  {
+    "name": "M1_009",
+    "image": "eval/generated/images/M1_009.jpg",
+    "ground_truth": "eval/generated/ground_truth/M1_009.json",
+    "dark_mode": true,
+    "noise": "moderate",
+    "layout": "M1",
+    "omit_distance": false,
+    "omit_minutes": false,
+    "degradation": "smaller_font"
+  },
+  {
+    "name": "M1_010",
+    "image": "eval/generated/images/M1_010.jpg",
+    "ground_truth": "eval/generated/ground_truth/M1_010.json",
+    "dark_mode": false,
+    "noise": "moderate",
+    "layout": "M1",
+    "omit_distance": false,
+    "omit_minutes": false,
+    "degradation": "light_blur"
   }
 ]

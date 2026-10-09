@@ -1,0 +1,29 @@
+{
+  "platform_label": "QuickDash",
+  "currency": "INR",
+  "language_detected": "en",
+  "screen_type": "trip_detail",
+  "trips": [
+    {
+      "trip_date": "2026-09-26",
+      "order_id": "ORD-45061",
+      "order_type": "Parcel delivery",
+      "base_pay": 40.32,
+      "incentive": null,
+      "tip": null,
+      "deductions": [
+        {
+          "label": "Convenience fee",
+          "amount": 16.22
+        }
+      ],
+      "total_payout": 24.1,
+      "distance_km": 1.1,
+      "duration_min": 7.0,
+      "low_confidence_fields": []
+    }
+  ],
+  "payout_summary": null,
+  "needs_review": false,
+  "notes": null
+}

@@ -292,6 +292,123 @@ def generate_hard_tier(n: int = 10):
     return new_entries
 
 
+# --- M1: trip detail, "moderate" tier — one mild degradation each, a human
+# should still be able to read every digit. Generation only here; readability
+# is confirmed by viewing sample images before any Gemini call (not by code). ---
+
+MODERATE_DEGRADATIONS = ["smaller_font", "light_blur", "mild_jpeg", "partial_crop"]
+
+
+def render_trip_detail_moderate(rng: random.Random, dark: bool, degradation: str):
+    platform = rng.choice(cfg.FICTIONAL_PLATFORMS)
+    check_deny_list(platform)
+    omit_distance = rng.random() < cfg.OMIT_DISTANCE_SHARE
+    omit_minutes = rng.random() < cfg.OMIT_MINUTES_SHARE
+    trip = build_trip(rng, omit_distance, omit_minutes)
+
+    image, draw, pal = new_canvas(dark)
+    if degradation == "smaller_font":
+        f = fonts(size_title=22, size_body=15, size_small=12)
+    else:
+        f = fonts()
+    header_bottom_y = 70  # the header bar's own height; partial_crop cuts into this, never into row data
+    draw_header(draw, pal, f, platform, "Trip complete")
+
+    y = 100
+    draw_row(draw, pal, f, y, "Date", trip.trip_date); y += 30
+    draw_row(draw, pal, f, y, "Order", f"{trip.order_type} · {trip.order_id}"); y += 40
+    draw_divider(draw, pal, y); y += 20
+
+    draw_row(draw, pal, f, y, "Base pay", money(trip.base_pay)); y += 30
+    if trip.incentive is not None:
+        draw_row(draw, pal, f, y, "Incentive", money(trip.incentive)); y += 30
+    if trip.tip is not None:
+        draw_row(draw, pal, f, y, "Tip", money(trip.tip)); y += 30
+    for d in trip.deductions:
+        draw_row(draw, pal, f, y, d.label, f"-{money(d.amount)}", color=NEGATIVE); y += 30
+
+    y += 10
+    draw_divider(draw, pal, y); y += 20
+    draw_row(draw, pal, f, y, "Total payout", money(trip.total_payout), bold=True); y += 50
+
+    if trip.distance_km is not None or trip.duration_min is not None:
+        parts = []
+        if trip.distance_km is not None:
+            parts.append(f"{trip.distance_km:g} km")
+        if trip.duration_min is not None:
+            parts.append(f"{trip.duration_min:g} min")
+        draw.text((20, y), " · ".join(parts), font=f["small"], fill=pal.muted)
+
+    ground_truth = ExtractionResult(
+        platform_label=platform,
+        currency=cfg.CURRENCY,
+        language_detected="en",
+        screen_type="trip_detail",
+        trips=[trip],
+        payout_summary=None,
+        needs_review=False,
+        notes=None,
+    )
+    meta = {"layout": "M1", "omit_distance": omit_distance, "omit_minutes": omit_minutes,
+            "degradation": degradation, "header_bottom_y": header_bottom_y}
+    return image, ground_truth, meta
+
+
+def apply_moderate_degradation(image: Image.Image, degradation: str, dark: bool, header_bottom_y: int, rng: random.Random) -> tuple:
+    """Returns (image, jpeg_quality). Exactly one mild degradation, chosen so
+    every number stays fully legible."""
+    if degradation == "smaller_font":
+        return image, cfg.JPEG_QUALITY_NORMAL
+    if degradation == "light_blur":
+        return image.filter(ImageFilter.GaussianBlur(radius=rng.uniform(0.8, 1.2))), cfg.JPEG_QUALITY_NORMAL
+    if degradation == "mild_jpeg":
+        return image, 60  # noticeably compressed, well above the "hard" tier's 40
+    if degradation == "partial_crop":
+        # Crops into the header bar only (platform name/title) -- never into a data
+        # row, so every number and label stays fully visible.
+        fill = DARK_BG if dark else LIGHT_BG
+        cut = rng.randint(15, 30)
+        canvas = Image.new(image.mode, image.size, fill)
+        canvas.paste(image.crop((0, cut, image.width, image.height)), (0, cut))
+        return canvas, cfg.JPEG_QUALITY_NORMAL
+    raise ValueError(f"Unknown moderate degradation: {degradation}")
+
+
+def generate_moderate_tier(n: int = 10):
+    IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    GROUND_TRUTH_DIR.mkdir(parents=True, exist_ok=True)
+    rng = random.Random(cfg.MODERATE_SEED)
+
+    manifest_path = OUT_DIR / "manifest.json"
+    manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else []
+
+    new_entries = []
+    for i in range(1, n + 1):
+        name = f"M1_{i:03d}"
+        dark = rng.random() < cfg.DARK_MODE_SHARE
+        degradation = MODERATE_DEGRADATIONS[(i - 1) % len(MODERATE_DEGRADATIONS)]
+        image, ground_truth, meta = render_trip_detail_moderate(rng, dark, degradation)
+        image, quality = apply_moderate_degradation(image, degradation, dark, meta.pop("header_bottom_y"), rng)
+
+        image_path = IMAGES_DIR / f"{name}.jpg"
+        save_jpeg(image, image_path, quality)
+        gt_path = GROUND_TRUTH_DIR / f"{name}.json"
+        gt_path.write_text(ground_truth.model_dump_json(indent=2))
+
+        new_entries.append({
+            "name": name,
+            "image": str(image_path.relative_to(ROOT)).replace("\\", "/"),
+            "ground_truth": str(gt_path.relative_to(ROOT)).replace("\\", "/"),
+            "dark_mode": dark,
+            "noise": "moderate",
+            **meta,
+        })
+
+    manifest = [e for e in manifest if not e["name"].startswith("M1_")] + new_entries
+    manifest_path.write_text(json.dumps(manifest, indent=2))
+    return new_entries
+
+
 # --- L3: weekly payout ---
 
 def render_weekly_payout(rng: random.Random, dark: bool):
@@ -474,10 +591,10 @@ def generate(n_l1: int = 15, n_l3: int = 10, n_n1: int = 5):
         })
 
     manifest_path = OUT_DIR / "manifest.json"
-    existing_hard = []
+    existing_other_tiers = []
     if manifest_path.exists():
-        existing_hard = [e for e in json.loads(manifest_path.read_text()) if e["name"].startswith("H1_")]
-    manifest_path.write_text(json.dumps(manifest + existing_hard, indent=2))
+        existing_other_tiers = [e for e in json.loads(manifest_path.read_text()) if e["name"].startswith(("H1_", "M1_"))]
+    manifest_path.write_text(json.dumps(manifest + existing_other_tiers, indent=2))
     return manifest
 
 
@@ -489,6 +606,11 @@ if __name__ == "__main__":
         print(f"Generated {len(entries)} hard-tier images in {IMAGES_DIR} (names H1_001..H1_{len(entries):03d})")
         for entry in entries:
             print(f"  {entry['name']}: dark={entry['dark_mode']} noise={entry['noise']}")
+    elif "--moderate" in sys.argv:
+        entries = generate_moderate_tier()
+        print(f"Generated {len(entries)} moderate-tier images in {IMAGES_DIR} (names M1_001..M1_{len(entries):03d})")
+        for entry in entries:
+            print(f"  {entry['name']}: dark={entry['dark_mode']} degradation={entry['degradation']}")
     else:
         manifest = generate()
         print(f"Generated {len(manifest)} images in {IMAGES_DIR} with ground truth in {GROUND_TRUTH_DIR}")

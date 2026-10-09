@@ -1,0 +1,24 @@
+{
+  "platform_label": "RideWave",
+  "currency": "INR",
+  "language_detected": "en",
+  "screen_type": "trip_detail",
+  "trips": [
+    {
+      "trip_date": "2026-09-04",
+      "order_id": "ORD-63821",
+      "order_type": "Food delivery",
+      "base_pay": 112.51,
+      "incentive": null,
+      "tip": 33.96,
+      "deductions": [],
+      "total_payout": 146.47,
+      "distance_km": null,
+      "duration_min": 32.0,
+      "low_confidence_fields": []
+    }
+  ],
+  "payout_summary": null,
+  "needs_review": false,
+  "notes": null
+}

@@ -1,0 +1,29 @@
+{
+  "platform_label": "QuickDash",
+  "currency": "INR",
+  "language_detected": "en",
+  "screen_type": "trip_detail",
+  "trips": [
+    {
+      "trip_date": "2026-09-26",
+      "order_id": "ORD-21098",
+      "order_type": "Parcel delivery",
+      "base_pay": 41.89,
+      "incentive": 15.98,
+      "tip": null,
+      "deductions": [
+        {
+          "label": "Cancellation fee",
+          "amount": 16.87
+        }
+      ],
+      "total_payout": 41.0,
+      "distance_km": 1.3,
+      "duration_min": 6.0,
+      "low_confidence_fields": []
+    }
+  ],
+  "payout_summary": null,
+  "needs_review": false,
+  "notes": null
+}

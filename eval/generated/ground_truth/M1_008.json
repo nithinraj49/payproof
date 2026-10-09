@@ -1,0 +1,29 @@
+{
+  "platform_label": "QuickDash",
+  "currency": "INR",
+  "language_detected": "en",
+  "screen_type": "trip_detail",
+  "trips": [
+    {
+      "trip_date": "2026-09-22",
+      "order_id": "ORD-96162",
+      "order_type": "Passenger ride",
+      "base_pay": 38.27,
+      "incentive": null,
+      "tip": null,
+      "deductions": [
+        {
+          "label": "Cancellation fee",
+          "amount": 10.39
+        }
+      ],
+      "total_payout": 27.88,
+      "distance_km": 1.1,
+      "duration_min": 8.0,
+      "low_confidence_fields": []
+    }
+  ],
+  "payout_summary": null,
+  "needs_review": false,
+  "notes": null
+}

@@ -1,0 +1,24 @@
+{
+  "platform_label": "QuickDash",
+  "currency": "INR",
+  "language_detected": "en",
+  "screen_type": "trip_detail",
+  "trips": [
+    {
+      "trip_date": "2026-09-30",
+      "order_id": "ORD-77582",
+      "order_type": "Food delivery",
+      "base_pay": 88.99,
+      "incentive": 24.38,
+      "tip": null,
+      "deductions": [],
+      "total_payout": 113.37,
+      "distance_km": null,
+      "duration_min": 23.0,
+      "low_confidence_fields": []
+    }
+  ],
+  "payout_summary": null,
+  "needs_review": false,
+  "notes": null
+}

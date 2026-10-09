@@ -1,0 +1,24 @@
+{
+  "platform_label": "TownHop",
+  "currency": "INR",
+  "language_detected": "en",
+  "screen_type": "trip_detail",
+  "trips": [
+    {
+      "trip_date": "2026-09-30",
+      "order_id": "ORD-88214",
+      "order_type": "Parcel delivery",
+      "base_pay": 102.42,
+      "incentive": 11.16,
+      "tip": null,
+      "deductions": [],
+      "total_payout": 113.58,
+      "distance_km": 7.5,
+      "duration_min": 27.0,
+      "low_confidence_fields": []
+    }
+  ],
+  "payout_summary": null,
+  "needs_review": false,
+  "notes": null
+}
