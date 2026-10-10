@@ -533,12 +533,18 @@ class AnswerResult:
     thinking_tokens: int
 
 
-def ask_question(client: genai.Client, settings: Settings, model: str, uid: str, question: str, language: str = "en") -> AnswerResult:
+def ask_question(
+    client: genai.Client, settings: Settings, model: str, uid: str, question: str,
+    language: str = "en", tool_registry: Optional[Dict[str, Callable[[], Dict[str, Any]]]] = None,
+) -> AnswerResult:
     """Full grounded-answer flow: draft, verify, at most one stricter retry,
     then a plain refusal if the retry still isn't fully grounded. `language`
     defaults to "en" (CLAUDE.md: English only for now; kept so a language can
-    be added later without touching this logic)."""
-    tool_registry = _make_tool_registry(uid)
+    be added later without touching this logic). `tool_registry` defaults to
+    the real Firestore-backed tools for `uid`; eval/qa_smoke_test.py passes a
+    fixed, known registry instead so a live Gemini smoke test doesn't need
+    real stored data."""
+    tool_registry = tool_registry or _make_tool_registry(uid)
     system_prompt = SYSTEM_PROMPT if language == "en" else SYSTEM_PROMPT  # stretch: per-language prompt later
 
     draft = _run_turn(client, settings, model, system_prompt, question, tool_registry)
