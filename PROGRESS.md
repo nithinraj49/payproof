@@ -275,3 +275,25 @@ python -m eval.compare_estimators
 # Start local server:
 uvicorn backend.main:app --reload
 ```
+
+## Phase 4 (items 1-2): Q&A tools and number verifier — in progress, paused for review (Sat 10 Oct 2026)
+
+### Done
+- `backend/qa.py`: three read-only tools (`get_summary`, `get_trip_stats`, `get_weekly`), each a thin wrapper that reads the user's stored trips/weeks/costs via `backend/store.py` and runs them through the existing `engine/earnings.py` functions — no new arithmetic, no LLM or network call inside the tool functions themselves. **No `get_changes` tool**, per this session's instruction and the 10 Oct decision to disable the pay-change signal (`ENABLE_CHANGE_SIGNAL=false`).
+- Manual Gemini function-calling loop (`_run_turn`): one request asks the question with the three tools declared; if Gemini requests a tool, it's executed locally (uid bound server-side, never sent to Gemini) and the compact JSON result sent back in a second request for the final text. A turn that needs no tool is one request. `ask_question()` runs at most two such turns — the draft, then one stricter retry if the verifier fails — so the raw-request ceiling is 4, every one logged individually.
+- Reused `EXPLAIN_MODEL=gemini-3.1-flash-lite` (already set in `.env.example`/`deploy/env.yaml` from Phase 2, unexercised until now), same `thinking_level=MINIMAL` / temperature-0 pattern as extraction, output capped at `ANSWER_MAX_OUTPUT_TOKENS`.
+- Logging: reuses the same `payproof.gemini_calls` stdout JSON-line logger as extraction, `endpoint: "ask"`, token counts and outcome only — no question text, no answer text, no user id. Pricing table duplicated from `extraction/extract.py` on purpose (so a future per-module price change doesn't silently cross-apply).
+- `language` parameter on `ask_question()` defaults to `"en"`; the system prompt is not yet branched per language (stretch work, not started).
+- **Number verifier (`extract_numbers`, `verify_numbers`, REQUIREMENTS.md section 7.2)**: regex-based extraction handling plain numbers, Indian digit grouping (1,23,456), Western grouping, decimals, a leading minus, trailing `%`, and currency symbols (₹, Rs.) immediately adjacent to digits — all without special-casing the symbol. Word-boundary lookaround keeps a number embedded in a word ("trip192", "24x7") or spelled out ("ten trips") from being extracted at all. Matching allows rounding to 2 decimals and checks both a number's face value and its ÷100 form, so "5.88%" verifies against a stored ratio of `0.0588` either way.
+- `tests/test_qa_verifier.py`: 26 tests, all pure functions (a string and a dict in, a verdict out) — no Gemini client, no Firestore, no network calls. Covers passing, failing, and every edge case the instruction named: rounding, percentages, a range ("192 to 195"), a number inside a word, negative numbers, currency symbols, and numbers written as words. `pytest -q`: **156 passed** (was 124), no regressions.
+
+### Not done yet (paused here per instruction, waiting for review of the verifier tests)
+- Item 3 (refusals per section 7.3 — no hours online, too few trips, weekly-mode per-trip-hour, off-topic, prompt-injection) is only partly covered: the verifier's generic "no tool was called" / "unsupported number" path already produces a plain refusal, and the system prompt has an injection-resistance line, but the five refusal categories are not yet individually built or tested.
+- Item 4 (`POST /api/ask`, `answer_id`, `users/{uid}/answers` storage, usage limits) not started — `ask_question()` exists as a plain function, not yet wired to an endpoint.
+- Item 5 (`GET /api/report` evidence pack HTML) not started.
+- Item 6 (`eval/run_grounding_eval.py`, 20 questions, cost gate) not started.
+- **Not yet verified against live Gemini**: the manual function-calling loop's exact SDK surface (`types.FunctionDeclaration`, `types.Part.from_function_response`, reading `.function_call` off response parts) follows the same `google-genai==2.28.0` patterns already proven working in `extraction/extract.py` for structured JSON output, but function calling specifically has not been exercised against a real Gemini call yet (CLAUDE.md "verify before coding" — worth a small smoke test, similar to Phase 2's Vertex smoke test, before relying on it in item 4).
+
+### Next
+- Owner reviews `tests/test_qa_verifier.py` (the ask was to show these before continuing).
+- On "go": items 3 (refusals), 4 (`POST /api/ask` + storage + limits), 5 (evidence pack), 6 (grounding eval with cost gate).
