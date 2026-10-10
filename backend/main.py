@@ -11,10 +11,11 @@ from backend.errors import ApiError, api_error_handler, http_exception_handler
 from backend.extraction_cache import get_cached, hash_image, set_cached
 from backend.gemini_client import get_client
 from backend.sample_cache import get_cached_sample, set_cached_sample
+from backend.qa import ask_question
 from backend.store import (
     _to_cost_inputs, _to_trip_input, _to_week_input,
     delete_all, get_costs, get_trips, get_weeks,
-    save_costs, save_trips, save_week,
+    save_answer, save_costs, save_trips, save_week,
 )
 from backend.usage_limits import check_and_increment
 from engine.changes import detect_change
@@ -320,6 +321,46 @@ def get_changes(
         "recent_count": result.recent_count,
         "excluded_unconfirmed": result.excluded_unconfirmed,
         "reason": result.reason,
+    }
+
+
+class AskBody(BaseModel):
+    question: str = Field(min_length=1, max_length=500)
+    language: str = "en"  # English only for now (CLAUDE.md); kept so a language can be added later.
+
+
+@app.post("/api/ask")
+def ask(body: AskBody, user_id: str = Depends(require_user_id)):
+    """Grounded Q&A (REQUIREMENTS.md section 7). Every number in the answer
+    is checked against engine output before it is ever shown; a question that
+    can't be answered this way gets a plain refusal instead, never a guess.
+    """
+    settings = get_settings()
+    if body.language != "en":
+        raise ApiError(400, "unsupported_language", "Only English is supported right now.")
+
+    check_and_increment(user_id, "questions", settings.limit_questions_per_user_per_day, settings.limit_global_gemini_calls_per_day)
+
+    client = get_client(settings)
+    try:
+        result = ask_question(client, settings, settings.explain_model, user_id, body.question, body.language)
+    except RateLimitError:
+        raise ApiError(503, "service_busy", "PayProof is busy right now. Please try again in a minute.")
+
+    # Per-call token/cost logging happens inside ask_question() itself
+    # (backend/qa.py's "payproof.gemini_calls" JSON line), not here.
+    answer_id = save_answer(user_id, {
+        "question": body.question,
+        "language": body.language,
+        "text": result.text,
+        "verified": result.verified,
+        "numbers_used": result.numbers_used,
+    })
+    return {
+        "answer_id": answer_id,
+        "text": result.text,
+        "verified": result.verified,
+        "numbers_used": result.numbers_used,
     }
 
 

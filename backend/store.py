@@ -79,6 +79,23 @@ def get_weeks(uid: str) -> List[Dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# Answers (REQUIREMENTS.md section 4.2: text, language, numbers used -- so
+# text to speech, when built, can only ever speak a stored verified answer).
+# ---------------------------------------------------------------------------
+
+def save_answer(uid: str, answer_row: Dict[str, Any]) -> str:
+    """Write one verified (or refused) Q&A answer to Firestore. Returns the
+    new answer_id. Never stores the raw tool JSON's underlying trip/week
+    documents, only the compact numbers_used dict already returned to the
+    worker."""
+    answer_id = str(uuid.uuid4())
+    _user_ref(uid).collection("answers").document(answer_id).set(
+        {**answer_row, "saved_at": datetime.datetime.utcnow().isoformat()}
+    )
+    return answer_id
+
+
+# ---------------------------------------------------------------------------
 # Costs
 # ---------------------------------------------------------------------------
 

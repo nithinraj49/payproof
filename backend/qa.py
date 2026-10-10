@@ -18,8 +18,10 @@ only, never the question or answer text, never a user id.
 import datetime
 import json as jsonlib
 import logging
+import random
 import re
 import sys
+import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
@@ -32,6 +34,7 @@ from backend.store import (
     get_costs, get_trips, get_weeks,
 )
 from engine.earnings import compute_trip_summary, compute_weekly_summary
+from extraction.extract import RateLimitError, _is_transient_error
 
 logger = logging.getLogger("payproof.qa")
 
@@ -231,6 +234,29 @@ def _usage(response) -> tuple:
     return prompt_tokens, output_tokens, thinking_tokens
 
 
+# At most 2 short randomised pauses before giving up on a transient (429 or
+# 5xx) error, same policy as extraction (REQUIREMENTS.md section 19 rule 12)
+# and the same RateLimitError type, so backend/main.py's existing
+# `except RateLimitError: raise ApiError(503, ...)` handling covers /api/ask
+# too without any new exception type.
+_MAX_TRANSIENT_RETRIES = 2
+_TRANSIENT_RETRY_PAUSE_RANGE_SECONDS = (1.0, 3.0)
+
+
+def _generate_with_retry(client: genai.Client, model: str, contents, config):
+    last_exc = None
+    for attempt in range(_MAX_TRANSIENT_RETRIES + 1):
+        try:
+            return client.models.generate_content(model=model, contents=contents, config=config)
+        except Exception as exc:
+            if not _is_transient_error(exc):
+                raise
+            last_exc = exc
+            if attempt < _MAX_TRANSIENT_RETRIES:
+                time.sleep(random.uniform(*_TRANSIENT_RETRY_PAUSE_RANGE_SECONDS))
+    raise RateLimitError(str(last_exc)) from last_exc
+
+
 def _run_turn(
     client: genai.Client, settings: Settings, model: str, system_prompt: str,
     question: str, tool_registry: Dict[str, Callable[[], Dict[str, Any]]],
@@ -241,7 +267,7 @@ def _run_turn(
     config = _build_config(settings, model, system_prompt)
     contents = [types.Content(role="user", parts=[types.Part.from_text(text=question)])]
 
-    response = client.models.generate_content(model=model, contents=contents, config=config)
+    response = _generate_with_retry(client, model, contents, config)
     prompt_tokens, output_tokens, thinking_tokens = _usage(response)
     raw_calls = 1
 
@@ -270,7 +296,7 @@ def _run_turn(
     contents.append(response.candidates[0].content)
     contents.append(types.Content(role="user", parts=response_parts))
 
-    response2 = client.models.generate_content(model=model, contents=contents, config=config)
+    response2 = _generate_with_retry(client, model, contents, config)
     prompt_tokens2, output_tokens2, thinking_tokens2 = _usage(response2)
     raw_calls += 1
     _log_gemini_call(model, prompt_tokens2, output_tokens2, thinking_tokens2, "ok")
