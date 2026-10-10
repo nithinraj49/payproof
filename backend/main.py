@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import Depends, FastAPI, File, Form, Query, UploadFile
 from fastapi.exceptions import HTTPException
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 from backend.auth import require_user_id
@@ -12,6 +13,7 @@ from backend.extraction_cache import get_cached, hash_image, set_cached
 from backend.gemini_client import get_client
 from backend.sample_cache import get_cached_sample, set_cached_sample
 from backend.qa import ask_question
+from backend.report import render_trip_report, render_weekly_report
 from backend.store import (
     _to_cost_inputs, _to_trip_input, _to_week_input,
     delete_all, get_costs, get_trips, get_weeks,
@@ -362,6 +364,44 @@ def ask(body: AskBody, user_id: str = Depends(require_user_id)):
         "verified": result.verified,
         "numbers_used": result.numbers_used,
     }
+
+
+@app.get("/api/report")
+def get_report(
+    mode: str = Query("trip", pattern="^(trip|weekly)$"),
+    logged_in_hours: Optional[float] = Query(None, ge=0),
+    user_id: str = Depends(require_user_id),
+):
+    """Evidence pack HTML (REQUIREMENTS.md section 8): a plain, self-contained
+    page with a summary table, the method in words, data-quality notes, and
+    the privacy/limits statement. No names or phone numbers (none are ever
+    extracted or stored). All user-supplied label text is HTML-escaped."""
+    costs_row = get_costs(user_id)
+    cost_inputs = _to_cost_inputs(costs_row)
+
+    if mode == "trip":
+        trip_rows = get_trips(user_id)
+        if not trip_rows:
+            raise ApiError(400, "no_trips", "No confirmed trips found. Please upload and confirm trip screenshots first.")
+        trip_inputs = [_to_trip_input(r) for r in trip_rows]
+        try:
+            summary = compute_trip_summary(trip_inputs, cost_inputs, logged_in_hours=logged_in_hours)
+        except ValueError as exc:
+            raise ApiError(400, "invalid_data", str(exc))
+        html_doc = render_trip_report(summary, trip_rows)
+    else:
+        week_rows = get_weeks(user_id)
+        if not week_rows:
+            raise ApiError(400, "no_weeks", "No confirmed weekly summaries found. Please upload and confirm a weekly payout screenshot first.")
+        latest = sorted(week_rows, key=lambda r: r.get("saved_at", ""), reverse=True)[0]
+        week_input = _to_week_input(latest)
+        try:
+            summary = compute_weekly_summary(week_input, cost_inputs)
+        except ValueError as exc:
+            raise ApiError(400, "invalid_data", str(exc))
+        html_doc = render_weekly_report(summary, latest)
+
+    return HTMLResponse(content=html_doc)
 
 
 @app.delete("/api/data")
