@@ -1,0 +1,102 @@
+[
+  {
+    "history_id": "TH_001",
+    "injected_cut": false,
+    "path": "eval/histories/TH_001.json"
+  },
+  {
+    "history_id": "TH_002",
+    "injected_cut": false,
+    "path": "eval/histories/TH_002.json"
+  },
+  {
+    "history_id": "TH_003",
+    "injected_cut": false,
+    "path": "eval/histories/TH_003.json"
+  },
+  {
+    "history_id": "TH_004",
+    "injected_cut": false,
+    "path": "eval/histories/TH_004.json"
+  },
+  {
+    "history_id": "TH_005",
+    "injected_cut": false,
+    "path": "eval/histories/TH_005.json"
+  },
+  {
+    "history_id": "TH_006",
+    "injected_cut": false,
+    "path": "eval/histories/TH_006.json"
+  },
+  {
+    "history_id": "TH_007",
+    "injected_cut": false,
+    "path": "eval/histories/TH_007.json"
+  },
+  {
+    "history_id": "TH_008",
+    "injected_cut": false,
+    "path": "eval/histories/TH_008.json"
+  },
+  {
+    "history_id": "TH_009",
+    "injected_cut": false,
+    "path": "eval/histories/TH_009.json"
+  },
+  {
+    "history_id": "TH_010",
+    "injected_cut": false,
+    "path": "eval/histories/TH_010.json"
+  },
+  {
+    "history_id": "TH_011",
+    "injected_cut": true,
+    "path": "eval/histories/TH_011.json"
+  },
+  {
+    "history_id": "TH_012",
+    "injected_cut": true,
+    "path": "eval/histories/TH_012.json"
+  },
+  {
+    "history_id": "TH_013",
+    "injected_cut": true,
+    "path": "eval/histories/TH_013.json"
+  },
+  {
+    "history_id": "TH_014",
+    "injected_cut": true,
+    "path": "eval/histories/TH_014.json"
+  },
+  {
+    "history_id": "TH_015",
+    "injected_cut": true,
+    "path": "eval/histories/TH_015.json"
+  },
+  {
+    "history_id": "TH_016",
+    "injected_cut": true,
+    "path": "eval/histories/TH_016.json"
+  },
+  {
+    "history_id": "TH_017",
+    "injected_cut": true,
+    "path": "eval/histories/TH_017.json"
+  },
+  {
+    "history_id": "TH_018",
+    "injected_cut": true,
+    "path": "eval/histories/TH_018.json"
+  },
+  {
+    "history_id": "TH_019",
+    "injected_cut": true,
+    "path": "eval/histories/TH_019.json"
+  },
+  {
+    "history_id": "TH_020",
+    "injected_cut": true,
+    "path": "eval/histories/TH_020.json"
+  }
+]

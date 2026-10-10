@@ -10,6 +10,7 @@ import datetime
 import json as jsonlib
 import logging
 import random
+import sys
 import time
 from dataclasses import dataclass
 from typing import Optional
@@ -24,6 +25,55 @@ from extraction.prompt import SYSTEM_PROMPT
 from extraction.schema import ExtractionResult
 
 logger = logging.getLogger("payproof.extraction")
+
+# Dedicated logger + handler for the one-JSON-line-per-Gemini-call cost/token
+# record (REQUIREMENTS.md section 19). A separate handler, attached directly
+# here with propagate=False, means this line reaches stdout (and so Cloud Run
+# logs) regardless of whether/how the app's root logger is configured --
+# `logger` above (and backend/main.py's own logger) previously emitted nothing
+# in Cloud Run because nothing had ever attached a handler or set a level on
+# the root logger, so their INFO records were silently dropped.
+_gemini_call_logger = logging.getLogger("payproof.gemini_calls")
+_gemini_call_logger.setLevel(logging.INFO)
+_gemini_call_logger.propagate = False
+if not _gemini_call_logger.handlers:
+    _handler = logging.StreamHandler(sys.stdout)
+    _handler.setFormatter(logging.Formatter("%(message)s"))
+    _gemini_call_logger.addHandler(_handler)
+
+# Per-1M-token USD pricing, read off the current model docs 7 Oct 2026 and
+# noted in PROGRESS.md -- CLAUDE.md section 19: "treat prices you read as
+# unverified". Thinking tokens are billed as output tokens on all three
+# models, matching how output_tokens is already accumulated in _call_once.
+GEMINI_PRICING_PER_MILLION_USD = {
+    "gemini-3.1-flash-lite": (0.25, 1.50),
+    "gemini-3.5-flash-lite": (0.30, 2.50),
+    "gemini-3.8-flash": (0.75, 3.75),
+}
+
+
+def _estimated_cost_usd(model: str, prompt_tokens: int, output_tokens: int) -> float:
+    pricing = GEMINI_PRICING_PER_MILLION_USD.get(model)
+    if not pricing:
+        return 0.0
+    input_price, output_price = pricing
+    return round((prompt_tokens / 1_000_000) * input_price + (output_tokens / 1_000_000) * output_price, 6)
+
+
+def _log_gemini_call(model: str, prompt_tokens: int, output_tokens: int, thinking_tokens: int, outcome: str) -> None:
+    """One JSON line per actual call to Gemini, stdout, no image bytes, no
+    extracted field values, no user id (REQUIREMENTS.md section 19)."""
+    record = {
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "endpoint": "extract",
+        "model": model,
+        "prompt_tokens": prompt_tokens,
+        "output_tokens": output_tokens,
+        "thinking_tokens": thinking_tokens,
+        "outcome": outcome,
+        "estimated_cost_usd": _estimated_cost_usd(model, prompt_tokens, output_tokens),
+    }
+    _gemini_call_logger.info(jsonlib.dumps(record))
 
 # --- Deterministic post-processing safeguards (plain code, no Gemini call) ---
 # Found necessary after the Phase 2 hard-tier evaluation: the model sometimes
@@ -308,9 +358,11 @@ def extract_screenshot(client: genai.Client, settings: Settings, model: str, jpe
         try:
             response, prompt_tokens, output_tokens, thinking_tokens = _call_with_transient_retry(client, settings, model, jpeg_bytes)
         except RateLimitError:
+            _log_gemini_call(model, 0, 0, 0, "rate_limited")
             raise  # 429/5xx survived its pauses: let the caller turn this into a friendly "busy" response
         except Exception as exc:  # anything else non-transient: no further retry here
             logger.warning("Gemini call failed (model=%s, attempt=%s): %s", model, attempt, type(exc).__name__)
+            _log_gemini_call(model, 0, 0, 0, "call_failed")
             return ExtractionCallResult(
                 result=_needs_review_fallback("Could not read this screenshot right now. Please try again."),
                 calls_made=attempt + 1,
@@ -328,6 +380,7 @@ def extract_screenshot(client: genai.Client, settings: Settings, model: str, jpe
             raw_data = normalize_low_confidence_labels(raw_data)
             result = ExtractionResult.model_validate(raw_data)
             result = apply_deterministic_safeguards(result)
+            _log_gemini_call(model, prompt_tokens, output_tokens, thinking_tokens, "ok")
             return ExtractionCallResult(
                 result=result,
                 calls_made=attempt + 1,
@@ -337,6 +390,7 @@ def extract_screenshot(client: genai.Client, settings: Settings, model: str, jpe
             )
         except (ValidationError, ValueError) as exc:
             logger.warning("Invalid extraction output (model=%s, attempt=%s): %s", model, attempt, type(exc).__name__)
+            _log_gemini_call(model, prompt_tokens, output_tokens, thinking_tokens, "invalid_output")
             continue  # one retry allowed
 
     return ExtractionCallResult(

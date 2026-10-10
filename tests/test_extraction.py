@@ -1,5 +1,7 @@
 """Tests for extraction/. All Gemini calls are mocked; no network calls."""
 import io
+import json
+import logging
 from unittest.mock import MagicMock
 
 import pytest
@@ -8,7 +10,7 @@ from PIL import Image
 from pydantic import ValidationError
 
 from backend.config import get_settings
-from extraction.extract import RateLimitError, _build_config, extract_screenshot
+from extraction.extract import RateLimitError, _build_config, _estimated_cost_usd, extract_screenshot
 from extraction.image_prep import prepare_image
 from extraction.schema import ExtractionResult, Trip
 
@@ -211,3 +213,114 @@ def test_extract_screenshot_5xx_never_crashes_the_caller(monkeypatch):
         assert False, "expected RateLimitError"
     except RateLimitError:
         pass  # exactly the catchable, documented outcome -- never a crash
+
+
+# --- extraction/extract.py: Gemini-call JSON log line ---
+#
+# The production fix attaches a StreamHandler(sys.stdout) directly to the
+# "payproof.gemini_calls" logger (extraction/extract.py), with propagate=False,
+# so the line reaches stdout (and so Cloud Run logs) independent of whatever
+# the root logger is or isn't configured with -- that's the actual bug being
+# fixed here. For the test, attach caplog's own handler directly to that same
+# logger (bypassing propagation and OS-level stdout capture entirely, which
+# has flush-timing quirks under pytest on Windows) to inspect the real
+# LogRecords emitted.
+GEMINI_CALL_LOGGER = logging.getLogger("payproof.gemini_calls")
+
+
+@pytest.fixture
+def gemini_call_records(caplog):
+    caplog.set_level(logging.INFO, logger="payproof.gemini_calls")
+    GEMINI_CALL_LOGGER.addHandler(caplog.handler)
+    try:
+        yield caplog
+    finally:
+        GEMINI_CALL_LOGGER.removeHandler(caplog.handler)
+
+
+def _records(caplog) -> list:
+    return [json.loads(r.getMessage()) for r in caplog.records if r.name == "payproof.gemini_calls"]
+
+
+def test_successful_call_logs_one_json_line_with_required_fields(gemini_call_records):
+    client = MagicMock()
+    client.models.generate_content.return_value = make_response(VALID_RESULT, prompt_tokens=120, output_tokens=60, thinking_tokens=5)
+
+    extract_screenshot(client, SETTINGS, "gemini-3.1-flash-lite", b"fake-jpeg")
+
+    records = _records(gemini_call_records)
+    assert len(records) == 1
+    record = records[0]
+    assert set(record.keys()) == {
+        "timestamp", "endpoint", "model", "prompt_tokens", "output_tokens",
+        "thinking_tokens", "outcome", "estimated_cost_usd",
+    }
+    assert record["endpoint"] == "extract"
+    assert record["model"] == "gemini-3.1-flash-lite"
+    assert record["prompt_tokens"] == 120
+    assert record["output_tokens"] == 65  # candidates (60) + thinking (5), per _call_once
+    assert record["thinking_tokens"] == 5
+    assert record["outcome"] == "ok"
+    assert record["estimated_cost_usd"] > 0
+    # No image bytes, no extracted field values, no user id anywhere in the line.
+    assert "fake-jpeg" not in json.dumps(record)
+    assert "trip_detail" not in json.dumps(record)
+    assert "100.0" not in json.dumps(record)
+
+
+def test_call_failed_logs_zero_tokens_and_that_outcome(gemini_call_records):
+    client = MagicMock()
+    client.models.generate_content.side_effect = TimeoutError("network timeout")
+
+    extract_screenshot(client, SETTINGS, "gemini-3.5-flash-lite", b"fake-jpeg")
+
+    records = _records(gemini_call_records)
+    assert len(records) == 1
+    assert records[0]["outcome"] == "call_failed"
+    assert records[0]["prompt_tokens"] == 0
+    assert records[0]["output_tokens"] == 0
+    assert records[0]["estimated_cost_usd"] == 0.0
+
+
+def test_rate_limited_logs_that_outcome(gemini_call_records, monkeypatch):
+    monkeypatch.setattr("extraction.extract.time.sleep", lambda s: None)
+    error = genai_errors.ClientError(code=429, response_json={"error": {"message": "RESOURCE_EXHAUSTED"}})
+    client = MagicMock()
+    client.models.generate_content.side_effect = error
+
+    with pytest.raises(RateLimitError):
+        extract_screenshot(client, SETTINGS, "gemini-3.5-flash-lite", b"fake-jpeg")
+
+    records = _records(gemini_call_records)
+    assert len(records) == 1
+    assert records[0]["outcome"] == "rate_limited"
+    assert records[0]["prompt_tokens"] == 0
+
+
+def test_invalid_output_then_retry_logs_two_lines(gemini_call_records):
+    bad_response = MagicMock()
+    bad_response.text = "not valid json"
+    bad_response.usage_metadata = MagicMock(prompt_token_count=100, candidates_token_count=10, thoughts_token_count=0)
+    good_response = make_response(VALID_RESULT, prompt_tokens=90, output_tokens=40)
+
+    client = MagicMock()
+    client.models.generate_content.side_effect = [bad_response, good_response]
+
+    extract_screenshot(client, SETTINGS, "gemini-3.1-flash-lite", b"fake-jpeg")
+
+    records = _records(gemini_call_records)
+    assert len(records) == 2
+    assert records[0]["outcome"] == "invalid_output"
+    assert records[0]["prompt_tokens"] == 100
+    assert records[1]["outcome"] == "ok"
+    assert records[1]["prompt_tokens"] == 90
+
+
+def test_estimated_cost_usd_matches_known_pricing():
+    # gemini-3.1-flash-lite: $0.25/1M input, $1.50/1M output (unverified, see PROGRESS.md)
+    cost = _estimated_cost_usd("gemini-3.1-flash-lite", prompt_tokens=1_000_000, output_tokens=1_000_000)
+    assert cost == pytest.approx(0.25 + 1.50)
+
+
+def test_estimated_cost_usd_unknown_model_is_zero():
+    assert _estimated_cost_usd("some-future-model", 1000, 1000) == 0.0

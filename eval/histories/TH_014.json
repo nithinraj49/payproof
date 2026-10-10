@@ -1,0 +1,519 @@
+{
+  "history_id": "TH_014",
+  "injected_cut": true,
+  "baseline_rate": 11.0,
+  "recent_rate": 9.9,
+  "split_date": "2026-09-10",
+  "trips": [
+    {
+      "trip_date": "2026-08-26",
+      "date_confirmed": true,
+      "base_pay": 124.66,
+      "incentive": 40.23,
+      "tip": null,
+      "deductions": [
+        {
+          "label": "Platform fee",
+          "amount": 14.64
+        }
+      ],
+      "total_payout": 150.25,
+      "distance_km": 9.06,
+      "duration_min": 32
+    },
+    {
+      "trip_date": "2026-09-04",
+      "date_confirmed": true,
+      "base_pay": 110.58,
+      "incentive": null,
+      "tip": 14.28,
+      "deductions": [],
+      "total_payout": 124.86,
+      "distance_km": 7.78,
+      "duration_min": 27
+    },
+    {
+      "trip_date": "2026-09-05",
+      "date_confirmed": true,
+      "base_pay": 40.95,
+      "incentive": null,
+      "tip": 10.33,
+      "deductions": [],
+      "total_payout": 51.28,
+      "distance_km": 1.45,
+      "duration_min": 6
+    },
+    {
+      "trip_date": "2026-08-22",
+      "date_confirmed": true,
+      "base_pay": 144.9,
+      "incentive": null,
+      "tip": null,
+      "deductions": [],
+      "total_payout": 144.9,
+      "distance_km": 10.9,
+      "duration_min": 38
+    },
+    {
+      "trip_date": "2026-08-20",
+      "date_confirmed": true,
+      "base_pay": 118.5,
+      "incentive": 22.12,
+      "tip": null,
+      "deductions": [],
+      "total_payout": 140.62,
+      "distance_km": 8.5,
+      "duration_min": 27
+    },
+    {
+      "trip_date": "2026-09-05",
+      "date_confirmed": true,
+      "base_pay": 83.41,
+      "incentive": 12.79,
+      "tip": null,
+      "deductions": [
+        {
+          "label": "Platform fee",
+          "amount": 12.35
+        }
+      ],
+      "total_payout": 83.85,
+      "distance_km": 5.31,
+      "duration_min": 18
+    },
+    {
+      "trip_date": "2026-09-03",
+      "date_confirmed": true,
+      "base_pay": 144.13,
+      "incentive": 30.07,
+      "tip": null,
+      "deductions": [],
+      "total_payout": 174.2,
+      "distance_km": 10.83,
+      "duration_min": 34
+    },
+    {
+      "trip_date": "2026-08-31",
+      "date_confirmed": true,
+      "base_pay": 93.97,
+      "incentive": 52.08,
+      "tip": null,
+      "deductions": [],
+      "total_payout": 146.05,
+      "distance_km": 6.27,
+      "duration_min": 21
+    },
+    {
+      "trip_date": "2026-09-09",
+      "date_confirmed": true,
+      "base_pay": 63.28,
+      "incentive": null,
+      "tip": 16.49,
+      "deductions": [
+        {
+          "label": "Platform fee",
+          "amount": 19.55
+        }
+      ],
+      "total_payout": 60.22,
+      "distance_km": 3.48,
+      "duration_min": 12
+    },
+    {
+      "trip_date": "2026-08-23",
+      "date_confirmed": true,
+      "base_pay": 42.16,
+      "incentive": null,
+      "tip": 10.51,
+      "deductions": [],
+      "total_payout": 52.67,
+      "distance_km": 1.56,
+      "duration_min": 8
+    },
+    {
+      "trip_date": "2026-09-09",
+      "date_confirmed": true,
+      "base_pay": 95.4,
+      "incentive": 47.54,
+      "tip": 14.55,
+      "deductions": [],
+      "total_payout": 157.49,
+      "distance_km": 6.4,
+      "duration_min": 25
+    },
+    {
+      "trip_date": "2026-09-06",
+      "date_confirmed": true,
+      "base_pay": 63.94,
+      "incentive": null,
+      "tip": null,
+      "deductions": [],
+      "total_payout": 63.94,
+      "distance_km": 3.54,
+      "duration_min": 13
+    },
+    {
+      "trip_date": "2026-09-09",
+      "date_confirmed": true,
+      "base_pay": 77.58,
+      "incentive": 19.92,
+      "tip": null,
+      "deductions": [
+        {
+          "label": "Platform fee",
+          "amount": 9.43
+        }
+      ],
+      "total_payout": 88.07,
+      "distance_km": 4.78,
+      "duration_min": 19
+    },
+    {
+      "trip_date": "2026-08-24",
+      "date_confirmed": true,
+      "base_pay": 79.23,
+      "incentive": null,
+      "tip": 25.93,
+      "deductions": [
+        {
+          "label": "Platform fee",
+          "amount": 18.45
+        }
+      ],
+      "total_payout": 86.71,
+      "distance_km": 4.93,
+      "duration_min": 19
+    },
+    {
+      "trip_date": "2026-08-29",
+      "date_confirmed": true,
+      "base_pay": 128.84,
+      "incentive": 59.62,
+      "tip": 28.27,
+      "deductions": [
+        {
+          "label": "Platform fee",
+          "amount": 15.97
+        }
+      ],
+      "total_payout": 200.76,
+      "distance_km": 9.44,
+      "duration_min": 33
+    },
+    {
+      "trip_date": "2026-09-08",
+      "date_confirmed": true,
+      "base_pay": 113.11,
+      "incentive": null,
+      "tip": null,
+      "deductions": [],
+      "total_payout": 113.11,
+      "distance_km": 8.01,
+      "duration_min": 28
+    },
+    {
+      "trip_date": "2026-08-31",
+      "date_confirmed": true,
+      "base_pay": 146.0,
+      "incentive": 47.19,
+      "tip": 31.9,
+      "deductions": [],
+      "total_payout": 225.09,
+      "distance_km": 11.0,
+      "duration_min": 38
+    },
+    {
+      "trip_date": "2026-08-21",
+      "date_confirmed": true,
+      "base_pay": 85.06,
+      "incentive": null,
+      "tip": null,
+      "deductions": [
+        {
+          "label": "Platform fee",
+          "amount": 13.1
+        }
+      ],
+      "total_payout": 71.96,
+      "distance_km": 5.46,
+      "duration_min": 22
+    },
+    {
+      "trip_date": "2026-09-03",
+      "date_confirmed": true,
+      "base_pay": 38.97,
+      "incentive": null,
+      "tip": null,
+      "deductions": [],
+      "total_payout": 38.97,
+      "distance_km": 1.27,
+      "duration_min": 8
+    },
+    {
+      "trip_date": "2026-08-24",
+      "date_confirmed": true,
+      "base_pay": 133.13,
+      "incentive": null,
+      "tip": null,
+      "deductions": [],
+      "total_payout": 133.13,
+      "distance_km": 9.83,
+      "duration_min": 31
+    },
+    {
+      "trip_date": "2026-09-29",
+      "date_confirmed": true,
+      "base_pay": 57.77,
+      "incentive": null,
+      "tip": null,
+      "deductions": [],
+      "total_payout": 57.77,
+      "distance_km": 3.31,
+      "duration_min": 14
+    },
+    {
+      "trip_date": "2026-09-14",
+      "date_confirmed": true,
+      "base_pay": 117.17,
+      "incentive": null,
+      "tip": null,
+      "deductions": [],
+      "total_payout": 117.17,
+      "distance_km": 9.31,
+      "duration_min": 34
+    },
+    {
+      "trip_date": "2026-09-26",
+      "date_confirmed": true,
+      "base_pay": 99.65,
+      "incentive": null,
+      "tip": null,
+      "deductions": [
+        {
+          "label": "Platform fee",
+          "amount": 18.01
+        }
+      ],
+      "total_payout": 81.64,
+      "distance_km": 7.54,
+      "duration_min": 28
+    },
+    {
+      "trip_date": "2026-09-20",
+      "date_confirmed": true,
+      "base_pay": 103.21,
+      "incentive": null,
+      "tip": null,
+      "deductions": [],
+      "total_payout": 103.21,
+      "distance_km": 7.9,
+      "duration_min": 27
+    },
+    {
+      "trip_date": "2026-09-17",
+      "date_confirmed": true,
+      "base_pay": 122.32,
+      "incentive": 56.98,
+      "tip": null,
+      "deductions": [],
+      "total_payout": 179.3,
+      "distance_km": 9.83,
+      "duration_min": 31
+    },
+    {
+      "trip_date": "2026-09-16",
+      "date_confirmed": true,
+      "base_pay": 110.34,
+      "incentive": 23.34,
+      "tip": 32.95,
+      "deductions": [
+        {
+          "label": "Platform fee",
+          "amount": 13.05
+        }
+      ],
+      "total_payout": 153.58,
+      "distance_km": 8.62,
+      "duration_min": 28
+    },
+    {
+      "trip_date": "2026-09-15",
+      "date_confirmed": true,
+      "base_pay": 95.09,
+      "incentive": null,
+      "tip": 33.31,
+      "deductions": [],
+      "total_payout": 128.4,
+      "distance_km": 7.08,
+      "duration_min": 25
+    },
+    {
+      "trip_date": "2026-09-27",
+      "date_confirmed": true,
+      "base_pay": 38.37,
+      "incentive": null,
+      "tip": null,
+      "deductions": [],
+      "total_payout": 38.37,
+      "distance_km": 1.35,
+      "duration_min": 6
+    },
+    {
+      "trip_date": "2026-09-17",
+      "date_confirmed": true,
+      "base_pay": 94.6,
+      "incentive": 53.06,
+      "tip": null,
+      "deductions": [],
+      "total_payout": 147.66,
+      "distance_km": 7.03,
+      "duration_min": 22
+    },
+    {
+      "trip_date": "2026-09-23",
+      "date_confirmed": true,
+      "base_pay": 106.48,
+      "incentive": 58.74,
+      "tip": null,
+      "deductions": [],
+      "total_payout": 165.22,
+      "distance_km": 8.23,
+      "duration_min": 26
+    },
+    {
+      "trip_date": "2026-09-22",
+      "date_confirmed": true,
+      "base_pay": 135.38,
+      "incentive": null,
+      "tip": null,
+      "deductions": [
+        {
+          "label": "Platform fee",
+          "amount": 17.6
+        }
+      ],
+      "total_payout": 117.78,
+      "distance_km": 11.15,
+      "duration_min": 37
+    },
+    {
+      "trip_date": "2026-09-23",
+      "date_confirmed": true,
+      "base_pay": 41.34,
+      "incentive": null,
+      "tip": 38.98,
+      "deductions": [],
+      "total_payout": 80.32,
+      "distance_km": 1.65,
+      "duration_min": 8
+    },
+    {
+      "trip_date": "2026-09-18",
+      "date_confirmed": true,
+      "base_pay": 134.2,
+      "incentive": 59.34,
+      "tip": null,
+      "deductions": [],
+      "total_payout": 193.54,
+      "distance_km": 11.03,
+      "duration_min": 37
+    },
+    {
+      "trip_date": "2026-09-30",
+      "date_confirmed": true,
+      "base_pay": 47.87,
+      "incentive": null,
+      "tip": null,
+      "deductions": [
+        {
+          "label": "Platform fee",
+          "amount": 12.97
+        }
+      ],
+      "total_payout": 34.9,
+      "distance_km": 2.31,
+      "duration_min": 12
+    },
+    {
+      "trip_date": "2026-09-22",
+      "date_confirmed": true,
+      "base_pay": 75.29,
+      "incentive": null,
+      "tip": null,
+      "deductions": [],
+      "total_payout": 75.29,
+      "distance_km": 5.08,
+      "duration_min": 19
+    },
+    {
+      "trip_date": "2026-09-29",
+      "date_confirmed": true,
+      "base_pay": 123.8,
+      "incentive": 39.96,
+      "tip": null,
+      "deductions": [],
+      "total_payout": 163.76,
+      "distance_km": 9.98,
+      "duration_min": 34
+    },
+    {
+      "trip_date": "2026-09-27",
+      "date_confirmed": true,
+      "base_pay": 97.07,
+      "incentive": null,
+      "tip": null,
+      "deductions": [],
+      "total_payout": 97.07,
+      "distance_km": 7.28,
+      "duration_min": 28
+    },
+    {
+      "trip_date": "2026-09-15",
+      "date_confirmed": true,
+      "base_pay": 114.89,
+      "incentive": 37.87,
+      "tip": null,
+      "deductions": [
+        {
+          "label": "Platform fee",
+          "amount": 19.84
+        }
+      ],
+      "total_payout": 132.92,
+      "distance_km": 9.08,
+      "duration_min": 29
+    },
+    {
+      "trip_date": "2026-09-30",
+      "date_confirmed": true,
+      "base_pay": 112.91,
+      "incentive": 57.11,
+      "tip": 24.63,
+      "deductions": [
+        {
+          "label": "Platform fee",
+          "amount": 5.83
+        }
+      ],
+      "total_payout": 188.82,
+      "distance_km": 8.88,
+      "duration_min": 28
+    },
+    {
+      "trip_date": "2026-09-25",
+      "date_confirmed": true,
+      "base_pay": 78.16,
+      "incentive": null,
+      "tip": null,
+      "deductions": [
+        {
+          "label": "Platform fee",
+          "amount": 14.2
+        }
+      ],
+      "total_payout": 63.96,
+      "distance_km": 5.37,
+      "duration_min": 20
+    }
+  ]
+}

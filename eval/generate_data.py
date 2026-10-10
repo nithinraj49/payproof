@@ -598,6 +598,91 @@ def generate(n_l1: int = 15, n_l3: int = 10, n_n1: int = 5):
     return manifest
 
 
+# --- Trip histories for change-detection evaluation (ROADMAP.md Solo override:
+# 20 histories, not 40; half with a 10% per-km pay cut at the midpoint) ---
+
+HISTORY_SEED = 20261009  # never reuse SEED, HARD_SEED or MODERATE_SEED
+HISTORIES_PER_PERIOD = 20  # trips per half-period; 20 > 15-trip minimum
+PAY_CUT_FRACTION = 0.10   # 10% reduction in per-km base pay rate
+HISTORIES_DIR = ROOT / "eval" / "histories"
+
+
+def _build_history_trip(rng: random.Random, per_km_rate: float, trip_date: date) -> dict:
+    """Build one raw trip dict for history evaluation (not rendered as an image).
+
+    Confirmed trips only — date_confirmed=True for all history trips so the
+    change engine can use them without any exclusions.
+    """
+    km = round(rng.uniform(*cfg.DISTANCE_KM_RANGE), 2)
+    base_pay = round(cfg.BASE_PAY_FIXED + km * per_km_rate, 2)
+    incentive = round(rng.uniform(*cfg.INCENTIVE_RANGE), 2) if rng.random() < cfg.INCENTIVE_CHANCE else None
+    tip = round(rng.uniform(*cfg.TIP_RANGE), 2) if rng.random() < cfg.TIP_CHANCE else None
+    ded_amount = round(rng.uniform(*cfg.DEDUCTION_RANGE), 2) if rng.random() < cfg.DEDUCTION_CHANCE else 0.0
+    gross = base_pay + (incentive or 0) + (tip or 0)
+    total_payout = round(gross - ded_amount, 2)
+    deductions = [{"label": "Platform fee", "amount": ded_amount}] if ded_amount > 0 else []
+    return {
+        "trip_date": trip_date.isoformat(),
+        "date_confirmed": True,
+        "base_pay": base_pay,
+        "incentive": incentive,
+        "tip": tip,
+        "deductions": deductions,
+        "total_payout": total_payout,
+        "distance_km": km,
+        "duration_min": round(km * cfg.MIN_PER_KM + rng.uniform(*cfg.WAITING_MIN_RANGE)),
+    }
+
+
+def generate_trip_histories(n: int = 20) -> list:
+    """Generate n trip histories (n//2 stable, n//2 with a 10% pay cut at midpoint).
+
+    Each history contains HISTORIES_PER_PERIOD trips in a baseline period
+    (weeks 1-3) and HISTORIES_PER_PERIOD trips in a recent period (weeks 4-6),
+    with trip_date set so detect_change can split at the midpoint date.
+
+    Returns a list of dicts describing each history, saved as JSON in
+    eval/histories/.
+    """
+    HISTORIES_DIR.mkdir(parents=True, exist_ok=True)
+    rng = random.Random(HISTORY_SEED)
+    baseline_rate = cfg.BASE_PAY_PER_KM_RANGE[0] + (cfg.BASE_PAY_PER_KM_RANGE[1] - cfg.BASE_PAY_PER_KM_RANGE[0]) / 2
+
+    histories = []
+    reference = date(2026, 10, 1)
+    for i in range(1, n + 1):
+        injected = i > n // 2  # first half stable, second half with pay cut
+        recent_rate = baseline_rate * (1 - PAY_CUT_FRACTION) if injected else baseline_rate
+
+        # Baseline: HISTORIES_PER_PERIOD trips spread across weeks 1-3 (days -42..-22)
+        baseline_trips = [
+            _build_history_trip(rng, baseline_rate, reference - timedelta(days=rng.randint(22, 42)))
+            for _ in range(HISTORIES_PER_PERIOD)
+        ]
+        # Recent: HISTORIES_PER_PERIOD trips spread across weeks 4-6 (days -21..-1)
+        recent_trips = [
+            _build_history_trip(rng, recent_rate, reference - timedelta(days=rng.randint(1, 21)))
+            for _ in range(HISTORIES_PER_PERIOD)
+        ]
+
+        history = {
+            "history_id": f"TH_{i:03d}",
+            "injected_cut": injected,
+            "baseline_rate": round(baseline_rate, 4),
+            "recent_rate": round(recent_rate, 4),
+            "split_date": (reference - timedelta(days=21)).isoformat(),
+            "trips": baseline_trips + recent_trips,
+        }
+        path = HISTORIES_DIR / f"TH_{i:03d}.json"
+        path.write_text(json.dumps(history, indent=2))
+        histories.append({"history_id": history["history_id"], "injected_cut": injected,
+                           "path": str(path.relative_to(ROOT)).replace("\\", "/")})
+
+    index_path = HISTORIES_DIR / "index.json"
+    index_path.write_text(json.dumps(histories, indent=2))
+    return histories
+
+
 if __name__ == "__main__":
     import sys
 
@@ -611,6 +696,13 @@ if __name__ == "__main__":
         print(f"Generated {len(entries)} moderate-tier images in {IMAGES_DIR} (names M1_001..M1_{len(entries):03d})")
         for entry in entries:
             print(f"  {entry['name']}: dark={entry['dark_mode']} degradation={entry['degradation']}")
+    elif "--histories" in sys.argv:
+        histories = generate_trip_histories()
+        n_cut = sum(1 for h in histories if h["injected_cut"])
+        print(f"Generated {len(histories)} trip histories in {HISTORIES_DIR} ({n_cut} with pay cut, {len(histories)-n_cut} stable)")
+        for h in histories:
+            label = "cut" if h["injected_cut"] else "stable"
+            print(f"  {h['history_id']}: {label}")
     else:
         manifest = generate()
         print(f"Generated {len(manifest)} images in {IMAGES_DIR} with ground truth in {GROUND_TRUTH_DIR}")

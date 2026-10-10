@@ -7,6 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ backend/
 COPY extraction/ extraction/
+COPY engine/ engine/
 
 ENV PORT=8080
 EXPOSE 8080

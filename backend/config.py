@@ -26,6 +26,13 @@ def _env_float(name: str, default: float) -> float:
     return float(value) if value else default
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in ("1", "true", "yes")
+
+
 @dataclass(frozen=True)
 class Settings:
     project_id: str
@@ -49,6 +56,7 @@ class Settings:
     quality_min_contrast: float
     quality_min_brightness: float
     quality_max_brightness: float
+    enable_change_signal: bool
 
 
 def _running_on_cloud_run() -> bool:
@@ -104,6 +112,10 @@ def get_settings() -> Settings:
         quality_min_contrast=_env_float("QUALITY_MIN_CONTRAST", 10.0),
         quality_min_brightness=_env_float("QUALITY_MIN_BRIGHTNESS", 15.0),
         quality_max_brightness=_env_float("QUALITY_MAX_BRIGHTNESS", 254.0),
+        # Offline evaluation (eval/compare_estimators.py, 2026-10-10) found no
+        # estimator gives usable recall with zero false alarms on simulated
+        # data, so the feature is disabled by default. See eval/RESULTS.md.
+        enable_change_signal=_env_bool("ENABLE_CHANGE_SIGNAL", False),
     )
     _validate_for_cloud_run(settings)
     return settings

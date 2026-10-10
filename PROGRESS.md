@@ -173,13 +173,105 @@ Owner still needs to: confirm Firebase Authentication (Anonymous + Google) is en
 
 ### Next
 - Owner: tag and push `main`; run `eval/check_firestore_usage_limits.py` against the real project when convenient.
-- Not started: Phase 5's actual sample-image curation (`frontend/samples/`), degraded weekly-screen testing (noted as a limitation above), `/api/trips`/`/api/weeks`/etc. endpoints (Phase 3), the cascade question (revisit if real-world accuracy looks different from this simulated data).
-- **Phase 3 not started — waiting for the owner to say go.**
+
+## Phase 3: Pay engine — done (Fri 9 Oct 2026)
+
+### Done
+- **Dockerfile**: `COPY engine/ engine/` added (was flagged in the Phase 2 deploy review as a required fix before the next deploy).
+- **`engine/__init__.py`**, **`engine/models.py`** (dataclasses: `TripInput`, `TripSummary`, `WeekInput`, `WeeklySummary`, `CostInputs`, `PayoutLine`, `ChangeResult`), **`engine/earnings.py`** (`compute_trip_summary`, `compute_weekly_summary`): exact formulas from REQUIREMENTS.md sections 5.1 and 5.2. Returns `None`, never zero, for zero denominators. Rejects negative inputs with `ValueError`. Includes `data_quality` notes for missing distance, missing duration, zero denominators, reconciliation flags.
+- **`tests/test_engine.py`**: both worked examples (trip: 192.00, 85.33, 20.00, 0.0588; weekly: 127.50, 15.77, 0.0353) plus 11 additional trip-mode cases and 9 additional weekly-mode cases. Hand calculations in comments for every case.
+- **`engine/changes.py`**: seeded bootstrap (10,000 resamples, seed 20261006), 15-trip minimum per period, 5% relative-change threshold. Trips with `date_confirmed=False` are excluded before any calculation and reported in `excluded_unconfirmed`. Statuses: `possible_change`, `no_clear_change`, `insufficient_data`. Tests for every status, unconfirmed exclusion, missing-distance exclusion, sub-threshold change.
+- **`backend/store.py`**: Firestore helpers for `save_trips`, `get_trips`, `save_week`, `get_weeks`, `save_costs`, `get_costs`, `delete_all`. `_to_trip_input`, `_to_week_input`, `_to_cost_inputs` converters for the engine. User id always from the verified token, never from the request body or path.
+- **New endpoints in `backend/main.py`**: `PUT /api/trips` (stores `date_confirmed` per trip), `PUT /api/weeks`, `PUT /api/costs`, `GET /api/summary` (trip and weekly modes), `GET /api/changes` (trip mode only, `split_date` query param), `DELETE /api/data`. All protected by Firebase token. `GET /api/summary?mode=weekly` returns `per_hour_on_trips_unavailable` with the exact reason string.
+- **`tests/test_store_endpoints.py`**: 20 endpoint tests (mocked Firestore and auth, no network). Verifies worked-example values through the full endpoint, 401 without auth, 400 for missing costs/trips/weeks, change detection at the endpoint level, delete call targeting only the authenticated user's id.
+- **`eval/generate_data.py`**: `generate_trip_histories(n=20)` added — 20 trip histories (10 stable, 10 with 10% per-km pay cut at the midpoint date), each with 20 baseline + 20 recent trips (above the 15-trip minimum). Saved as JSON in `eval/histories/` with an index. Separate seed `HISTORY_SEED=20261009`.
+- **`eval/run_change_eval.py`**: reads `eval/histories/index.json`, runs `detect_change()` on each history, reports precision, recall and false-alarm rate. No Gemini calls. Appends results to `eval/RESULTS.md`.
+- `pytest -q`: **123 passed** (was 61). No regressions.
+
+### Decisions
+- `engine/changes.py` uses `net_payout_per_km` as the single metric (the most direct measure of rate change; per-engaged-hour is not available in weekly mode and is noisy without distance normalisation).
+- Weekly-mode change detection is not built (ROADMAP.md Solo override). `GET /api/changes` is trip-mode only.
+- Histories are not yet generated (requires `python -m eval.generate_data --histories`); the eval script will guide the owner.
+
+### Next
+- Owner approves: `git tag phase-3` and push `main`.
+- Owner runs `python -m eval.generate_data --histories` and then `python -m eval.run_change_eval` to get the change-detection evaluation table, then adds it to `eval/RESULTS.md`.
+- Deploy (Phase 3 adds engine endpoints — owner approves `deploy-check` first).
+- Phase 4: Q&A, number verifier, evidence pack.
+
+## Phase 3 close-out: change-signal disabled, live E2E check — done (Fri 10 Oct 2026)
+
+### Offline estimator comparison, decision to disable the change signal
+- `eval/compare_estimators.py` (new, no Gemini calls): compared three candidate estimators for the trip-mode pay-change signal — (a) mean of per-trip `net_payout_per_km` ratios [the existing `engine/changes.py` approach], (b) ratio of sums with bootstrap over trips, (c) OLS slope of net payout against distance per period with bootstrap over trips — on the existing 20 simulated histories (20 trips/period) and a second generated set of 20 histories at 50 trips/period (**N=50 is an assumption**, not validated against real trip counts).
+- **Result: none of the three gives usable recall with zero false alarms**, on either sample size. Best case across both sets: recall 0.100 (1 of 10 injected 10% cuts caught), with zero or non-zero false alarms depending on estimator/N. Root cause: the simulator's `BASE_PAY_FIXED=25.0` flat component makes `net_payout_per_km` swing by roughly `25/km` per trip — far larger than the 10% per-km cut being tested for — and this noise does not average away with more trips or a different statistic.
+- **Did not tune the simulator** to make the signal easier (would make the evaluation dishonest). Full tables and an honest conclusion (not validated on real data, not a claim that detection is impossible in general) are in `eval/RESULTS.md`.
+- **Decision (owner, 10 Oct 2026): disable the pay-change signal.** New setting `ENABLE_CHANGE_SIGNAL` (default `false`, in `.env.example`, `deploy/env.yaml`, `backend/config.py`). While false, `GET /api/changes` returns `{"status": "unavailable", "reason": "..."}` with **no computation** (trips are never even fetched — verified by a test asserting `get_trips` is not called). `engine/changes.py`, its tests, and `eval/run_change_eval.py` are kept unchanged for the record. New test `test_get_changes_disabled_by_default`; existing change-detection endpoint tests now explicitly re-enable the setting via `patch("backend.main.get_settings", ...)` to keep testing the underlying logic.
+- `REQUIREMENTS.md` (section 2 scope table, section 5.3, FE-8, the API table, acceptance scenarios A5/A6) and `ROADMAP.md` (Solo overrides, Phase 5 step A) updated to mark the feature disabled with the reason and a pointer to `eval/RESULTS.md`. The Pay changes screen is removed from Phase 5 — the frontend must not call `GET /api/changes` or build a changes screen.
+- `pytest -q`: **124 passed**, no regressions.
+
+### Deploy (`payproof-00005-6w9`) and live end-to-end check
+- Owner approved deploy with the agreed flags (service account `payproof-run`, `--max-instances=3`, `--allow-unauthenticated`, `--memory=1Gi`, `--timeout=60`, `--env-vars-file=deploy/env.yaml`). Build and rollout succeeded; `payproof-00005-6w9` serving 100% of traffic. Live env vars checked one by one against `deploy/env.yaml`: all 21 match, including `ENABLE_CHANGE_SIGNAL: "false"`, no `GEMINI_API_KEY`.
+- **Live E2E results (all simulated images, 2 Gemini calls made, owner's "go" already given):**
+
+| Check | Expected | Got | Result |
+|---|---|---|---|
+| `GET /health` | 200 | 200 | PASS |
+| `GET /api/whoami` (no token) | 401 | 401 `missing_token` | PASS |
+| `GET /api/changes` (no token) | 401 | 401 `missing_token` | PASS |
+| `POST /api/extract` trip image (first) | 200, `trip_detail` | 200, `trip_detail` | PASS |
+| `POST /api/extract` same image (repeat) | 200, cached, identical body | 200, identical | PASS |
+| `POST /api/extract` order-offer image | 200, `order_offer`, no trips | 200, `order_offer`, no trips | PASS |
+| `POST /api/extract` no token | 401 | 401 | PASS |
+| `PUT /api/trips` (worked example, 2 trips) | 200, saved=2 | 200, saved=2 | PASS |
+| `PUT /api/costs` | 200 | 200 | PASS |
+| `GET /api/summary` net_earnings | 128 | 128.0 | PASS |
+| `GET /api/summary` net_per_engaged_hour | 192.00 | 192.0 | PASS |
+| `GET /api/summary` net_per_logged_in_hour | 85.33 | 85.33 | PASS |
+| `GET /api/summary` net_payout_per_km | 20.00 | 20.0 | PASS |
+| `GET /api/summary` deduction_share | 0.0588 | 0.0588 | PASS |
+| `GET /api/changes` (user A, disabled) | `unavailable` | `unavailable` | PASS |
+| User B `GET /api/summary` | not A's data | 400 `costs_not_set` (B's own missing costs) | PASS |
+| `DELETE /api/data` (user A) | 200, 3 docs removed | 200, `documents_removed: 3` | PASS |
+| User A trips/costs after delete | gone | 0 trips, 0 costs in Firestore | PASS |
+| Usage counter, user A, before delete | 2 extractions | `{"extractions": 2}` | PASS |
+| Usage counter, user A, after delete | unchanged (2) | `{"extractions": 2}` | PASS |
+| Global Gemini counter | moved by 2 (non-cached calls only) | confirmed 2 non-cached `POST /api/extract 200` in logs, cache hit not counted | PASS |
+
+**All checks passed — no failures, nothing stopped early.**
+
+- Relevant Cloud Run log lines (status codes only, no secrets, no tokens):
+  ```
+  GET /health 200
+  GET /api/whoami 401 (no token)
+  GET /api/changes 401 (no token)
+  POST /api/extract 200 (trip, first)
+  POST /api/extract 200 (trip, repeat — cached, log shows no new Gemini call)
+  POST /api/extract 200 (order offer)
+  POST /api/extract 401 (no token)
+  PUT /api/trips 200
+  PUT /api/costs 200
+  GET /api/summary?mode=trip&logged_in_hours=1.5 200
+  GET /api/changes 200 (disabled response)
+  GET /api/summary?mode=trip 400 (user B, costs_not_set)
+  DELETE /api/data 200
+  GET /api/summary?mode=trip 400 (user A after delete, costs_not_set)
+  ```
+  **Known pre-existing gap, confirmed again this session:** the `payproof.api` Python logger's structured line (`extraction uid=... calls_made=... tokens=...`) does not appear in Cloud Run logs — only uvicorn's own access-log line shows up. Token counts were verified via the Firestore usage counter (moved from unknown-before to 2) instead. Not fixed this session (would need investigating uvicorn/root logger wiring on Cloud Run — out of scope for this check).
+
+### Next
+- Owner: `git tag phase-3`, push `main` (not done this session, per instruction not to push).
+- Phase 4: Q&A, number verifier, evidence pack.
+- If pay-change detection is revisited later: needs either a redesigned simulator (not a threshold tune) or real trip data before `ENABLE_CHANGE_SIGNAL` can be reconsidered.
 
 ### Resume commands (PowerShell)
 ```powershell
 cd C:\dev\payproof
 pip install -r requirements.txt
 pytest -q
+# Generate histories then run eval:
+python -m eval.generate_data --histories
+python -m eval.run_change_eval
+python -m eval.compare_estimators
+# Start local server:
 uvicorn backend.main:app --reload
 ```

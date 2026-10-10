@@ -1,7 +1,9 @@
 import logging
+from typing import Any, Dict, List, Optional
 
-from fastapi import Depends, FastAPI, File, Form, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Query, UploadFile
 from fastapi.exceptions import HTTPException
+from pydantic import BaseModel, Field
 
 from backend.auth import require_user_id
 from backend.config import get_settings
@@ -9,7 +11,14 @@ from backend.errors import ApiError, api_error_handler, http_exception_handler
 from backend.extraction_cache import get_cached, hash_image, set_cached
 from backend.gemini_client import get_client
 from backend.sample_cache import get_cached_sample, set_cached_sample
+from backend.store import (
+    _to_cost_inputs, _to_trip_input, _to_week_input,
+    delete_all, get_costs, get_trips, get_weeks,
+    save_costs, save_trips, save_week,
+)
 from backend.usage_limits import check_and_increment
+from engine.changes import detect_change
+from engine.earnings import compute_trip_summary, compute_weekly_summary
 from extraction.extract import RateLimitError, extract_screenshot
 from extraction.image_prep import prepare_image
 from extraction.image_quality import QUALITY_MESSAGES, check_image_quality
@@ -99,14 +108,224 @@ async def extract(
     except RateLimitError:
         raise ApiError(503, "service_busy", "PayProof is busy right now. Please try again in a minute.")
 
-    logger.info(
-        "extraction uid=%s model=%s is_sample=%s calls_made=%s prompt_tokens=%s output_tokens=%s thinking_tokens=%s",
-        user_id, settings.extraction_model, is_sample, outcome.calls_made,
-        outcome.prompt_tokens, outcome.output_tokens, outcome.thinking_tokens,
-    )
-
+    # Per-call token/cost logging happens inside extract_screenshot() itself
+    # (extraction/extract.py's "payproof.gemini_calls" JSON line), not here --
+    # that is the one line per Gemini call with no user id, per REQUIREMENTS.md
+    # section 19.
     if is_sample:
         set_cached_sample(image_hash, outcome.result)
     else:
         set_cached(image_hash, outcome.result)
     return outcome.result.model_dump()
+
+
+# ---------------------------------------------------------------------------
+# Request bodies for the storage endpoints
+# ---------------------------------------------------------------------------
+
+class DeductionBody(BaseModel):
+    label: str
+    amount: float = Field(ge=0)
+
+
+class TripBody(BaseModel):
+    trip_id: Optional[str] = None
+    trip_date: Optional[str] = None
+    date_confirmed: bool = False
+    base_pay: Optional[float] = Field(None, ge=0)
+    incentive: Optional[float] = Field(None, ge=0)
+    tip: Optional[float] = Field(None, ge=0)
+    deductions: List[DeductionBody] = []
+    total_payout: Optional[float] = Field(None, ge=0)
+    distance_km: Optional[float] = Field(None, ge=0)
+    duration_min: Optional[float] = Field(None, ge=0)
+
+
+class PutTripsBody(BaseModel):
+    trips: List[TripBody]
+
+
+class PayoutLineBody(BaseModel):
+    label: str
+    amount: float = Field(ge=0)
+
+
+class WeekBody(BaseModel):
+    week_id: Optional[str] = None
+    period_label: Optional[str] = None
+    lines: List[PayoutLineBody] = []
+    deductions: List[DeductionBody] = []
+    total_credited: Optional[float] = Field(None, ge=0)
+    km_driven: Optional[float] = Field(None, ge=0)
+    hours_online: Optional[float] = Field(None, ge=0)
+
+
+class CostsBody(BaseModel):
+    fuel_cost_per_km: float = Field(ge=0)
+    maintenance_cost_per_km: float = Field(ge=0)
+    fixed_cost_per_day: Optional[float] = Field(None, ge=0)
+
+
+# ---------------------------------------------------------------------------
+# Storage endpoints
+# ---------------------------------------------------------------------------
+
+@app.put("/api/trips")
+def put_trips(body: PutTripsBody, user_id: str = Depends(require_user_id)):
+    """Save confirmed trips for this user.  Replaces any trips with the same
+    trip_id; new rows get a server-generated id.
+    """
+    rows = [t.model_dump() for t in body.trips]
+    ids = save_trips(user_id, rows)
+    return {"saved": len(ids), "trip_ids": ids}
+
+
+@app.put("/api/weeks")
+def put_weeks(body: WeekBody, user_id: str = Depends(require_user_id)):
+    """Save one confirmed weekly summary for this user."""
+    doc_id = save_week(user_id, body.model_dump())
+    return {"saved": 1, "week_id": doc_id}
+
+
+@app.put("/api/costs")
+def put_costs(body: CostsBody, user_id: str = Depends(require_user_id)):
+    """Save (or overwrite) cost inputs for this user."""
+    save_costs(user_id, body.model_dump())
+    return {"saved": True}
+
+
+@app.get("/api/summary")
+def get_summary(
+    mode: str = Query("trip", pattern="^(trip|weekly)$"),
+    logged_in_hours: Optional[float] = Query(None, ge=0),
+    user_id: str = Depends(require_user_id),
+):
+    """Return engine summary for the user's stored data.
+
+    mode=trip: trip-mode summary from stored trip rows.
+    mode=weekly: weekly-mode summary from stored week rows (most recent week).
+    """
+    costs_row = get_costs(user_id)
+    cost_inputs = _to_cost_inputs(costs_row)
+
+    if mode == "trip":
+        trip_rows = get_trips(user_id)
+        if not trip_rows:
+            raise ApiError(400, "no_trips", "No confirmed trips found. Please upload and confirm trip screenshots first.")
+        trip_inputs = [_to_trip_input(r) for r in trip_rows]
+        try:
+            summary = compute_trip_summary(trip_inputs, cost_inputs, logged_in_hours=logged_in_hours)
+        except ValueError as exc:
+            raise ApiError(400, "invalid_data", str(exc))
+        return {
+            "mode": "trip",
+            "gross_pay": summary.gross_pay,
+            "platform_deductions": summary.platform_deductions,
+            "net_payout": summary.net_payout,
+            "worker_costs": summary.worker_costs,
+            "net_earnings": summary.net_earnings,
+            "engaged_hours": summary.engaged_hours,
+            "net_per_engaged_hour": summary.net_per_engaged_hour,
+            "net_per_logged_in_hour": summary.net_per_logged_in_hour,
+            "net_payout_per_km": summary.net_payout_per_km,
+            "deduction_share": summary.deduction_share,
+            "total_distance_km": summary.total_distance_km,
+            "trip_count": summary.trip_count,
+            "data_quality": summary.data_quality,
+        }
+
+    # weekly mode: use the most recently saved week
+    week_rows = get_weeks(user_id)
+    if not week_rows:
+        raise ApiError(400, "no_weeks", "No confirmed weekly summaries found. Please upload and confirm a weekly payout screenshot first.")
+    latest = sorted(week_rows, key=lambda r: r.get("saved_at", ""), reverse=True)[0]
+    week_input = _to_week_input(latest)
+    try:
+        summary = compute_weekly_summary(week_input, cost_inputs)
+    except ValueError as exc:
+        raise ApiError(400, "invalid_data", str(exc))
+    return {
+        "mode": "weekly",
+        "gross_weekly": summary.gross_weekly,
+        "deductions_weekly": summary.deductions_weekly,
+        "net_payout_weekly": summary.net_payout_weekly,
+        "reconciliation_gap": summary.reconciliation_gap,
+        "worker_costs_weekly": summary.worker_costs_weekly,
+        "net_earnings_weekly": summary.net_earnings_weekly,
+        "net_per_online_hour": summary.net_per_online_hour,
+        "net_payout_per_km": summary.net_payout_per_km,
+        "deduction_share": summary.deduction_share,
+        "per_hour_on_trips_unavailable": summary.per_hour_on_trips_unavailable,
+        "data_quality": summary.data_quality,
+    }
+
+
+@app.get("/api/changes")
+def get_changes(
+    split_date: Optional[str] = Query(None, description="ISO date splitting baseline/recent periods"),
+    user_id: str = Depends(require_user_id),
+):
+    """Return trip-mode pay-change signal.
+
+    Splits stored trips at split_date (baseline = before, recent = on or after).
+    If no split_date given, splits at the ISO week boundary of the median date.
+    Returns insufficient_data if either period has fewer than 15 confirmed trips.
+
+    Disabled by default (ENABLE_CHANGE_SIGNAL=false): offline evaluation on
+    simulated data (eval/compare_estimators.py) found no estimator gives
+    usable recall with zero false alarms, so the feature returns "unavailable"
+    and does no computation unless explicitly re-enabled. See eval/RESULTS.md.
+    """
+    if not get_settings().enable_change_signal:
+        return {
+            "status": "unavailable",
+            "reason": "Pay-change detection was tested on simulated data and found unreliable, so it is disabled.",
+        }
+
+    trip_rows = get_trips(user_id)
+    if not trip_rows:
+        raise ApiError(400, "no_trips", "No confirmed trips found.")
+
+    trip_inputs = [_to_trip_input(r) for r in trip_rows]
+
+    if split_date:
+        baseline = [t for t in trip_inputs if t.trip_date and t.trip_date < split_date]
+        recent = [t for t in trip_inputs if t.trip_date and t.trip_date >= split_date]
+    else:
+        # Default: split at median date of confirmed trips
+        dated = sorted(
+            [t for t in trip_inputs if t.trip_date and t.date_confirmed],
+            key=lambda t: t.trip_date,
+        )
+        if len(dated) < 2:
+            return {
+                "status": "insufficient_data",
+                "reason": "Not enough trips with confirmed dates to split into periods.",
+                "baseline_count": 0, "recent_count": 0, "excluded_unconfirmed": 0,
+            }
+        mid = dated[len(dated) // 2].trip_date
+        baseline = [t for t in trip_inputs if t.trip_date and t.trip_date < mid]
+        recent = [t for t in trip_inputs if t.trip_date and t.trip_date >= mid]
+
+    result = detect_change(baseline, recent)
+    return {
+        "status": result.status,
+        "metric": result.metric,
+        "baseline_mean": result.baseline_mean,
+        "recent_mean": result.recent_mean,
+        "relative_change": result.relative_change,
+        "ci_low": result.ci_low,
+        "ci_high": result.ci_high,
+        "baseline_count": result.baseline_count,
+        "recent_count": result.recent_count,
+        "excluded_unconfirmed": result.excluded_unconfirmed,
+        "reason": result.reason,
+    }
+
+
+@app.delete("/api/data")
+def delete_data(user_id: str = Depends(require_user_id)):
+    """Delete all stored data for this user (REQUIREMENTS.md sections 2 and 11)."""
+    count = delete_all(user_id)
+    logger.info("delete uid=%s documents_deleted=%d", user_id, count)
+    return {"deleted": True, "documents_removed": count}

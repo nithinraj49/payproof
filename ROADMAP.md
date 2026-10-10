@@ -25,7 +25,7 @@ With about 45 working hours left, the order matters more than the polish. Build 
 | Languages | **English only for now.** A regional language is a stretch goal (see "Stretch" below), decided after the floor works, and only if you can check every string |
 | Simulator | Start with layouts L1, L3 and N1. Add L2 and N2 only if time allows |
 | Weekly mode | Extraction, engine and results: yes. Weekly pay-change detection: **not built** |
-| Trip mode | Everything, including the bootstrap pay-change signal |
+| Trip mode | Everything, including the bootstrap pay-change signal. **Change signal disabled (10 Oct 2026):** `engine/changes.py` is built and tested, but offline evaluation on 20+20 simulated histories found no estimator (mean of per-trip ratios, ratio of sums, OLS slope) gives usable recall with zero false alarms. Disabled behind `ENABLE_CHANGE_SIGNAL=false`; `GET /api/changes` returns "unavailable". See `eval/RESULTS.md` and REQUIREMENTS.md section 5.3. The Pay changes screen is removed from Phase 5 |
 | Evaluation set | 40 simulated screenshots and 20 histories (not 60 to 80 and 40) |
 | Listen (text to speech) | Not built |
 | Usage limits | Defaults in REQUIREMENTS.md section 10 (12 extractions and 25 questions per user per day, global cap 400 Gemini calls per day) |
@@ -189,7 +189,7 @@ Commit after each item. Stop and show me one answerable and one unanswerable que
 ```
 Read CLAUDE.md and REQUIREMENTS.md sections 4, 9 and 10, and ROADMAP.md Solo overrides. Do step A of Phase 5 only. Work in frontend/. Plain HTML, CSS and vanilla JavaScript, mobile-first, minimal, no build step, system fonts, the Firebase web SDK only.
 1. One small api.js module that sends the Firebase ID token and handles every error and loading state in one place.
-2. Screens FE-1 to FE-12 from the document, using the real API: first screen with "Try with sample screenshots" and "Upload my screenshots"; table matching the screen type with yellow low-confidence cells; rejected screens with a clear reason; km and hours inputs for weekly mode; costs; results with BOTH hourly rates and a one-line explanation; changes; ask with a verified label; evidence pack; delete.
+2. Screens FE-1 to FE-12 from the document, using the real API: first screen with "Try with sample screenshots" and "Upload my screenshots"; table matching the screen type with yellow low-confidence cells; rejected screens with a clear reason; km and hours inputs for weekly mode; costs; results with BOTH hourly rates and a one-line explanation; ask with a verified label; evidence pack; delete. **The Pay changes screen is removed** (disabled 10 Oct 2026, see Solo overrides and REQUIREMENTS.md section 5.3) — do not call `GET /api/changes` or build a changes screen.
 3. UI labels in English only, all kept in one strings file (frontend/strings.js) so a language can be added later. No language switcher for now.
 Commit per screen. Stop and tell me how to test on my phone.
 ```
