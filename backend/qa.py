@@ -294,6 +294,7 @@ class ExtractedNumber:
     value: float
     is_percentage: bool
     raw: str
+    is_word: bool = False
 
 
 # Matches plain numbers, Indian/Western comma grouping (1,23,456 or
@@ -303,11 +304,91 @@ class ExtractedNumber:
 # symbols (₹192.00, Rs. 192) and spaces immediately next to the digits.
 _NUMBER_RE = re.compile(r"(?<![\w])(-?\d+(?:,\d{2,3})*(?:\.\d+)?)(%)?(?!\w)")
 
+# ISO dates (YYYY-MM-DD) are verified as whole values against the tool's own
+# confirmed-date strings (see verify_numbers), never as three loose numbers
+# -- a worker-confirmed date is either the exact date a tool returned or it
+# is unverified, there is no "rounding" concept for a date.
+_DATE_RE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
+
+# --- numbers spelled out in words ("one hundred ninety-two", "twelve percent") ---
+# Converted to a value and verified exactly like a digit number (REQUIREMENTS.md
+# 7.2: every number in the draft is checked, spelled out or not -- silently
+# ignoring these would let an ungrounded word-number slip through unverified).
+# A bare ones/teens/tens run ("two trips", "ten trips") is deliberately left
+# alone: it has no scale word and no "percent" suffix, so it is far more
+# often an incidental count in prose than a claimed figure, and treating
+# every such word as a number-to-verify would force a refusal on ordinary
+# sentences. A run becomes verifiable once it is unambiguously a stated
+# quantity: it includes "hundred"/"thousand", or it is followed by "percent".
+_ONES = {"zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9}
+_TEENS = {
+    "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14,
+    "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19,
+}
+_TENS = {
+    "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50,
+    "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90,
+}
+_SCALES = {"hundred": 100, "thousand": 1000}
+_WORD_NUMBER_VOCAB = set(_ONES) | set(_TEENS) | set(_TENS) | set(_SCALES) | {"and"}
+
+_WORD_RE = re.compile(r"[a-z]+")
+
+
+def _word_number_runs(text: str) -> List[ExtractedNumber]:
+    words = _WORD_RE.findall(text.lower())
+    results: List[ExtractedNumber] = []
+    i, n = 0, len(words)
+    while i < n:
+        if words[i] not in _WORD_NUMBER_VOCAB:
+            i += 1
+            continue
+        start = i
+        current = 0
+        total = 0
+        has_scale = False
+        j = i
+        while j < n and words[j] in _WORD_NUMBER_VOCAB:
+            w = words[j]
+            if w == "and":
+                pass
+            elif w in _ONES:
+                current += _ONES[w]
+            elif w in _TEENS:
+                current += _TEENS[w]
+            elif w in _TENS:
+                current += _TENS[w]
+            elif w in _SCALES:
+                has_scale = True
+                if _SCALES[w] == 100:
+                    current = (current or 1) * 100
+                else:
+                    total += (current or 1) * 1000
+                    current = 0
+            j += 1
+        value = total + current
+
+        is_pct = False
+        k = j
+        if k < n and words[k] == "percent":
+            is_pct = True
+            k += 1
+        elif k + 1 < n and words[k] == "per" and words[k + 1] == "cent":
+            is_pct = True
+            k += 2
+
+        if has_scale or is_pct:
+            results.append(ExtractedNumber(value=float(value), is_percentage=is_pct, raw=" ".join(words[start:k]), is_word=True))
+            i = k
+        else:
+            i = j
+    return results
+
 
 def extract_numbers(text: str) -> List[ExtractedNumber]:
-    """Extract every number in a draft answer, including percentages and
-    Indian-style digit grouping. Numbers written as words ("ten trips") and
-    numbers embedded inside another word are not matched."""
+    """Extract every number in a draft answer: digits (including Indian-style
+    grouping and percentages) and numbers spelled out in words. A number
+    embedded inside another word ("trip192", "24x7") is never matched."""
     results = []
     for m in _NUMBER_RE.finditer(text):
         raw_num = m.group(1)
@@ -317,22 +398,50 @@ def extract_numbers(text: str) -> List[ExtractedNumber]:
         except ValueError:
             continue
         results.append(ExtractedNumber(value=value, is_percentage=is_pct, raw=m.group(0)))
+    results.extend(_word_number_runs(text))
     return results
 
 
 _ROUNDING_TOLERANCE = 0.005  # matches "allowing rounding to 2 decimals"
 
+# Only these engine fields are ratios (0-1) that a draft may legitimately
+# restate as a percentage. Restricting the x100/÷100 form to just these
+# fields (REQUIREMENTS.md 7.2's "percentage forms") stops an unrelated
+# number from verifying only because dividing or multiplying it by 100
+# happens to land near some other, unrelated tool value.
+_RATIO_FIELD_NAMES = {"deduction_share", "relative_change"}
 
-def _flatten_tool_numbers(tool_results: Dict[str, Any]) -> List[float]:
+
+def _flatten_tool_numbers(tool_results: Dict[str, Any]) -> List[tuple]:
     """Every numeric leaf value across all tool outputs the model actually
-    called, so a mismatch names what's unsupported, not what's unavailable."""
-    values: List[float] = []
+    called, tagged with whether its field name is a known ratio field."""
+    values: List[tuple] = []
 
-    def walk(x: Any) -> None:
+    def walk(x: Any, is_ratio: bool = False) -> None:
         if isinstance(x, bool):
             return
         if isinstance(x, (int, float)):
-            values.append(float(x))
+            values.append((float(x), is_ratio))
+        elif isinstance(x, dict):
+            for k, v in x.items():
+                walk(v, k in _RATIO_FIELD_NAMES)
+        elif isinstance(x, (list, tuple)):
+            for v in x:
+                walk(v, is_ratio)
+
+    walk(tool_results)
+    return values
+
+
+def _flatten_tool_dates(tool_results: Dict[str, Any]) -> set:
+    """Every ISO-date-shaped string returned by a tool -- these are, by
+    construction (backend/qa.py's _tool_get_trip_stats), always worker-
+    confirmed dates (date_confirmed=True trips only)."""
+    dates: set = set()
+
+    def walk(x: Any) -> None:
+        if isinstance(x, str) and _DATE_RE.fullmatch(x):
+            dates.add(x)
         elif isinstance(x, dict):
             for v in x.values():
                 walk(v)
@@ -341,19 +450,22 @@ def _flatten_tool_numbers(tool_results: Dict[str, Any]) -> List[float]:
                 walk(v)
 
     walk(tool_results)
-    return values
+    return dates
 
 
-def _matches_any(number: ExtractedNumber, tool_values: List[float]) -> bool:
-    """True if `number`, read either at face value or as a percentage form
-    of a ratio (5.88% <-> 0.0588), is within rounding of some tool value."""
-    candidates = {number.value, number.value / 100}
-    for candidate in candidates:
-        for tv in tool_values:
-            if abs(round(candidate, 4) - round(tv, 4)) <= _ROUNDING_TOLERANCE:
-                return True
-            if abs(round(candidate, 2) - round(tv, 2)) <= _ROUNDING_TOLERANCE:
-                return True
+def _close(a: float, b: float) -> bool:
+    return abs(round(a, 2) - round(b, 2)) <= _ROUNDING_TOLERANCE or abs(round(a, 4) - round(b, 4)) <= _ROUNDING_TOLERANCE
+
+
+def _matches_any(number: ExtractedNumber, tool_values: List[tuple]) -> bool:
+    """True if `number` is within rounding of some tool value at face value,
+    or -- only for a known ratio field -- of that field's percentage form
+    (5.88% <-> deduction_share 0.0588)."""
+    for tv, is_ratio in tool_values:
+        if _close(number.value, tv):
+            return True
+        if is_ratio and _close(number.value, tv * 100):
+            return True
     return False
 
 
@@ -362,30 +474,50 @@ class VerificationResult:
     ok: bool
     checked: List[float] = field(default_factory=list)
     unverified: List[float] = field(default_factory=list)
+    unverified_dates: List[str] = field(default_factory=list)
 
 
 def verify_numbers(draft_text: str, tool_results: Dict[str, Any]) -> VerificationResult:
-    """REQUIREMENTS.md section 7.2 steps 1-2: extract every number from the
-    draft, then check each against what the tools actually returned."""
+    """REQUIREMENTS.md section 7.2 steps 1-2: extract every number (digit or
+    word) and every date from the draft, then check each against what the
+    tools actually returned. Dates are masked out before number-extraction
+    so a date's own digits (2026-01-01) are never scored as three loose,
+    unverifiable numbers -- a date is checked as a whole value instead.
+    A draft with no numbers or dates at all always verifies (REQUIREMENTS.md
+    7.2 only requires checking numbers that are actually present)."""
     tool_values = _flatten_tool_numbers(tool_results)
-    extracted = extract_numbers(draft_text)
+    tool_dates = _flatten_tool_dates(tool_results)
+
+    draft_dates = set(_DATE_RE.findall(draft_text))
+    masked_text = _DATE_RE.sub(" ", draft_text)
+
+    extracted = extract_numbers(masked_text)
     checked = [n.value for n in extracted]
     unverified = [n.value for n in extracted if not _matches_any(n, tool_values)]
-    return VerificationResult(ok=not unverified, checked=checked, unverified=unverified)
+    unverified_dates = sorted(d for d in draft_dates if d not in tool_dates)
+
+    return VerificationResult(
+        ok=not unverified and not unverified_dates,
+        checked=checked, unverified=unverified, unverified_dates=unverified_dates,
+    )
 
 
-def _format_unverified(unverified: List[float]) -> str:
-    seen = []
+def _format_unverified(unverified: List[float], unverified_dates: List[str]) -> str:
+    seen: List[str] = []
     for v in unverified:
-        if v not in seen:
-            seen.append(v)
-    return ", ".join(f"{v:g}" for v in seen)
+        label = f"{v:g}"
+        if label not in seen:
+            seen.append(label)
+    for d in unverified_dates:
+        if d not in seen:
+            seen.append(d)
+    return ", ".join(seen)
 
 
-def _refusal_text(unverified: List[float]) -> str:
+def _refusal_text(unverified: List[float], unverified_dates: List[str]) -> str:
     return (
-        "I can't give a verified answer to this: my draft used a number "
-        f"({_format_unverified(unverified)}) that none of your stored figures support. "
+        "I can't give a verified answer to this: my draft used a number or date "
+        f"({_format_unverified(unverified, unverified_dates)}) that none of your stored figures support. "
         "Please check the Results screen for your confirmed numbers."
     )
 
@@ -435,7 +567,7 @@ def ask_question(client: genai.Client, settings: Settings, model: str, uid: str,
         )
 
     return AnswerResult(
-        text=_refusal_text(retry_verification.unverified), verified=False,
+        text=_refusal_text(retry_verification.unverified, retry_verification.unverified_dates), verified=False,
         numbers_used=retry.tool_results, raw_calls=total_raw_calls,
         prompt_tokens=total_prompt, output_tokens=total_output, thinking_tokens=total_thinking,
     )

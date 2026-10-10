@@ -207,3 +207,169 @@ def test_verify_still_passes_when_unrelated_word_numbers_are_present_alongside_a
     result = verify_numbers(draft, TOOL_RESULTS)
     assert result.ok is False
     assert 999.0 in result.unverified
+
+
+# ---------------------------------------------------------------------------
+# (a) the ÷100/x100 "percentage form" must be restricted to known ratio
+# fields (deduction_share, relative_change) -- it must not let a made-up
+# percentage or a bare number verify against an unrelated value just
+# because dividing or multiplying by 100 happens to land close to it.
+# ---------------------------------------------------------------------------
+
+def test_percentage_form_is_not_applied_to_a_non_ratio_field():
+    # total_distance_km coincidentally equals 5.88 (what 588% would become
+    # if ÷100 were applied to every field, not just ratio fields).
+    tool_results = {"get_summary": {"total_distance_km": 5.88, "deduction_share": 0.0588}}
+    draft = "You drove about 588% today."
+    result = verify_numbers(draft, tool_results)
+    assert result.ok is False
+    assert 588.0 in result.unverified
+
+
+def test_bare_number_does_not_verify_via_percentage_form_of_an_unrelated_ratio():
+    # 12 is not close to deduction_share (0.0588) or its percentage form
+    # (5.88), so it must fail -- not accidentally match through some other,
+    # unrelated ratio-like value.
+    tool_results = {"get_summary": {"deduction_share": 0.0588, "net_payout_per_km": 20.0}}
+    draft = "Your deduction share was about 12%."
+    result = verify_numbers(draft, tool_results)
+    assert result.ok is False
+    assert 12.0 in result.unverified
+
+
+def test_percentage_form_still_works_for_an_actual_ratio_field():
+    # Sanity check that restricting the percentage form to ratio fields
+    # didn't also break the legitimate case it exists for.
+    tool_results = {"get_changes": {"relative_change": -0.10}}
+    draft = "Your pay per km changed by about -10%."
+    result = verify_numbers(draft, tool_results)
+    assert result.ok is True
+
+
+# ---------------------------------------------------------------------------
+# (b) numbers spelled out in words: converted to a value and verified like
+# any other number, not silently ignored. A bare ones/teens/tens word with
+# no scale word and no "percent" suffix ("two trips") is still left alone,
+# since it is far more often an incidental count than a claimed figure.
+# ---------------------------------------------------------------------------
+
+def test_extract_word_number_with_scale():
+    nums = extract_numbers("You earned about one hundred ninety-two rupees.")
+    assert [n.value for n in nums] == [192.0]
+    assert nums[0].is_word is True
+
+
+def test_extract_word_percentage():
+    nums = extract_numbers("Fees were twelve percent of your pay.")
+    assert [n.value for n in nums] == [12.0]
+    assert nums[0].is_percentage is True
+    assert nums[0].is_word is True
+
+
+def test_extract_bare_word_number_without_scale_or_percent_is_still_ignored():
+    # Preserves the original behaviour for ordinary incidental counts.
+    nums = extract_numbers("You completed two trips this week.")
+    assert nums == []
+
+
+def test_verify_passes_word_number_matching_tool_value():
+    tool_results = {"get_summary": {"net_per_engaged_hour": 192.0}}
+    draft = "Your net pay per engaged hour was one hundred ninety-two rupees."
+    result = verify_numbers(draft, tool_results)
+    assert result.ok is True
+
+
+def test_verify_fails_word_percentage_not_matching_ratio():
+    tool_results = {"get_summary": {"deduction_share": 0.0588}}
+    draft = "Platform fees took about twelve percent of your pay."
+    result = verify_numbers(draft, tool_results)
+    assert result.ok is False
+    assert 12.0 in result.unverified
+
+
+def test_verify_passes_word_percentage_matching_ratio():
+    tool_results = {"get_summary": {"deduction_share": 0.12}}
+    draft = "Platform fees took about twelve percent of your pay."
+    result = verify_numbers(draft, tool_results)
+    assert result.ok is True
+
+
+# ---------------------------------------------------------------------------
+# (c) tolerance edge cases: rounding to 2 decimals is allowed; a genuinely
+# different number, even one close in magnitude, is not.
+# ---------------------------------------------------------------------------
+
+def test_verify_passes_when_tool_value_rounds_to_the_stated_figure():
+    tool_results = {"get_summary": {"net_per_engaged_hour": 192.004}}
+    draft = "Your net pay per engaged hour was 192.00."
+    result = verify_numbers(draft, tool_results)
+    assert result.ok is True
+
+
+def test_verify_fails_when_stated_figure_is_outside_rounding_tolerance():
+    tool_results = {"get_summary": {"net_per_engaged_hour": 192.004}}
+    draft = "Your net pay per engaged hour was 192.5."
+    result = verify_numbers(draft, tool_results)
+    assert result.ok is False
+    assert 192.5 in result.unverified
+
+
+# ---------------------------------------------------------------------------
+# (d) counts must come from tool data, and dates must be exact,
+# worker-confirmed tool values -- not loose digit fragments.
+# ---------------------------------------------------------------------------
+
+def test_verify_fails_on_a_trip_count_the_tool_did_not_report():
+    tool_results = {"get_trip_stats": {"trip_count": 2}}
+    draft = "You completed 5 trips this week."
+    result = verify_numbers(draft, tool_results)
+    assert result.ok is False
+    assert 5.0 in result.unverified
+
+
+def test_verify_passes_a_confirmed_date_range():
+    tool_results = {"get_trip_stats": {"oldest_confirmed_date": "2026-01-01", "newest_confirmed_date": "2026-02-01"}}
+    draft = "Your confirmed trips run from 2026-01-01 to 2026-02-01."
+    result = verify_numbers(draft, tool_results)
+    assert result.ok is True
+    assert result.unverified == []
+    assert result.unverified_dates == []
+
+
+def test_verify_fails_on_a_date_the_tool_did_not_confirm():
+    tool_results = {"get_trip_stats": {"oldest_confirmed_date": "2026-01-01", "newest_confirmed_date": "2026-02-01"}}
+    draft = "Your confirmed trips run from 2026-01-01 to 2026-03-15."
+    result = verify_numbers(draft, tool_results)
+    assert result.ok is False
+    assert "2026-03-15" in result.unverified_dates
+    assert "2026-01-01" not in result.unverified_dates
+
+
+def test_verify_does_not_score_a_confirmed_dates_digits_as_loose_numbers():
+    # A passing date must not leave stray "2026", "01", "01" entries behind
+    # in the generic number check.
+    tool_results = {"get_trip_stats": {"oldest_confirmed_date": "2026-01-01"}}
+    draft = "Your oldest confirmed trip was on 2026-01-01."
+    result = verify_numbers(draft, tool_results)
+    assert result.ok is True
+    assert result.unverified == []
+
+
+# ---------------------------------------------------------------------------
+# (e) a draft with no numbers at all always verifies; a draft that claims
+# any figure it cannot source is refused.
+# ---------------------------------------------------------------------------
+
+def test_verify_passes_a_draft_with_no_numbers_at_all():
+    draft = "I can't answer that without your confirmed costs."
+    result = verify_numbers(draft, {})
+    assert result.ok is True
+    assert result.unverified == []
+    assert result.unverified_dates == []
+
+
+def test_verify_fails_a_draft_that_states_any_unsourced_figure():
+    draft = "Your net earnings were 128."
+    result = verify_numbers(draft, {})  # no tool was called at all
+    assert result.ok is False
+    assert 128.0 in result.unverified
