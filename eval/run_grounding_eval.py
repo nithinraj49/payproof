@@ -37,7 +37,14 @@ deleted or overwritten (CLAUDE.md: never edit a reported number by hand).
 import argparse
 import datetime
 import json
+import sys
 from pathlib import Path
+
+# Answers may contain ₹; Windows' default console codepage (cp1252) can't
+# print it, which would otherwise crash the run mid-way through (as it did
+# once) after real, billed Gemini calls had already been made.
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8")
 
 from backend.config import get_settings
 from backend.gemini_client import get_client

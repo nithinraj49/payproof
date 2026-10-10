@@ -628,6 +628,16 @@ _SAFE_LABEL_REFUSAL = (
     "I can't give a verified answer to this: my draft used the wrong label for one of your numbers. "
     "Please check the Results screen for your confirmed figures."
 )
+# Found in the Phase 4 revision-2 grounding eval (question #14): a turn can
+# end with a second function_call instead of final text (the model tries to
+# call a tool again rather than answering), leaving response.text empty.
+# verify_numbers() and _answer_violations() both trivially pass an empty
+# string (nothing to check), which would otherwise let a blank answer reach
+# the worker as if it were a valid refusal.
+_SAFE_EMPTY_REFUSAL = (
+    "I couldn't put together an answer to that just now. Please try asking again, "
+    "or rephrase your question."
+)
 
 
 def _content_policy_violation(text: str) -> Optional[str]:
@@ -750,6 +760,9 @@ def _answer_violations(text: str, tool_results: Dict[str, Any]) -> List[tuple]:
     """Every deterministic quality check beyond the number verifier, each
     tagged with a kind so ask_question() can pick the right remediation."""
     violations = []
+    if not text.strip():
+        violations.append(("empty", "empty answer"))
+        return violations  # nothing else to check against no text
     v = _content_policy_violation(text)
     if v:
         violations.append(("policy", v))
@@ -820,7 +833,9 @@ def ask_question(
             output_tokens=total_output, thinking_tokens=total_thinking,
         )
 
-    if "policy" in kinds:
+    if "empty" in kinds:
+        refusal_text = _SAFE_EMPTY_REFUSAL
+    elif "policy" in kinds:
         refusal_text = _SAFE_POLICY_REFUSAL
     elif "currency" in kinds:
         refusal_text = _SAFE_CURRENCY_REFUSAL

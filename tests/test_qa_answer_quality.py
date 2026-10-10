@@ -215,3 +215,41 @@ def test_ask_question_clean_refusal_with_no_numbers_passes_immediately():
     result = qa.ask_question(client, get_settings(), "gemini-3.1-flash-lite", "uid1", "what's the weather?", tool_registry={})
     assert result.verified is True
     assert result.text == "I cannot answer that question."
+
+
+# ---------------------------------------------------------------------------
+# Empty answer -- found in the Phase 4 revision-2 grounding eval (#14): a
+# turn can end with a second function_call instead of final text, leaving
+# response.text empty. An empty string trivially "verifies" (nothing to
+# check), so this must be caught as its own violation, not silently accepted.
+# ---------------------------------------------------------------------------
+
+def test_answer_violations_flags_empty_text():
+    assert qa._answer_violations("", {}) == [("empty", "empty answer")]
+    assert qa._answer_violations("   ", {}) == [("empty", "empty answer")]
+
+
+def test_ask_question_retries_on_empty_draft_then_succeeds():
+    from backend.config import get_settings
+    client = FakeClient([
+        _tool_call_response("get_summary"),  # draft: tool called, but the final turn comes back with no text
+        _text_response(""),
+        _tool_call_response("get_summary"),  # retry: a normal, complete turn
+        _text_response("Your net pay was ₹192.00 per engaged hour."),
+    ])
+    result = qa.ask_question(client, get_settings(), "gemini-3.1-flash-lite", "uid1", "rate?", tool_registry=SUMMARY_TOOLS)
+    assert result.verified is True
+    assert "192" in result.text
+
+
+def test_ask_question_empty_answer_surviving_retry_is_refused():
+    from backend.config import get_settings
+    client = FakeClient([
+        _tool_call_response("get_summary"),
+        _text_response(""),
+        _tool_call_response("get_summary"),
+        _text_response(""),
+    ])
+    result = qa.ask_question(client, get_settings(), "gemini-3.1-flash-lite", "uid1", "rate?", tool_registry=SUMMARY_TOOLS)
+    assert result.verified is False
+    assert result.text == qa._SAFE_EMPTY_REFUSAL
