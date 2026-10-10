@@ -196,7 +196,7 @@ Rules:
 
 STRICT_RETRY_SUFFIX = """
 
-Your previous answer contained a number that none of the tools returned. Try again: restate the answer using only numbers that came directly from a tool result. If you cannot support every number this way, say plainly that you cannot answer and name what is missing."""
+Your previous answer did not pass review: either it contained a number that none of the tools returned, or it used accusatory language or legal/financial advice. Try again: restate the answer using only numbers that came directly from a tool result, with no accusation and no advice. If you cannot support every number this way, say plainly that you cannot answer and name what is missing."""
 
 
 @dataclass
@@ -533,24 +533,63 @@ class AnswerResult:
     thinking_tokens: int
 
 
+
+# ---------------------------------------------------------------------------
+# Content-policy backstop (REQUIREMENTS.md section 7.3 / CLAUDE.md rule 6):
+# the number verifier only ever looks at numbers and dates, so an accusation
+# or a piece of legal/financial advice that happens to contain no figures
+# ("this looks like fraud") would otherwise sail through verify_numbers with
+# nothing to check. This is a deterministic backstop on top of the system
+# prompt's own instruction, not a replacement for it -- the live smoke test
+# (eval/qa_smoke_test.py, 10 Oct 2026) already showed the model follows the
+# prompt correctly, but a single prompt line is not a hard guarantee.
+# ---------------------------------------------------------------------------
+
+_ACCUSATION_WORDS = ("fraud", "cheat", "cheated", "cheating", "scam", "scamming", "stealing", "steal", "stole", "theft")
+_ADVICE_PHRASES = (
+    "legal advice", "financial advice", "tax advice", "you should sue",
+    "consult a lawyer", "file a lawsuit", "you should invest", "i recommend investing",
+)
+
+# Shown instead of the model's own text whenever a policy violation survives
+# the retry -- never echoes the violating draft back to the worker.
+_SAFE_POLICY_REFUSAL = (
+    "I can't help with that. I can only explain your own pay numbers from your confirmed data -- "
+    "I can't say whether a platform did anything wrong, and I can't give legal or financial advice."
+)
+
+
+def _content_policy_violation(text: str) -> Optional[str]:
+    lowered = text.lower()
+    for word in _ACCUSATION_WORDS:
+        if word in lowered:
+            return f"accusatory language ({word!r})"
+    for phrase in _ADVICE_PHRASES:
+        if phrase in lowered:
+            return f"legal/financial advice ({phrase!r})"
+    return None
+
+
 def ask_question(
     client: genai.Client, settings: Settings, model: str, uid: str, question: str,
     language: str = "en", tool_registry: Optional[Dict[str, Callable[[], Dict[str, Any]]]] = None,
 ) -> AnswerResult:
     """Full grounded-answer flow: draft, verify, at most one stricter retry,
-    then a plain refusal if the retry still isn't fully grounded. `language`
-    defaults to "en" (CLAUDE.md: English only for now; kept so a language can
-    be added later without touching this logic). `tool_registry` defaults to
-    the real Firestore-backed tools for `uid`; eval/qa_smoke_test.py passes a
-    fixed, known registry instead so a live Gemini smoke test doesn't need
-    real stored data."""
+    then a plain refusal if the retry still isn't fully grounded or still
+    violates the content policy (an accusation, or legal/financial advice).
+    `language` defaults to "en" (CLAUDE.md: English only for now; kept so a
+    language can be added later without touching this logic). `tool_registry`
+    defaults to the real Firestore-backed tools for `uid`;
+    eval/qa_smoke_test.py passes a fixed, known registry instead so a live
+    Gemini smoke test doesn't need real stored data."""
     tool_registry = tool_registry or _make_tool_registry(uid)
     system_prompt = SYSTEM_PROMPT if language == "en" else SYSTEM_PROMPT  # stretch: per-language prompt later
 
     draft = _run_turn(client, settings, model, system_prompt, question, tool_registry)
     verification = verify_numbers(draft.text, draft.tool_results)
+    draft_violation = _content_policy_violation(draft.text)
 
-    if verification.ok:
+    if verification.ok and not draft_violation:
         return AnswerResult(
             text=draft.text, verified=True, numbers_used=draft.tool_results,
             raw_calls=draft.raw_calls, prompt_tokens=draft.prompt_tokens,
@@ -559,21 +598,23 @@ def ask_question(
 
     retry = _run_turn(client, settings, model, system_prompt + STRICT_RETRY_SUFFIX, question, tool_registry)
     retry_verification = verify_numbers(retry.text, retry.tool_results)
+    retry_violation = _content_policy_violation(retry.text)
 
     total_raw_calls = draft.raw_calls + retry.raw_calls
     total_prompt = draft.prompt_tokens + retry.prompt_tokens
     total_output = draft.output_tokens + retry.output_tokens
     total_thinking = draft.thinking_tokens + retry.thinking_tokens
 
-    if retry_verification.ok:
+    if retry_verification.ok and not retry_violation:
         return AnswerResult(
             text=retry.text, verified=True, numbers_used=retry.tool_results,
             raw_calls=total_raw_calls, prompt_tokens=total_prompt,
             output_tokens=total_output, thinking_tokens=total_thinking,
         )
 
+    refusal_text = _SAFE_POLICY_REFUSAL if retry_violation else _refusal_text(retry_verification.unverified, retry_verification.unverified_dates)
     return AnswerResult(
-        text=_refusal_text(retry_verification.unverified, retry_verification.unverified_dates), verified=False,
+        text=refusal_text, verified=False,
         numbers_used=retry.tool_results, raw_calls=total_raw_calls,
         prompt_tokens=total_prompt, output_tokens=total_output, thinking_tokens=total_thinking,
     )
