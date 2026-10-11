@@ -56,7 +56,8 @@ def test_report_trip_mode_returns_self_contained_html():
     body = response.text
     assert "<html" in body.lower()
     assert "Platform fee" in body
-    assert "built only from the screenshots you provided" in body
+    assert "Built only from the screenshots you provided" in body
+    assert "₹90.00" in body  # net payout, with currency
 
 
 def test_report_weekly_mode_uses_the_most_recently_saved_week():
