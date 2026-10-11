@@ -4,48 +4,98 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PayProof</title>
-  <style>
-    body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 480px; padding: 0 1rem; }
-    #status { padding: 0.75rem; border-radius: 8px; background: #f0f0f0; margin-top: 1rem; }
-  </style>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>PayProof</h1>
-  <p>Phase 1 skeleton: signs you in anonymously and checks the backend knows who you are.</p>
-  <div id="status">Signing in&hellip;</div>
+  <header class="app-header">
+    <h1>PayProof</h1>
+    <p id="auth-status" class="auth-status">Signing in&hellip;</p>
+  </header>
+
+  <main id="app">
+    <!-- Screen a: landing -->
+    <section id="screen-landing" class="screen" hidden>
+      <p id="landing-tagline"></p>
+      <button id="btn-try-sample" class="secondary" type="button"></button>
+      <p id="sample-note" class="hint" hidden></p>
+      <h3 id="upload-heading"></h3>
+      <input id="file-input" type="file" accept="image/png,image/jpeg,image/webp" multiple />
+      <p id="landing-privacy" class="privacy-note"></p>
+    </section>
+
+    <!-- Screen b: review -->
+    <section id="screen-review" class="screen" hidden>
+      <h2 id="review-title"></h2>
+      <div id="review-rejected-in-batch" hidden>
+        <p id="review-rejected-in-batch-label"></p>
+        <ul id="review-rejected-list" class="rejected-list"></ul>
+      </div>
+      <div id="review-groups"></div>
+      <button id="btn-review-continue" class="primary" type="button" disabled></button>
+      <p id="review-continue-hint" class="hint" hidden></p>
+    </section>
+
+    <!-- Screen c: rejected -->
+    <section id="screen-rejected" class="screen" hidden>
+      <h2 id="rejected-title"></h2>
+      <p id="rejected-reason"></p>
+      <button id="btn-try-another" class="primary" type="button"></button>
+    </section>
+
+    <!-- Screen d: costs -->
+    <section id="screen-costs" class="screen" hidden>
+      <h2 id="costs-title"></h2>
+      <div class="field">
+        <label id="label-fuel" for="input-fuel"></label>
+        <input id="input-fuel" type="number" min="0" step="0.01" inputmode="decimal" />
+      </div>
+      <div class="field">
+        <label id="label-maintenance" for="input-maintenance"></label>
+        <input id="input-maintenance" type="number" min="0" step="0.01" inputmode="decimal" />
+      </div>
+      <div class="field">
+        <label id="label-fixed-daily" for="input-fixed-daily"></label>
+        <input id="input-fixed-daily" type="number" min="0" step="0.01" inputmode="decimal" />
+        <p id="hint-fixed-daily" class="hint"></p>
+      </div>
+      <div class="field" id="field-hours-online">
+        <label id="label-hours-online" for="input-hours-online"></label>
+        <input id="input-hours-online" type="number" min="0" step="0.01" inputmode="decimal" />
+        <p id="hint-hours-online" class="hint"></p>
+      </div>
+      <button id="btn-save-costs" class="primary" type="button"></button>
+      <p id="costs-saved-note" class="hint" hidden></p>
+    </section>
+  </main>
+
+  <div id="loading-overlay" class="loading-overlay" hidden><span id="loading-text"></span></div>
+  <div id="toast" class="toast" role="alert" hidden></div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
     import { firebaseConfig } from "./firebase-config.js";
+    import { initApp } from "./app.js";
+    import { STRINGS } from "./strings.js";
 
-    const statusEl = document.getElementById("status");
+    const statusEl = document.getElementById("auth-status");
+    statusEl.textContent = STRINGS.app.signingIn;
+
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
 
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) {
+    let started = false;
+    onAuthStateChanged(auth, (user) => {
+      if (!user || started) {
         return;
       }
-      try {
-        const idToken = await user.getIdToken();
-        const response = await fetch("/api/whoami", {
-          headers: { Authorization: `Bearer ${idToken}` },
-        });
-        if (!response.ok) {
-          statusEl.textContent = `Backend error: ${response.status}`;
-          return;
-        }
-        const data = await response.json();
-        statusEl.textContent = `Signed in. Backend sees user id: ${data.user_id}`;
-      } catch (err) {
-        statusEl.textContent = "Could not reach the backend. Check the console for details.";
-        console.error(err);
-      }
+      started = true;
+      statusEl.hidden = true;
+      initApp();
     });
 
     signInAnonymously(auth).catch((err) => {
-      statusEl.textContent = "Sign-in failed. Check the console for details.";
+      statusEl.textContent = STRINGS.app.signInFailed;
       console.error(err);
     });
   </script>
