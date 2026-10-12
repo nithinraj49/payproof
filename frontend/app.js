@@ -32,6 +32,7 @@ const state = {
   rejectedInBatch: [], // [{ fileName, reason }]
   lastRejectedReason: null,
   loggedInHoursEntered: null,
+  askAndEvidenceRendered: false,
 };
 
 function resetState() {
@@ -41,6 +42,8 @@ function resetState() {
   state.weekGroup = null;
   state.rejectedInBatch = [];
   state.lastRejectedReason = null;
+  state.loggedInHoursEntered = null;
+  state.askAndEvidenceRendered = false;
 }
 
 function makeField(value, confirmed) {
@@ -63,13 +66,80 @@ const screens = {
   review: document.getElementById("screen-review"),
   rejected: document.getElementById("screen-rejected"),
   costs: document.getElementById("screen-costs"),
+  results: document.getElementById("screen-results"),
+  ask: document.getElementById("screen-ask"),
+  evidence: document.getElementById("screen-evidence"),
 };
+
+const appNav = document.getElementById("app-nav");
+const NAV_SCREENS = ["results", "ask", "evidence"];
 
 function showScreen(name) {
   for (const key of Object.keys(screens)) {
     screens[key].hidden = key !== name;
   }
+  if (NAV_SCREENS.includes(name)) {
+    appNav.hidden = false;
+    NAV_SCREENS.forEach((key) => {
+      document.getElementById(`nav-${key}`).classList.toggle("active", key === name);
+    });
+  } else {
+    appNav.hidden = true;
+  }
   window.scrollTo(0, 0);
+}
+
+function setupNav() {
+  document.getElementById("nav-results").textContent = STRINGS.nav.results;
+  document.getElementById("nav-ask").textContent = STRINGS.nav.ask;
+  document.getElementById("nav-evidence").textContent = STRINGS.nav.evidence;
+  document.getElementById("nav-results").addEventListener("click", () => {
+    showScreen("results");
+    fetchAndShowResults();
+  });
+  document.getElementById("nav-ask").addEventListener("click", () => {
+    showScreen("ask");
+  });
+  document.getElementById("nav-evidence").addEventListener("click", () => {
+    showScreen("evidence");
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Screenshot preview lightbox (tap to enlarge; the thumbnail itself is
+// capped to ~40% of viewport height so the review table stays reachable
+// without a long scroll on a phone).
+// ---------------------------------------------------------------------------
+
+const lightboxEl = document.getElementById("lightbox");
+const lightboxImg = document.getElementById("lightbox-img");
+
+function openLightbox(url) {
+  lightboxImg.src = url;
+  lightboxEl.hidden = false;
+}
+
+function setupLightbox() {
+  lightboxEl.addEventListener("click", () => {
+    lightboxEl.hidden = true;
+  });
+}
+
+function createPreviewImage(url) {
+  const fragment = document.createDocumentFragment();
+  const img = document.createElement("img");
+  img.className = "preview";
+  img.src = url;
+  img.alt = "Your uploaded screenshot";
+  img.addEventListener("click", () => openLightbox(url));
+  fragment.appendChild(img);
+
+  const hint = document.createElement("p");
+  hint.className = "preview-hint";
+  hint.textContent = STRINGS.review.tapToEnlarge;
+  fragment.appendChild(hint);
+
+  return fragment;
 }
 
 const loadingOverlay = document.getElementById("loading-overlay");
@@ -582,11 +652,7 @@ function renderReview() {
       const block = document.createElement("div");
 
       if (group.previewUrl) {
-        const img = document.createElement("img");
-        img.className = "preview";
-        img.src = group.previewUrl;
-        img.alt = "Your uploaded screenshot";
-        block.appendChild(img);
+        block.appendChild(createPreviewImage(group.previewUrl));
       }
 
       if (group.needsReview) {
@@ -626,11 +692,7 @@ function renderReview() {
     card.appendChild(h3);
 
     if (group.previewUrl) {
-      const img = document.createElement("img");
-      img.className = "preview";
-      img.src = group.previewUrl;
-      img.alt = "Your uploaded screenshot";
-      card.appendChild(img);
+      card.appendChild(createPreviewImage(group.previewUrl));
     }
 
     if (group.needsReview) {
@@ -889,14 +951,239 @@ async function handleSaveCosts() {
   try {
     setLoading(true, STRINGS.common.loading);
     await api.putCosts(body);
-    setLoading(false);
-    const note = document.getElementById("costs-saved-note");
-    note.textContent = state.loggedInHoursEntered
-      ? `${STRINGS.costs.saved} ${STRINGS.costs.enteredHoursNote(state.loggedInHoursEntered)}`
-      : STRINGS.costs.saved;
-    note.hidden = false;
+    showToast(STRINGS.costs.saved);
+    await fetchAndShowResults();
   } catch (err) {
     setLoading(false);
+    showToast(describeError(err));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Screen e: results
+// ---------------------------------------------------------------------------
+
+function formatMoney(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  return `${currencySymbol(state.currency)}${Number(value).toFixed(2)}`;
+}
+
+function formatRate(value, perText) {
+  const money = formatMoney(value);
+  return money === null ? null : `${money} ${perText}`;
+}
+
+function formatPercent(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  return `${(Number(value) * 100).toFixed(1)}%`;
+}
+
+function addResultsRow(container, labelText, valueText) {
+  const row = document.createElement("div");
+  row.className = "results-row";
+  const label = document.createElement("span");
+  label.className = "label";
+  label.textContent = labelText;
+  const value = document.createElement("span");
+  value.className = "value";
+  value.textContent = valueText;
+  row.appendChild(label);
+  row.appendChild(value);
+  container.appendChild(row);
+}
+
+async function fetchAndShowResults() {
+  const loggedInHours = state.mode === "trip" ? state.loggedInHoursEntered : undefined;
+  try {
+    setLoading(true, STRINGS.common.loading);
+    const summary = await api.getSummary(state.mode, loggedInHours);
+    setLoading(false);
+    renderResults(summary);
+    if (!state.askAndEvidenceRendered) {
+      renderAskScreen();
+      renderEvidenceScreen();
+      state.askAndEvidenceRendered = true;
+    }
+    showScreen("results");
+  } catch (err) {
+    setLoading(false);
+    showToast(describeError(err));
+  }
+}
+
+function renderResults(summary) {
+  document.getElementById("results-title").textContent = STRINGS.results.title;
+  const body = document.getElementById("results-body");
+  clearChildren(body);
+
+  if (summary.mode === "trip") {
+    addResultsRow(body, STRINGS.results.netEarnings, formatMoney(summary.net_earnings) ?? "—");
+    addResultsRow(body, STRINGS.results.perHourOnTrips, formatRate(summary.net_per_engaged_hour, "per hour") ?? "—");
+    if (summary.net_per_logged_in_hour !== null && summary.net_per_logged_in_hour !== undefined) {
+      addResultsRow(body, STRINGS.results.perHourOnline, formatRate(summary.net_per_logged_in_hour, "per hour"));
+    } else {
+      const note = document.createElement("p");
+      note.className = "hint";
+      note.textContent = STRINGS.results.noLoggedInHours;
+      body.appendChild(note);
+    }
+    const why = document.createElement("p");
+    why.className = "hint";
+    why.textContent = STRINGS.results.whyTheyDiffer;
+    body.appendChild(why);
+    addResultsRow(body, STRINGS.results.payPerKm, formatRate(summary.net_payout_per_km, "per km") ?? "—");
+    addResultsRow(body, STRINGS.results.deductionShare, formatPercent(summary.deduction_share) ?? "—");
+  } else if (summary.mode === "weekly") {
+    addResultsRow(body, STRINGS.results.netEarnings, formatMoney(summary.net_earnings_weekly) ?? "—");
+    addResultsRow(body, STRINGS.results.perHourOnline, formatRate(summary.net_per_online_hour, "per hour") ?? "—");
+    addResultsRow(body, STRINGS.results.perHourOnTrips, summary.per_hour_on_trips_unavailable);
+    const why = document.createElement("p");
+    why.className = "hint";
+    why.textContent = STRINGS.results.perHourOnTripsUnavailableNote;
+    body.appendChild(why);
+    addResultsRow(body, STRINGS.results.payPerKm, formatRate(summary.net_payout_per_km, "per km") ?? "—");
+    addResultsRow(body, STRINGS.results.deductionShare, formatPercent(summary.deduction_share) ?? "—");
+  }
+
+  if (summary.data_quality && summary.data_quality.length > 0) {
+    const h3 = document.createElement("h3");
+    h3.textContent = STRINGS.results.dataQualityTitle;
+    body.appendChild(h3);
+    const ul = document.createElement("ul");
+    summary.data_quality.forEach((note) => {
+      const li = document.createElement("li");
+      li.textContent = note;
+      ul.appendChild(li);
+    });
+    body.appendChild(ul);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Screen f: ask
+// ---------------------------------------------------------------------------
+
+function renderAskScreen() {
+  document.getElementById("ask-title").textContent = STRINGS.ask.title;
+  document.getElementById("label-ask-question").textContent = STRINGS.ask.questionLabel;
+  document.getElementById("btn-ask-submit").textContent = STRINGS.ask.submit;
+  document.getElementById("input-ask-question").value = "";
+  document.getElementById("ask-answer").hidden = true;
+
+  const suggestionsEl = document.getElementById("ask-suggestions");
+  clearChildren(suggestionsEl);
+  const heading = document.createElement("p");
+  heading.textContent = STRINGS.ask.suggestionsHeading;
+  suggestionsEl.appendChild(heading);
+
+  const suggestions = state.mode === "weekly" ? STRINGS.ask.suggestionsWeekly : STRINGS.ask.suggestionsTrip;
+  suggestions.forEach((question) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "small suggestion-chip";
+    chip.textContent = question;
+    chip.addEventListener("click", () => handleAsk(question));
+    suggestionsEl.appendChild(chip);
+  });
+}
+
+async function handleAsk(question) {
+  const text = (question || document.getElementById("input-ask-question").value || "").trim();
+  if (!text) {
+    return;
+  }
+  document.getElementById("input-ask-question").value = text;
+  try {
+    setLoading(true, STRINGS.common.loading);
+    const result = await api.ask(text, "en");
+    setLoading(false);
+    const answerBlock = document.getElementById("ask-answer");
+    const badge = document.getElementById("ask-verified-badge");
+    const answerText = document.getElementById("ask-answer-text");
+    if (result.verified) {
+      badge.textContent = STRINGS.ask.verified;
+      badge.hidden = false;
+    } else {
+      badge.hidden = true;
+    }
+    answerText.textContent = result.text;
+    answerBlock.hidden = false;
+  } catch (err) {
+    setLoading(false);
+    showToast(describeError(err));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Screen g: evidence pack and delete
+// ---------------------------------------------------------------------------
+
+function renderEvidenceScreen() {
+  document.getElementById("evidence-title").textContent = STRINGS.evidence.title;
+  document.getElementById("btn-open-report").textContent = STRINGS.evidence.openReport;
+  document.getElementById("evidence-privacy-note").textContent = STRINGS.evidence.privacyNote;
+  document.getElementById("delete-heading").textContent = STRINGS.evidence.deleteHeading;
+  document.getElementById("delete-explain").textContent = STRINGS.evidence.deleteExplain;
+  document.getElementById("btn-delete-data").textContent = STRINGS.evidence.deleteButton;
+  document.getElementById("delete-confirm-text").textContent = STRINGS.evidence.deleteConfirmText;
+  document.getElementById("btn-delete-confirm-yes").textContent = STRINGS.evidence.deleteConfirmYes;
+  document.getElementById("btn-delete-confirm-cancel").textContent = STRINGS.evidence.deleteConfirmCancel;
+  document.getElementById("delete-confirm-panel").hidden = true;
+  document.getElementById("btn-delete-data").hidden = false;
+}
+
+async function handleOpenReport() {
+  const loggedInHours = state.mode === "trip" ? state.loggedInHoursEntered : undefined;
+  // Open the tab synchronously (inside the click handler) so the browser
+  // doesn't treat the later, async-filled tab as an unrequested popup.
+  const reportWindow = window.open("", "_blank");
+  try {
+    const html = await api.getReportHtml(state.mode, loggedInHours);
+    if (reportWindow) {
+      reportWindow.document.open();
+      reportWindow.document.write(html);
+      reportWindow.document.close();
+    } else {
+      const blob = new Blob([html], { type: "text/html" });
+      window.location.href = URL.createObjectURL(blob);
+    }
+  } catch (err) {
+    if (reportWindow) {
+      reportWindow.close();
+    }
+    showToast(describeError(err));
+  }
+}
+
+function showDeleteConfirm() {
+  document.getElementById("delete-confirm-panel").hidden = false;
+  document.getElementById("btn-delete-data").hidden = true;
+}
+
+function cancelDeleteConfirm() {
+  document.getElementById("delete-confirm-panel").hidden = true;
+  document.getElementById("btn-delete-data").hidden = false;
+}
+
+async function handleDeleteConfirmed() {
+  try {
+    setLoading(true, STRINGS.common.loading);
+    await api.deleteAll();
+    setLoading(false);
+    resetState();
+    // All stored data is gone, so Results/Ask/Evidence would have nothing to
+    // show (and Results would fail with a "no trips/weeks" error if the
+    // worker tapped it again) -- send them back to the start instead of
+    // leaving a now-stale nav bar up.
+    showScreen("landing");
+    showToast(STRINGS.evidence.deleteDone);
+  } catch (err) {
+    setLoading(false);
+    cancelDeleteConfirm();
     showToast(describeError(err));
   }
 }
@@ -909,7 +1196,14 @@ export function initApp() {
   renderLandingStrings();
   setupLanding();
   setupRejectedScreen();
+  setupLightbox();
+  setupNav();
   document.getElementById("btn-review-continue").addEventListener("click", handleReviewContinue);
   document.getElementById("btn-save-costs").addEventListener("click", handleSaveCosts);
+  document.getElementById("btn-ask-submit").addEventListener("click", () => handleAsk());
+  document.getElementById("btn-open-report").addEventListener("click", handleOpenReport);
+  document.getElementById("btn-delete-data").addEventListener("click", showDeleteConfirm);
+  document.getElementById("btn-delete-confirm-yes").addEventListener("click", handleDeleteConfirmed);
+  document.getElementById("btn-delete-confirm-cancel").addEventListener("click", cancelDeleteConfirm);
   showScreen("landing");
 }

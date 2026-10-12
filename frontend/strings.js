@@ -25,6 +25,7 @@ export const STRINGS = {
 
   review: {
     title: "Check these numbers against your screenshot",
+    tapToEnlarge: "Tap the screenshot to see it full size",
     needsReviewBanner: "This screenshot may be unreadable: check every number against your screenshot.",
     rejectedInBatch: "Some screenshots were not usable and were skipped:",
     tripCardTitle: "Trip",
@@ -65,6 +66,56 @@ export const STRINGS = {
     blankFieldHint: "Not readable from your screenshot — type the value from your screenshot.",
   },
 
+  nav: {
+    results: "Results",
+    ask: "Ask",
+    evidence: "Evidence & delete",
+  },
+
+  results: {
+    title: "Your real pay",
+    netEarnings: "Net earnings",
+    perHourOnTrips: "Per hour on trips",
+    perHourOnline: "Per hour online",
+    whyTheyDiffer: "\"Per hour on trips\" only counts time actually driving a trip. \"Per hour online\" also counts time waiting for an order, so it's usually lower.",
+    perHourOnTripsUnavailableNote: "Weekly screenshots don't show per-trip minutes, so this rate isn't available in weekly mode.",
+    payPerKm: "Pay per kilometre",
+    deductionShare: "Share of earnings taken as platform deductions",
+    dataQualityTitle: "Data quality notes",
+    noLoggedInHours: "You didn't enter hours online, so \"per hour online\" isn't shown.",
+  },
+
+  ask: {
+    title: "Ask about your pay",
+    suggestionsHeading: "Try asking:",
+    questionLabel: "Your question",
+    submit: "Ask",
+    verified: "Verified — every number comes from your confirmed data",
+    suggestionsTrip: [
+      "What was my net pay per hour?",
+      "How much did I spend on fuel and maintenance?",
+      "What is my pay per kilometre?",
+    ],
+    suggestionsWeekly: [
+      "What was my net pay per hour online?",
+      "How much were my deductions this week?",
+      "What is my pay per kilometre?",
+    ],
+  },
+
+  evidence: {
+    title: "Evidence pack and delete",
+    openReport: "Open evidence pack",
+    privacyNote: "The evidence pack is built only from the screenshots you confirmed. It is not stored anywhere except in the page it opens.",
+    deleteHeading: "Delete all my data",
+    deleteExplain: "This removes every trip, weekly summary, cost and answer PayProof has stored for you. It cannot be undone.",
+    deleteButton: "Delete all my data",
+    deleteConfirmText: "Are you sure? This will permanently delete all your PayProof data.",
+    deleteConfirmYes: "Yes, delete everything",
+    deleteConfirmCancel: "Cancel",
+    deleteDone: "Your data has been deleted.",
+  },
+
   rejected: {
     title: "We couldn't use this screenshot",
     tryAnother: "Try another screenshot",
@@ -80,8 +131,7 @@ export const STRINGS = {
     hoursOnline: "Hours online",
     hoursOnlineWhy: "Time you were logged in, including waiting for an order — not just time spent driving a trip.",
     save: "Save costs",
-    saved: "Costs saved. Your results screen is coming next.",
-    enteredHoursNote: (hours) => `You entered ${hours} hours online.`,
+    saved: "Costs saved.",
   },
 
   common: {

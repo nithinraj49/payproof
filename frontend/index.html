@@ -12,6 +12,12 @@
     <p id="auth-status" class="auth-status">Signing in&hellip;</p>
   </header>
 
+  <nav id="app-nav" class="app-nav" hidden>
+    <button id="nav-results" type="button" class="small"></button>
+    <button id="nav-ask" type="button" class="small"></button>
+    <button id="nav-evidence" type="button" class="small"></button>
+  </nav>
+
   <main id="app">
     <!-- Screen a: landing -->
     <section id="screen-landing" class="screen" hidden>
@@ -66,7 +72,47 @@
       <button id="btn-save-costs" class="primary" type="button"></button>
       <p id="costs-saved-note" class="hint" hidden></p>
     </section>
+
+    <!-- Screen e: results -->
+    <section id="screen-results" class="screen" hidden>
+      <h2 id="results-title"></h2>
+      <div id="results-body"></div>
+    </section>
+
+    <!-- Screen f: ask -->
+    <section id="screen-ask" class="screen" hidden>
+      <h2 id="ask-title"></h2>
+      <div id="ask-suggestions"></div>
+      <div class="field">
+        <label id="label-ask-question" for="input-ask-question"></label>
+        <textarea id="input-ask-question" rows="3" maxlength="500"></textarea>
+      </div>
+      <button id="btn-ask-submit" class="primary" type="button"></button>
+      <div id="ask-answer" hidden>
+        <p id="ask-verified-badge" class="verified-badge" hidden></p>
+        <p id="ask-answer-text"></p>
+      </div>
+    </section>
+
+    <!-- Screen g: evidence pack and delete -->
+    <section id="screen-evidence" class="screen" hidden>
+      <h2 id="evidence-title"></h2>
+      <button id="btn-open-report" class="secondary" type="button"></button>
+      <p id="evidence-privacy-note" class="privacy-note"></p>
+      <h3 id="delete-heading"></h3>
+      <p id="delete-explain"></p>
+      <button id="btn-delete-data" class="secondary" type="button"></button>
+      <div id="delete-confirm-panel" hidden>
+        <p id="delete-confirm-text" class="error-banner"></p>
+        <button id="btn-delete-confirm-yes" class="primary" type="button"></button>
+        <button id="btn-delete-confirm-cancel" class="secondary" type="button"></button>
+      </div>
+    </section>
   </main>
+
+  <div id="lightbox" class="lightbox" hidden>
+    <img id="lightbox-img" alt="Your uploaded screenshot, enlarged" />
+  </div>
 
   <div id="loading-overlay" class="loading-overlay" hidden><span id="loading-text"></span></div>
   <div id="toast" class="toast" role="alert" hidden></div>
