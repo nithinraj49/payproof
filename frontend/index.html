@@ -9,9 +9,26 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div id="splash" aria-hidden="true">
+    <div class="stage">
+      <svg class="bars-svg" id="splash-svg" viewBox="0 -60 420 500" role="img" aria-label="">
+        <g class="bars-scene"></g>
+        <g class="bars-coin" opacity="0">
+          <circle r="17" fill="#FFC233" stroke="#0D1330" stroke-width="3"/>
+          <text y="7" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="20" fill="#0D1330">&#8377;</text>
+        </g>
+        <g class="bars-word">
+          <text x="214" y="394" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="46" letter-spacing="-2" fill="#0D1330">PayProof</text>
+          <text x="210" y="390" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="46" letter-spacing="-2" fill="#fff">PayProof</text>
+        </g>
+        <text class="bars-tag" x="210" y="420" text-anchor="middle" font-family="Helvetica Neue,Arial,sans-serif" font-weight="700" font-size="14" fill="#D4DAFF">Know what you really earn.</text>
+      </svg>
+    </div>
+  </div>
+
   <header class="app-header">
     <div class="brand">
-      <svg class="brand-mark" viewBox="0 0 1024 1024" role="img" aria-label="PayProof logo" width="32" height="32">
+      <svg class="brand-mark" viewBox="0 0 1024 1024" role="img" aria-label="PayProof logo" width="40" height="40">
         <rect width="1024" height="1024" rx="224" fill="#14203C"/>
         <rect class="brand-bar brand-bar-1" x="230" y="560" width="110" height="240" rx="30" fill="#00A896"/>
         <rect class="brand-bar brand-bar-2" x="400" y="470" width="110" height="330" rx="30" fill="#00A896"/>
@@ -43,14 +60,29 @@
   <main id="app">
     <!-- Screen a: landing -->
     <section id="screen-landing" class="screen" hidden>
-      <p id="landing-tagline"></p>
-      <button id="btn-try-sample" class="secondary" type="button"></button>
+      <div class="landing-hero">
+        <svg class="bars-svg" id="landing-hero-svg" viewBox="0 -60 420 500" role="img" aria-hidden="true">
+          <g class="bars-scene"></g>
+          <g class="bars-coin" opacity="0">
+            <circle r="17" fill="#FFC233" stroke="#0D1330" stroke-width="3"/>
+            <text y="7" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="20" fill="#0D1330">&#8377;</text>
+          </g>
+        </svg>
+        <p id="landing-headline" class="landing-headline"></p>
+        <p id="landing-tagline" class="landing-subhead"></p>
+      </div>
+      <button id="btn-try-sample" class="primary" type="button"></button>
       <div id="sample-picker" hidden>
         <p id="sample-simulated-note" class="banner"></p>
         <div id="sample-cards"></div>
       </div>
-      <h3 id="upload-heading"></h3>
-      <input id="file-input" type="file" accept="image/png,image/jpeg,image/webp" multiple />
+      <label class="upload-btn" for="file-input"><span id="upload-heading"></span></label>
+      <input id="file-input" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp" multiple />
+      <ul class="how-it-works">
+        <li data-step="1" id="how-it-works-1"></li>
+        <li data-step="2" id="how-it-works-2"></li>
+        <li data-step="3" id="how-it-works-3"></li>
+      </ul>
       <p id="landing-privacy" class="privacy-note"></p>
     </section>
 
@@ -113,7 +145,7 @@
         <textarea id="input-ask-question" rows="3" maxlength="500"></textarea>
       </div>
       <button id="btn-ask-submit" class="primary" type="button"></button>
-      <div id="ask-answer" hidden>
+      <div id="ask-answer" class="card" hidden>
         <p id="ask-verified-badge" class="verified-badge" hidden></p>
         <p id="ask-answer-text"></p>
       </div>
@@ -122,15 +154,19 @@
     <!-- Screen g: evidence pack and delete -->
     <section id="screen-evidence" class="screen" hidden>
       <h2 id="evidence-title"></h2>
-      <button id="btn-open-report" class="secondary" type="button"></button>
-      <p id="evidence-privacy-note" class="privacy-note"></p>
-      <h3 id="delete-heading"></h3>
-      <p id="delete-explain"></p>
-      <button id="btn-delete-data" class="secondary" type="button"></button>
-      <div id="delete-confirm-panel" hidden>
-        <p id="delete-confirm-text" class="error-banner"></p>
-        <button id="btn-delete-confirm-yes" class="primary" type="button"></button>
-        <button id="btn-delete-confirm-cancel" class="secondary" type="button"></button>
+      <div class="card">
+        <button id="btn-open-report" class="secondary" type="button"></button>
+        <p id="evidence-privacy-note" class="privacy-note"></p>
+      </div>
+      <div class="card">
+        <h3 id="delete-heading"></h3>
+        <p id="delete-explain"></p>
+        <button id="btn-delete-data" class="secondary" type="button"></button>
+        <div id="delete-confirm-panel" hidden>
+          <p id="delete-confirm-text" class="error-banner"></p>
+          <button id="btn-delete-confirm-yes" class="primary" type="button"></button>
+          <button id="btn-delete-confirm-cancel" class="secondary" type="button"></button>
+        </div>
       </div>
     </section>
   </main>
@@ -139,7 +175,10 @@
     <img id="lightbox-img" alt="Your uploaded screenshot, enlarged" />
   </div>
 
-  <div id="loading-overlay" class="loading-overlay" hidden><span id="loading-text"></span></div>
+  <div id="loading-overlay" class="loading-overlay" hidden>
+    <div class="loading-bars" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+    <span id="loading-text"></span>
+  </div>
   <div id="toast" class="toast" role="alert" hidden></div>
   <div id="error-line" class="error-line" role="alert" hidden></div>
 
@@ -149,9 +188,12 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
     import { firebaseConfig } from "./firebase-config.js";
-    import { initApp } from "./app.js";
+    import { initApp, initSplash } from "./app.js";
     import { STRINGS } from "./strings.js";
     import { VERSION } from "./version.js";
+
+    // Runs immediately, independent of sign-in -- never delays or blocks it.
+    initSplash();
 
     const statusEl = document.getElementById("auth-status");
     statusEl.textContent = STRINGS.app.signingIn;

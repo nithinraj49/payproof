@@ -1,29 +1,36 @@
-/* Minimalism with a soft 3D look. Mobile-first, system fonts only
-   (CLAUDE.md / REQUIREMENTS.md section 9). One primary colour, thin 1px
-   borders, one type scale, an 8px spacing grid, 12px corner radius, no
-   gradients in UI chrome. The review table, forms and every number stay
-   flat and plain -- no 3D, tilt or animation on them. */
+/* Neo-brutalist redesign. Plain CSS, no build step (CLAUDE.md / REQUIREMENTS.md
+   section 9). Hard borders, hard offset shadows, flat colours, no gradients,
+   no blur except the two explicitly allowed glass elements. The review
+   table, all forms and every figure a worker must verify stay FLAT: no
+   tilt, no 3D, no animation on them. */
 :root {
-  /* Palette */
-  --ink: #14203C;
+  --ink: #0D1330;
+  --navy: #1E2A5E;
+  --teal: #00A896; /* decorative and large numerals only, never small text or button fills */
   --primary: #007F73;
-  --accent: #00A896; /* decorative and large numbers only, never small text or button fills */
+  --amber: #FFC233;
   --highlight: #FFF4C2;
   --highlight-border: #E0A800;
+  --paper: #E8ECFF; /* page background, not pure white */
+  --white: #FFFFFF; /* card surfaces */
+  --muted: #38426E;
   --error: #B3261E;
   --error-bg: #FDECEA;
-  --background: #FFFFFF;
-  --surface: #F6F8FA;
-  --border: #D9DEE5;
-  --muted: #5B6677;
-  --ok-bg: #E6F4EA;
 
-  /* Type scale: 14 / 16 / 20 / 28 / 40 px */
+  --bd: 3px solid var(--ink);
+  --hard: 6px 6px 0 var(--ink);
+  --hard-sm: 4px 4px 0 var(--ink);
+
+  --display: "Arial Black", "Helvetica Neue", Arial, sans-serif;
+  --font: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+
+  /* Type scale: 14 / 16 / 20 / 28 / 40 / 56 px */
   --fs-100: 0.875rem;
   --fs-200: 1rem;
   --fs-300: 1.25rem;
   --fs-400: 1.75rem;
   --fs-500: 2.5rem;
+  --fs-600: 3.5rem;
 
   /* 8px spacing grid */
   --space-1: 0.5rem;
@@ -39,29 +46,46 @@
 * { box-sizing: border-box; }
 
 body {
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font);
+  font-weight: 600;
   color: var(--ink);
-  background: var(--background);
+  background: var(--paper);
   margin: 0;
   padding: 0 0 var(--space-4);
   line-height: 1.5;
   font-size: var(--fs-200);
   min-width: 0;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 4px solid var(--ink);
+  outline-offset: 3px;
 }
 
 .app-header {
   padding: var(--space-2);
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--bd);
+  background: var(--white);
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 
-.brand-mark { flex: 0 0 auto; display: block; }
+.brand-mark {
+  flex: 0 0 auto;
+  display: block;
+  width: 40px;
+  height: 40px;
+  border: var(--bd);
+  border-radius: 10px;
+  box-shadow: var(--hard-sm);
+  background: var(--navy);
+}
 
 .brand-bar {
   transform-origin: bottom center;
@@ -79,14 +103,17 @@ body {
 
 .app-header h1 {
   margin: 0;
+  font-family: var(--display);
   font-size: var(--fs-300);
-  font-weight: 700;
+  font-weight: 900;
+  letter-spacing: -0.02em;
   color: var(--ink);
 }
 
 .auth-status {
   color: var(--muted);
   font-size: var(--fs-100);
+  font-weight: 700;
   margin-top: var(--space-1);
 }
 
@@ -98,15 +125,28 @@ main#app {
 
 .screen[hidden] { display: none; }
 
-h2 { font-size: var(--fs-400); font-weight: 700; margin: 0 0 var(--space-2); color: var(--ink); }
-h3 { font-size: var(--fs-300); font-weight: 600; margin: var(--space-2) 0 var(--space-1); color: var(--ink); }
+h2 {
+  font-family: var(--display);
+  font-size: var(--fs-400);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  margin: 0 0 var(--space-2);
+  color: var(--ink);
+}
+h3 {
+  font-family: var(--display);
+  font-size: var(--fs-300);
+  font-weight: 900;
+  margin: var(--space-2) 0 var(--space-1);
+  color: var(--ink);
+}
 
 p { margin: 0 0 var(--space-2); }
 
 .privacy-note {
   font-size: var(--fs-100);
   color: var(--muted);
-  border-left: 3px solid var(--primary);
+  border-left: 4px solid var(--primary);
   padding-left: var(--space-2);
   margin-top: var(--space-2);
 }
@@ -114,49 +154,58 @@ p { margin: 0 0 var(--space-2); }
 button {
   font: inherit;
   font-size: var(--fs-200);
+  font-weight: 800;
   min-height: var(--tap);
   min-width: var(--tap);
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--background);
+  border-radius: 8px;
+  border: var(--bd);
+  background: var(--white);
   color: var(--ink);
   cursor: pointer;
-  transition: transform 150ms ease;
+  box-shadow: var(--hard-sm);
+  transition: transform 150ms ease, box-shadow 150ms ease;
 }
 
-button:active { transform: scale(0.98); }
+button:active {
+  transform: translate(4px, 4px);
+  box-shadow: 0 0 0 var(--ink);
+}
 
 button.primary {
   background: var(--primary);
   color: #FFFFFF;
-  border-color: var(--primary);
+  border-color: var(--ink);
   width: 100%;
-  font-weight: 600;
+  box-shadow: var(--hard);
 }
+button.primary:active { box-shadow: 0 0 0 var(--ink); }
 
 button.secondary {
   width: 100%;
-  color: var(--primary);
-  border-color: var(--primary);
+  color: var(--ink);
+  background: var(--white);
 }
 
 button.small {
   padding: 0.35rem var(--space-1);
   min-height: 36px;
   font-size: var(--fs-100);
+  box-shadow: var(--hard-sm);
 }
+button.small:active { box-shadow: 0 0 0 var(--ink); transform: translate(3px, 3px); }
 
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
+  box-shadow: var(--hard-sm);
 }
 
 button.confirm-btn.is-confirmed {
-  background: var(--ok-bg);
-  border-color: var(--primary);
-  color: var(--primary);
+  background: var(--teal);
+  border-color: var(--ink);
+  color: var(--ink);
 }
 
 input[type="text"],
@@ -166,19 +215,12 @@ textarea {
   font: inherit;
   font-size: var(--fs-200);
   width: 100%;
-  min-height: var(--tap);
+  min-height: 48px;
   padding: var(--space-1) 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--background);
+  border: var(--bd);
+  border-radius: 8px;
+  background: var(--white);
   color: var(--ink);
-}
-
-input:focus-visible,
-textarea:focus-visible,
-button:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
 }
 
 textarea { resize: vertical; }
@@ -190,6 +232,7 @@ textarea { resize: vertical; }
 .field label {
   display: block;
   font-size: var(--fs-100);
+  font-weight: 700;
   color: var(--muted);
   margin-bottom: 0.25rem;
 }
@@ -202,7 +245,8 @@ textarea { resize: vertical; }
 
 .field-row > input { flex: 1 1 auto; min-width: 0; }
 
-/* Cells that need checking: flat and plain, no animation (item 7). */
+/* Cells that need checking: colour AND the visible "Confirm"/"Confirmed"
+   label on the button (never colour alone). Flat -- no animation. */
 .field.unconfirmed input {
   background: var(--highlight);
   border-color: var(--highlight-border);
@@ -211,34 +255,36 @@ textarea { resize: vertical; }
 .hint {
   font-size: var(--fs-100);
   color: var(--muted);
+  font-weight: 600;
   margin-top: 0.2rem;
 }
 
 .banner {
   background: var(--highlight);
-  border: 1px solid var(--highlight-border);
+  border: var(--bd);
   border-radius: var(--radius);
   padding: var(--space-2);
   margin-bottom: var(--space-2);
-  font-weight: 600;
+  font-weight: 800;
   color: var(--ink);
 }
 
 .error-banner {
   background: var(--error-bg);
   color: var(--error);
-  border: 1px solid var(--error);
+  border: var(--bd);
   border-radius: var(--radius);
   padding: var(--space-2);
   margin-bottom: var(--space-2);
+  font-weight: 700;
 }
 
 .card {
-  border: 1px solid var(--border);
+  border: var(--bd);
   border-radius: var(--radius);
   padding: var(--space-2);
   margin-bottom: var(--space-2);
-  background: var(--surface);
+  background: var(--white);
 }
 
 .card img.preview {
@@ -247,7 +293,7 @@ textarea { resize: vertical; }
   width: auto;
   object-fit: contain;
   border-radius: var(--radius);
-  border: 1px solid var(--border);
+  border: var(--bd);
   display: block;
   margin: 0 auto var(--space-1);
   cursor: zoom-in;
@@ -263,7 +309,7 @@ textarea { resize: vertical; }
 .lightbox {
   position: fixed;
   inset: 0;
-  background: rgba(20, 32, 60, 0.92);
+  background: rgba(13, 19, 48, 0.92);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -281,7 +327,7 @@ textarea { resize: vertical; }
 }
 
 /* ---------------------------------------------------------------------
-   Step indicator: Upload, Check, Costs, Results (item 4)
+   Chunky step indicator: Upload, Check, Costs, Results (item 2)
 --------------------------------------------------------------------- */
 
 .step-indicator {
@@ -304,47 +350,51 @@ textarea { resize: vertical; }
 }
 
 .step-dot-num {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--background);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: var(--bd);
+  background: var(--white);
   color: var(--muted);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: var(--fs-100);
-  font-weight: 600;
+  font-weight: 900;
+  box-shadow: var(--hard-sm);
 }
 
 .step-dot.active .step-dot-num {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #FFFFFF;
+  background: var(--amber);
+  border-color: var(--ink);
+  color: var(--ink);
 }
 
 .step-dot.done .step-dot-num {
-  background: var(--ok-bg);
-  border-color: var(--primary);
-  color: var(--primary);
+  background: var(--teal);
+  border-color: var(--ink);
+  color: var(--ink);
 }
 
 .step-dot-label {
   font-size: 0.7rem;
+  font-weight: 700;
   color: var(--muted);
   white-space: nowrap;
 }
 
-.step-dot.active .step-dot-label { color: var(--ink); font-weight: 600; }
+.step-dot.active .step-dot-label { color: var(--ink); font-weight: 900; }
 
 .step-line {
   flex: 1 1 auto;
-  height: 2px;
-  background: var(--border);
+  height: 4px;
+  background: var(--white);
+  border-top: var(--bd);
+  border-bottom: var(--bd);
   position: relative;
   overflow: hidden;
   margin: 0 0.25rem;
-  margin-bottom: 1.1rem;
+  margin-bottom: 1.3rem;
 }
 
 .step-line-fill {
@@ -358,12 +408,30 @@ textarea { resize: vertical; }
 
 .step-line.filled .step-line-fill { transform: scaleX(1); }
 
+/* ---------------------------------------------------------------------
+   Bottom nav: one of the two elements allowed a glass treatment
+   (item 7), with a solid fallback inside @supports.
+--------------------------------------------------------------------- */
+
 .app-nav {
   display: flex;
   gap: var(--space-1);
-  padding: var(--space-2) var(--space-2) 0;
+  padding: var(--space-2);
   max-width: 560px;
   margin: 0 auto;
+  position: sticky;
+  bottom: 0;
+  background: var(--white);
+  border-top: var(--bd);
+  z-index: 10;
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .app-nav {
+    background: rgba(255, 255, 255, 0.75);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
 }
 
 .app-nav[hidden] { display: none; }
@@ -373,21 +441,29 @@ textarea { resize: vertical; }
 }
 
 .app-nav button.active {
-  background: var(--primary);
-  color: #FFFFFF;
-  border-color: var(--primary);
+  background: var(--amber);
+  color: var(--ink);
+  border-color: var(--ink);
 }
 
 .verified-badge {
   display: inline-block;
-  background: var(--ok-bg);
-  border: 1px solid var(--primary);
-  color: var(--primary);
-  border-radius: var(--radius);
-  padding: 0.3rem var(--space-1);
+  background: var(--teal);
+  border: var(--bd);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0.3rem var(--space-2);
   font-size: var(--fs-100);
-  font-weight: 600;
+  font-weight: 800;
   margin-bottom: var(--space-1);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .verified-badge {
+    background: rgba(0, 168, 150, 0.55);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
 }
 
 .suggestion-chip {
@@ -397,26 +473,36 @@ textarea { resize: vertical; }
 }
 
 /* ---------------------------------------------------------------------
-   Results: net earnings figure + two side-by-side rate cards (item 3)
+   Results: navy hero card + two side-by-side rate cards (item 3)
 --------------------------------------------------------------------- */
 
-.net-earnings {
+.results-hero {
+  background: var(--navy);
+  color: #FFFFFF;
+  border: var(--bd);
+  border-radius: var(--radius);
+  box-shadow: var(--hard);
+  padding: var(--space-3) var(--space-2);
   text-align: center;
-  padding: var(--space-3) 0 var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
 .net-earnings-label {
   font-size: var(--fs-100);
-  color: var(--muted);
+  font-weight: 700;
+  color: #D4DAFF;
   margin: 0 0 0.25rem;
 }
 
 .net-earnings-value {
-  font-size: var(--fs-500);
-  font-weight: 700;
-  color: var(--ink);
+  font-family: var(--display);
+  font-size: var(--fs-600);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  color: #FFFFFF;
   margin: 0;
-  line-height: 1.1;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
 }
 
 .rate-cards {
@@ -436,20 +522,24 @@ textarea { resize: vertical; }
 }
 
 .rate-card-value {
+  font-family: var(--display);
   font-size: var(--fs-400);
-  font-weight: 700;
+  font-weight: 900;
   color: var(--ink);
   margin: 0 0 0.2rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .rate-card-label {
   font-size: var(--fs-100);
+  font-weight: 700;
   color: var(--muted);
   margin: 0;
 }
 
 .rate-card-note {
   font-size: var(--fs-100);
+  font-weight: 600;
   color: var(--muted);
   margin: 0.4rem 0 0;
 }
@@ -463,11 +553,15 @@ textarea { resize: vertical; }
   justify-content: space-between;
   gap: var(--space-2);
   padding: var(--space-1) 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 2px solid var(--ink);
 }
 
-.results-row .label { color: var(--muted); }
-.results-row .value { font-weight: 600; text-align: right; }
+.results-row .label { color: var(--muted); font-weight: 700; }
+.results-row .value {
+  font-weight: 900;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
 
 .readonly-note {
   font-size: var(--fs-100);
@@ -495,9 +589,12 @@ textarea { resize: vertical; }
   bottom: var(--space-2);
   background: var(--ink);
   color: #fff;
-  padding: var(--space-2) var(--space-2);
-  border-radius: var(--radius);
+  border: var(--bd);
+  box-shadow: 5px 5px 0 var(--amber);
+  padding: var(--space-2);
+  border-radius: 8px;
   font-size: var(--fs-100);
+  font-weight: 700;
   z-index: 50;
 }
 
@@ -506,15 +603,47 @@ textarea { resize: vertical; }
 .loading-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(232, 236, 255, 0.92);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
+  gap: var(--space-2);
+  font-weight: 800;
   z-index: 60;
 }
 
 .loading-overlay[hidden] { display: none; }
+
+/* Loading state: mini bar-logo, bars rise and fall in turn (item 6),
+   CSS only -- distinct from the review table, which never animates. */
+.loading-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 36px;
+}
+.loading-bars span {
+  display: block;
+  width: 10px;
+  background: var(--teal);
+  border: 2px solid var(--ink);
+  border-radius: 2px;
+  animation: loadingBarBounce 900ms ease-in-out infinite;
+}
+.loading-bars span:nth-child(1) { height: 14px; animation-delay: 0ms; }
+.loading-bars span:nth-child(2) { height: 24px; animation-delay: 120ms; }
+.loading-bars span:nth-child(3) { height: 34px; animation-delay: 240ms; }
+.loading-bars span:nth-child(4) { height: 20px; animation-delay: 360ms; }
+
+@keyframes loadingBarBounce {
+  0%, 100% { transform: scaleY(0.6); }
+  50% { transform: scaleY(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-bars span { animation: none; transform: scaleY(1); }
+}
 
 .rejected-list {
   margin: 0 0 var(--space-2);
@@ -528,9 +657,9 @@ textarea { resize: vertical; }
   bottom: 4.5rem;
   background: var(--error-bg);
   color: var(--error);
-  border: 1px solid var(--error);
+  border: var(--bd);
   padding: 0.4rem 0.7rem;
-  border-radius: var(--radius);
+  border-radius: 8px;
   font-size: var(--fs-100);
   font-family: ui-monospace, "Courier New", monospace;
   z-index: 55;
@@ -543,13 +672,15 @@ textarea { resize: vertical; }
   text-align: center;
   color: var(--muted);
   font-size: 0.72rem;
+  font-weight: 700;
   padding: var(--space-4) var(--space-2) var(--space-2);
 }
 
 .sample-card h4 {
   margin: 0 0 0.25rem;
+  font-family: var(--display);
   font-size: var(--fs-200);
-  font-weight: 600;
+  font-weight: 900;
   color: var(--ink);
 }
 
@@ -557,6 +688,7 @@ textarea { resize: vertical; }
   margin: 0 0 var(--space-1);
   font-size: var(--fs-100);
   color: var(--muted);
+  font-weight: 600;
 }
 
 .date-human {
@@ -566,13 +698,108 @@ textarea { resize: vertical; }
   margin-top: 0.2rem;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  padding: 0;
+}
+
+label.upload-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: var(--tap);
+  padding: var(--space-1) var(--space-2);
+  border-radius: 8px;
+  border: var(--bd);
+  background: var(--white);
+  color: var(--ink);
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: var(--hard-sm);
+  transition: transform 150ms ease, box-shadow 150ms ease;
+  margin-bottom: var(--space-2);
+}
+label.upload-btn:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(--ink); }
+
 /* ---------------------------------------------------------------------
-   Floating cards: layered soft shadows, resting tilt, hover lift (item 6).
-   Never applied to the review table, forms or plain numbers.
+   First screen: hero card with the static isometric bar chart (item 5)
+--------------------------------------------------------------------- */
+
+.landing-hero {
+  background: var(--navy);
+  border: var(--bd);
+  border-radius: var(--radius);
+  box-shadow: var(--hard);
+  padding: var(--space-3) var(--space-2) var(--space-2);
+  margin-bottom: var(--space-3);
+  color: #FFFFFF;
+}
+
+.landing-hero svg { display: block; width: 100%; height: auto; }
+
+.landing-headline {
+  font-family: var(--display);
+  font-size: var(--fs-400);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: var(--space-2) 0 var(--space-1);
+  color: #FFFFFF;
+}
+
+.landing-subhead {
+  color: #D4DAFF;
+  font-weight: 700;
+  font-size: var(--fs-200);
+  margin-bottom: 0;
+}
+
+.how-it-works {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) 0;
+  padding: 0;
+  list-style: none;
+}
+
+.how-it-works li {
+  display: flex;
+  gap: var(--space-1);
+  align-items: baseline;
+  font-weight: 700;
+  font-size: var(--fs-100);
+  color: var(--ink);
+}
+
+.how-it-works li::before {
+  content: attr(data-step);
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+  background: var(--amber);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+/* ---------------------------------------------------------------------
+   Floating cards: layered hard shadows, resting tilt, hover lift
+   (item 3/6). Never applied to the review table, forms or plain numbers.
 --------------------------------------------------------------------- */
 
 .tilt-card {
-  box-shadow: 0 1px 2px rgba(20, 32, 60, 0.06), 0 10px 24px rgba(20, 32, 60, 0.08);
+  box-shadow: var(--hard);
   transform: perspective(900px) rotateX(2deg) rotateY(-2deg);
   transition: transform 200ms ease, box-shadow 200ms ease;
 }
@@ -580,7 +807,7 @@ textarea { resize: vertical; }
 @media (hover: hover) and (pointer: fine) {
   .tilt-card:hover {
     transform: perspective(900px) translateY(-4px) rotateX(0deg) rotateY(0deg);
-    box-shadow: 0 4px 10px rgba(20, 32, 60, 0.1), 0 18px 36px rgba(20, 32, 60, 0.14);
+    box-shadow: 8px 8px 0 var(--ink);
   }
 }
 
@@ -589,10 +816,9 @@ textarea { resize: vertical; }
 }
 
 /* ---------------------------------------------------------------------
-   Motion: transform/opacity only, each under 700ms, nothing looping
-   (item 7). Disabled under prefers-reduced-motion -- final values appear
-   at once. Never applied to the review table, error messages or
-   refusal screens.
+   Motion: transform/opacity only, each under 700ms, nothing looping.
+   Disabled under prefers-reduced-motion -- final values appear at once.
+   Never applied to the review table, error messages or refusal screens.
 --------------------------------------------------------------------- */
 
 .fade-slide-in {
@@ -606,6 +832,34 @@ textarea { resize: vertical; }
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* ---------------------------------------------------------------------
+   Opening splash (item 4)
+--------------------------------------------------------------------- */
+
+#splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 350ms ease-in;
+}
+
+#splash.splash-hide { transform: translateY(-100%); }
+#splash[hidden] { display: none; }
+
+#splash .stage {
+  width: min(94vw, 440px);
+  background: var(--navy);
+  border: var(--bd);
+  box-shadow: var(--hard);
+  padding: var(--space-1);
+}
+
+#splash svg { display: block; width: 100%; height: auto; }
+
 @media (prefers-reduced-motion: reduce) {
   .fade-slide-in,
   .brand-bar {
@@ -617,7 +871,7 @@ textarea { resize: vertical; }
     transition: none !important;
     transform: none !important;
   }
-  button, .step-line-fill {
+  button, .step-line-fill, #splash {
     transition: none !important;
   }
 }

@@ -9,11 +9,15 @@ export const STRINGS = {
   },
 
   landing: {
+    headline: "Know what you really earn.",
     tagline: "PayProof tells you what you really earn per hour, from screenshots you already have.",
     trySample: "Try with sample screenshots",
     simulatedNote: "These screenshots are simulated examples from a fictional app, not a real platform or a real worker's data.",
     useThisSample: "Use this sample",
     upload: "Upload my screenshots",
+    howItWorks1: "Upload a trip or weekly payout screenshot",
+    howItWorks2: "Check the numbers against your own screenshot",
+    howItWorks3: "See your real net pay per hour, instantly",
     privacyNote: "Your screenshots are not stored. We only keep the numbers you confirm.",
   },
 

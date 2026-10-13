@@ -4,6 +4,51 @@ import { api, ApiError } from "./api.js";
 import { STRINGS } from "./strings.js";
 import { SAMPLE_IMAGES } from "./samples/index.js";
 import { currencySymbol, formatDateHuman, formatMoney, formatRate, formatPercent } from "./format.js";
+import { createBarScene, SPLASH_DURATION } from "./brutalist-bars.js";
+
+const SPLASH_SESSION_KEY = "payproof_splash_shown";
+
+// Opening splash (item 4): plays once per browser session, skippable by tap
+// or key, skipped entirely under prefers-reduced-motion or ?nosplash=1,
+// never blocks sign-in or any API call (it's a plain fixed overlay drawn on
+// top; everything underneath keeps loading and running regardless).
+export function initSplash() {
+  const splashEl = document.getElementById("splash");
+  const params = new URLSearchParams(window.location.search);
+  const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const alreadyShown = sessionStorage.getItem(SPLASH_SESSION_KEY) === "1";
+
+  if (params.get("nosplash") === "1" || reduce || alreadyShown) {
+    splashEl.remove();
+    return;
+  }
+
+  sessionStorage.setItem(SPLASH_SESSION_KEY, "1");
+
+  let done = false;
+  function finish() {
+    if (done) {
+      return;
+    }
+    done = true;
+    splashEl.classList.add("splash-hide");
+    setTimeout(() => splashEl.remove(), 400);
+  }
+
+  try {
+    const scene = createBarScene(document.getElementById("splash-svg"));
+    splashEl.addEventListener("click", finish);
+    window.addEventListener("keydown", function onKey() {
+      finish();
+      window.removeEventListener("keydown", onKey);
+    });
+    scene.play(finish);
+  } catch (err) {
+    // If the script fails for any reason, the app simply shows (no splash).
+    console.error(err);
+    finish();
+  }
+}
 
 // Sample-mode defaults so a visitor never has to type anything except to
 // change a prefilled value (CLAUDE.md step 2: "no typing except changing
@@ -225,11 +270,18 @@ function clearChildren(el) {
 // ---------------------------------------------------------------------------
 
 function renderLandingStrings() {
+  document.getElementById("landing-headline").textContent = STRINGS.landing.headline;
   document.getElementById("landing-tagline").textContent = STRINGS.landing.tagline;
   document.getElementById("btn-try-sample").textContent = STRINGS.landing.trySample;
   document.getElementById("sample-simulated-note").textContent = STRINGS.landing.simulatedNote;
   document.getElementById("upload-heading").textContent = STRINGS.landing.upload;
+  document.getElementById("how-it-works-1").textContent = STRINGS.landing.howItWorks1;
+  document.getElementById("how-it-works-2").textContent = STRINGS.landing.howItWorks2;
+  document.getElementById("how-it-works-3").textContent = STRINGS.landing.howItWorks3;
   document.getElementById("landing-privacy").textContent = STRINGS.landing.privacyNote;
+
+  const heroScene = createBarScene(document.getElementById("landing-hero-svg"));
+  heroScene.render(SPLASH_DURATION); // static final frame, no animation (item 5)
 }
 
 function setupLanding() {
@@ -1092,7 +1144,7 @@ function createRateCard(labelText, valueText, noteText, delayIndex) {
 
 function appendNetEarningsFigure(container, valueText) {
   const wrap = document.createElement("div");
-  wrap.className = "net-earnings";
+  wrap.className = "results-hero";
   const label = document.createElement("p");
   label.className = "net-earnings-label";
   label.textContent = STRINGS.results.netEarnings;
