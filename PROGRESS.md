@@ -551,3 +551,25 @@ Separate branch, checked out by the owner before this session; `main` untouched.
 
 ### Next
 - Preview channel deploy (`firebase hosting:channel:deploy ui-redesign --expires 7d --project payproof-nithin-2026`) -- owner approved verbally ("yes continue and deploy it fully"); not the live site, per the task's explicit hard constraint (which was never lifted). Not pushed to any remote.
+
+## General button hover-lift, a real production bug found live, and promotion to production (13 Oct 2026)
+
+### Hover states
+- Owner noticed the reference file's richer "3D" feel and asked why our buttons had no hover. Checked: the reference's own buttons only ever use `:active` (press), never a true `:hover` -- its richer feel is the isometric earnings-chart sway animation and the gig-card flip, both tied to content we were told not to copy. What was genuinely missing: hover feedback on ordinary buttons. Added a real hover-lift (translate + bigger hard shadow, pointer devices only) across landing, results, ask, evidence and the nav -- explicitly excluding `#screen-review`, `#screen-costs` and `.confirm-btn`, so nothing a worker must verify ever animates.
+
+### Real bug found live on the preview channel: KeyError -> bare 500 on /api/ask
+- Owner hit "Error 500 (server_error)" asking a question on the preview after already extracting a screenshot the same day. Pulled the actual Cloud Run traceback (not a guess): `backend/usage_limits.py` crashed with `KeyError: "'questions' is not contained in the data"`.
+- **Root cause:** `DocumentSnapshot.get(field_path)` raises `KeyError` when the Firestore document exists but that particular field doesn't -- unlike `dict.get()`, it does not default to `None`. `check_and_increment()` only guarded against the whole document missing (`user_snap.exists`), not against an existing document missing the specific counter field. A visitor whose `users/{uid}/usage/{today}` doc already had `extractions` (from an earlier `/api/extract` that day) hit this on their first `/api/ask` of the day, since `questions` wasn't in the document yet.
+- **This is a pre-existing bug, not introduced this session** -- exactly the gap documented since Phase 2 ("the real Firestore transaction code in `check_and_increment` has no test coverage, no emulator available in this environment"). The live preview test is what finally proved it was a real bug, not just an untested-but-fine function. It affects production too, since Cloud Run has one live service regardless of git branch.
+- **Fix:** new `_field_count(snapshot, field)` goes through `.to_dict()` first, sidestepping the field-path lookup entirely; used in both `check_and_increment` and `check_global_limit_only` (same latent bug, same fix). 3 new tests use a snapshot double that reproduces this exact real Firestore behaviour (document exists, field missing) rather than a generic mock that would have missed it. `pytest -q`: **248 passed** (was 245).
+
+### Promotion to production (owner's explicit choice, confirmed via a clarifying question since "deploy it fully" was ambiguous between the preview channel and live)
+- Merged `ui-redesign` into `main` with `--ff-only` (clean fast-forward, no conflicts -- `main` hadn't moved since the branch point).
+- `pytest -q` (248 passed) and `scripts/check_ids.js` (pass) re-run on `main` before deploying anything.
+- **Cloud Run:** same command as every prior deploy this week, revision `payproof-00010-l6t`, 100% traffic. `/health` 200, `/api/whoami` 401 as expected.
+- **Firebase Hosting, live channel** (`firebase deploy --only hosting`, not a preview channel this time): confirmed live afterward -- `index.html` 200, `style.css` 200 **with the `Cache-Control: no-cache, no-store, must-revalidate` header actually present** (this resolves the 13 Oct UI-polish session's open question: the header not showing up earlier was a Hosting *emulator* limitation, not a real problem -- confirmed now against real Hosting), `/api/whoami` 401 via the Cloud Run rewrite, a sample image 200, `brutalist-bars.js` 200.
+- **The neo-brutalist redesign, the general hover-lift, and this usage-limits bug fix are all live in production as of this session.**
+
+### Next
+- Owner should do a real end-to-end pass on the live site (not just curl checks): a trip sample, a weekly sample, an order offer, and specifically re-test asking a question after an extraction (the exact sequence that triggered the bug) to confirm the fix holds.
+- Not pushed to any remote (local commits only, `main` and `ui-redesign` both have the same head now).
