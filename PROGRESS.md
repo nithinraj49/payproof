@@ -463,3 +463,26 @@ Owner asked two questions before approving any deploy, no code changes assumed g
 ### Next
 - Owner reviews this before approving any deploy. If agreed, a Cloud Run deploy (for the security fix) and a Hosting deploy (for the last two sessions' frontend work) are both pending.
 - Not deployed, not pushed, per instruction.
+
+## Cloud Run deploy of the security fix, and live verification (13 Oct 2026)
+
+### Deploy
+- Dockerfile `COPY` list re-verified against every import in `backend/`, `engine/`, `extraction/` (including the new `backend/sample_images.py`): all first-party imports resolve to those three packages, already fully covered. No Dockerfile change needed. `requirements.txt` unchanged since Phase 1/2.
+- `gcloud run deploy payproof --source . --project payproof-nithin-2026 --region asia-south1 --service-account payproof-run@payproof-nithin-2026.iam.gserviceaccount.com --allow-unauthenticated --max-instances=3 --memory=1Gi --timeout=60 --env-vars-file=deploy/env.yaml --quiet`: succeeded on the first try, no errors. Revision `payproof-00008-fg5`, 100% traffic, service URL `https://payproof-1065840687031.asia-south1.run.app`.
+- Post-deploy checks: all 20 `deploy/env.yaml` variables match the live service exactly (compared programmatically, not eyeballed), no `GEMINI_API_KEY`; `GET /health` 200; `GET /api/whoami` (no token) 401 `missing_token`; live service account confirmed `payproof-run@...`; last 20 log lines clean (normal startup sequence, then the two check requests -- the one `WARNING`-severity row is Cloud Run's own auto-labelling of any 4xx/5xx request in `run.googleapis.com%2Frequests`, not an application warning, confirmed by reading its full payload).
+
+### Live Gemini check (owner's "go", cost gate: at most 3 calls -- exactly 2 real Gemini calls made)
+Obtained a real anonymous ID token via the Identity Toolkit REST API (`accounts:signUp` with the public web API key, i.e. exactly what `signInAnonymously()` does client-side) so the check exercises real auth, not a mock.
+
+| # | Check | Expected | Got | Result |
+|---|---|---|---|---|
+| 1 | Extract `frontend/samples/trip.jpg`, `is_sample=true` | 200, treated as sample, real Gemini call | 200, exact ground-truth match (base_pay 136.65, 9.5km, 31min, `needs_review:false`); `usage_global` -> `{gemini_calls: 1}`; no `users/{uid}/usage` doc created; `sample_cache` gained exactly 1 doc, id = the known `trip.jpg` hash | PASS |
+| 2 | Same image again, `is_sample=true` | 200, served from cache, no second Gemini call | 200, byte-identical response; `usage_global` **unchanged** at `{gemini_calls: 1}` (the authoritative proof -- identical JSON alone wouldn't rule out a second real call, since temperature=0 could coincidentally repeat) | PASS |
+| 3 | A synthetic non-curated image, spoofed `is_sample=true` | Charged like a normal upload, real Gemini call | 200 (`screen_type: other`, correctly rejected as not an earnings screen); `users/{uid}/usage/{today}` created at `{extractions: 1}`; `usage_global` incremented to `{gemini_calls: 2}`; `sample_cache` still exactly 1 doc (the attack image was never written to it) | PASS |
+| 4 | Confirm counters moved correctly | Per-user: 0 -> 1 (only from call 3); global: 0 -> 2 (calls 1 and 3, not call 2) | Exactly as expected, read directly from Firestore after each step, not inferred | PASS |
+
+**No failure encountered; no code changed to make anything pass** (none was needed -- this was a verification run of the fix already made and tested offline). `DELETE /api/data` called (0 documents removed -- this run never created trips/weeks/costs/answers, extract-only). The per-user usage counter and the throwaway Firebase Auth account are intentionally outside `delete_all()`'s scope (`backend/store.py` excludes usage counters by design, so a user can never reset their own limit) -- both deleted directly via `firebase_admin`. The `usage_global/{today}` counter (shared, cumulative, real production state) and the legitimate `sample_cache` entry for `trip.jpg` (genuinely useful to every future visitor who taps the sample button) were deliberately **left in place**, not test artifacts. Local scratch files (auth response, call responses, the synthetic test image) deleted from the working tree.
+
+### Next
+- Hosting deploy (`firebase deploy --only hosting`) still pending for the Phase 5 frontend work from the last two sessions -- not done this session, owner approval needed.
+- Not pushed, per instruction.
