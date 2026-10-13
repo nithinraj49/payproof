@@ -24,6 +24,21 @@ def _today() -> str:
     return datetime.date.today().isoformat()
 
 
+def _field_count(snapshot, field: str) -> int:
+    """Safe equivalent of `snapshot.get(field) or 0`.
+
+    DocumentSnapshot.get(field_path) raises KeyError when the document
+    exists but that particular field doesn't -- unlike dict.get(), it does
+    NOT default to None. That is a real bug found live: a visitor whose
+    usage doc already had "extractions" (from an earlier /api/extract call
+    the same day) got an uncaught KeyError, and therefore a bare 500, on
+    their first /api/ask of the day, because "questions" wasn't in the
+    document yet. Going through to_dict() first sidesteps the special
+    field-path lookup entirely.
+    """
+    return (snapshot.to_dict() or {}).get(field, 0) or 0
+
+
 def check_limits(user_count: int, global_count: int, user_limit: int, global_limit: int) -> None:
     """Pure limit check, no I/O: easy to unit test without a Firestore emulator."""
     if user_count >= user_limit:
@@ -53,7 +68,7 @@ def check_global_limit_only(
     @firestore.transactional
     def _run(transaction):
         global_snap = global_ref.get(transaction=transaction)
-        global_count = (global_snap.get("gemini_calls") if global_snap.exists else 0) or 0
+        global_count = _field_count(global_snap, "gemini_calls")
         if global_count >= global_limit:
             raise ApiError(503, "service_busy", "PayProof has reached its usage limit for today. Please try again tomorrow.")
         transaction.set(global_ref, {"gemini_calls": global_count + 1}, merge=True)
@@ -80,8 +95,8 @@ def check_and_increment(
     def _run(transaction):
         user_snap = user_ref.get(transaction=transaction)
         global_snap = global_ref.get(transaction=transaction)
-        user_count = (user_snap.get(kind) if user_snap.exists else 0) or 0
-        global_count = (global_snap.get("gemini_calls") if global_snap.exists else 0) or 0
+        user_count = _field_count(user_snap, kind)
+        global_count = _field_count(global_snap, "gemini_calls")
 
         check_limits(user_count, global_count, user_limit, global_limit)
 
