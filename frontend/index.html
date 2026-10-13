@@ -23,7 +23,10 @@
     <section id="screen-landing" class="screen" hidden>
       <p id="landing-tagline"></p>
       <button id="btn-try-sample" class="secondary" type="button"></button>
-      <p id="sample-note" class="hint" hidden></p>
+      <div id="sample-picker" hidden>
+        <p id="sample-simulated-note" class="banner"></p>
+        <div id="sample-cards"></div>
+      </div>
       <h3 id="upload-heading"></h3>
       <input id="file-input" type="file" accept="image/png,image/jpeg,image/webp" multiple />
       <p id="landing-privacy" class="privacy-note"></p>
@@ -116,6 +119,9 @@
 
   <div id="loading-overlay" class="loading-overlay" hidden><span id="loading-text"></span></div>
   <div id="toast" class="toast" role="alert" hidden></div>
+  <div id="error-line" class="error-line" role="alert" hidden></div>
+
+  <footer id="version-stamp" class="version-stamp"></footer>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
@@ -123,9 +129,11 @@
     import { firebaseConfig } from "./firebase-config.js";
     import { initApp } from "./app.js";
     import { STRINGS } from "./strings.js";
+    import { VERSION } from "./version.js";
 
     const statusEl = document.getElementById("auth-status");
     statusEl.textContent = STRINGS.app.signingIn;
+    document.getElementById("version-stamp").textContent = `Build ${VERSION.buildDate} · ${VERSION.shortId}`;
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);

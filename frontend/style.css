@@ -309,3 +309,53 @@ textarea { resize: vertical; }
   margin: 0 0 1rem;
   padding-left: 1.1rem;
 }
+
+.error-line {
+  position: fixed;
+  left: 1rem;
+  right: 1rem;
+  bottom: 4.5rem;
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger);
+  padding: 0.4rem 0.7rem;
+  border-radius: var(--radius);
+  font-size: 0.75rem;
+  font-family: ui-monospace, "Courier New", monospace;
+  z-index: 55;
+  cursor: pointer;
+}
+
+.error-line[hidden] { display: none; }
+
+.version-stamp {
+  text-align: center;
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  padding: 1.5rem 1rem 1rem;
+}
+
+.sample-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+
+.sample-card h4 {
+  margin: 0 0 0.25rem;
+  font-size: 0.95rem;
+}
+
+.sample-card p {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
+.date-human {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--color-muted);
+  margin-top: 0.2rem;
+}

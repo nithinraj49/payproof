@@ -11,7 +11,8 @@ export const STRINGS = {
   landing: {
     tagline: "PayProof tells you what you really earn per hour, from screenshots you already have.",
     trySample: "Try with sample screenshots",
-    trySampleComingSoon: "Sample screenshots are coming soon. Please upload your own screenshots for now.",
+    simulatedNote: "These screenshots are simulated examples from a fictional app, not a real platform or a real worker's data.",
+    useThisSample: "Use this sample",
     upload: "Upload my screenshots",
     privacyNote: "Your screenshots are not stored. We only keep the numbers you confirm.",
   },
@@ -150,5 +151,6 @@ export const STRINGS = {
     badType: "Please upload a PNG, JPEG or WebP image.",
     busy: "PayProof is busy right now. Please try again in a minute.",
     generic: "Something went wrong. Please try again.",
+    technicalLine: (status, code) => `Error ${status !== null && status !== undefined ? status : "?"} (${code || "unknown"}) — tap to dismiss`,
   },
 };

@@ -2,6 +2,35 @@
 // Plain DOM manipulation, no framework, no build step (CLAUDE.md / REQUIREMENTS.md section 9).
 import { api, ApiError } from "./api.js";
 import { STRINGS } from "./strings.js";
+import { SAMPLE_IMAGES } from "./samples/index.js";
+
+// Sample-mode defaults so a visitor never has to type anything except to
+// change a prefilled value (CLAUDE.md step 2: "no typing except changing
+// prefilled sample costs and hours").
+const SAMPLE_DEFAULT_FUEL_PER_KM = 3;
+const SAMPLE_DEFAULT_MAINTENANCE_PER_KM = 1;
+const SAMPLE_DEFAULT_TRIP_HOURS_ONLINE = 1.5;
+const SAMPLE_DEFAULT_WEEKLY_KM_DRIVEN = 300;
+const SAMPLE_DEFAULT_WEEKLY_HOURS_ONLINE = 42;
+
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// Unambiguous "8 Oct 2026" text next to every date value, so day/month can
+// never be misread as the other (CLAUDE.md step 1).
+function formatDateHuman(isoDate) {
+  if (!isoDate) {
+    return null;
+  }
+  const parts = String(isoDate).split("-");
+  if (parts.length !== 3) {
+    return null;
+  }
+  const [year, month, day] = parts.map((p) => parseInt(p, 10));
+  if (!year || !month || !day || month < 1 || month > 12) {
+    return null;
+  }
+  return `${day} ${MONTH_NAMES[month - 1]} ${year}`;
+}
 
 let uidCounter = 0;
 function uid(prefix) {
@@ -33,6 +62,7 @@ const state = {
   lastRejectedReason: null,
   loggedInHoursEntered: null,
   askAndEvidenceRendered: false,
+  isSampleMode: false,
 };
 
 function resetState() {
@@ -44,6 +74,7 @@ function resetState() {
   state.lastRejectedReason = null;
   state.loggedInHoursEntered = null;
   state.askAndEvidenceRendered = false;
+  state.isSampleMode = false;
 }
 
 function makeField(value, confirmed) {
@@ -170,6 +201,25 @@ function describeError(err) {
   return STRINGS.errors.generic;
 }
 
+// A small, persistent, plain-text technical line (status + error_code, no
+// user data or secrets) alongside the friendly toast, so a failed call is
+// never silent about exactly what failed (CLAUDE.md step 4).
+const errorLineEl = document.getElementById("error-line");
+
+function setupErrorLine() {
+  errorLineEl.addEventListener("click", () => {
+    errorLineEl.hidden = true;
+  });
+}
+
+function showApiError(err) {
+  showToast(describeError(err));
+  if (err instanceof ApiError) {
+    errorLineEl.textContent = STRINGS.errors.technicalLine(err.status, err.code);
+    errorLineEl.hidden = false;
+  }
+}
+
 function clearChildren(el) {
   while (el.firstChild) {
     el.removeChild(el.firstChild);
@@ -183,16 +233,39 @@ function clearChildren(el) {
 function renderLandingStrings() {
   document.getElementById("landing-tagline").textContent = STRINGS.landing.tagline;
   document.getElementById("btn-try-sample").textContent = STRINGS.landing.trySample;
-  document.getElementById("sample-note").textContent = STRINGS.landing.trySampleComingSoon;
+  document.getElementById("sample-simulated-note").textContent = STRINGS.landing.simulatedNote;
   document.getElementById("upload-heading").textContent = STRINGS.landing.upload;
   document.getElementById("landing-privacy").textContent = STRINGS.landing.privacyNote;
 }
 
 function setupLanding() {
   const sampleBtn = document.getElementById("btn-try-sample");
-  const sampleNote = document.getElementById("sample-note");
+  const samplePicker = document.getElementById("sample-picker");
   sampleBtn.addEventListener("click", () => {
-    sampleNote.hidden = false;
+    samplePicker.hidden = !samplePicker.hidden;
+  });
+
+  const cardsEl = document.getElementById("sample-cards");
+  SAMPLE_IMAGES.forEach((sample) => {
+    const card = document.createElement("div");
+    card.className = "sample-card";
+
+    const h4 = document.createElement("h4");
+    h4.textContent = sample.label;
+    card.appendChild(h4);
+
+    const p = document.createElement("p");
+    p.textContent = sample.description;
+    card.appendChild(p);
+
+    const useBtn = document.createElement("button");
+    useBtn.type = "button";
+    useBtn.className = "secondary";
+    useBtn.textContent = STRINGS.landing.useThisSample;
+    useBtn.addEventListener("click", () => handleUseSample(sample));
+    card.appendChild(useBtn);
+
+    cardsEl.appendChild(card);
   });
 
   const fileInput = document.getElementById("file-input");
@@ -202,17 +275,34 @@ function setupLanding() {
       showToast(STRINGS.upload.noFileChosen);
       return;
     }
-    await handleUpload(files);
+    await handleUpload(files, false);
     fileInput.value = "";
   });
+}
+
+async function handleUseSample(sample) {
+  try {
+    setLoading(true, STRINGS.common.loading);
+    const response = await fetch(sample.url);
+    if (!response.ok) {
+      throw new Error(`Could not load ${sample.url}`);
+    }
+    const blob = await response.blob();
+    const file = new File([blob], sample.fileName, { type: blob.type || "image/jpeg" });
+    await handleUpload([file], true);
+  } catch (err) {
+    setLoading(false);
+    showToast(describeError(err));
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Upload + extraction
 // ---------------------------------------------------------------------------
 
-async function handleUpload(files) {
+async function handleUpload(files, isSample) {
   resetState();
+  state.isSampleMode = !!isSample;
 
   for (let i = 0; i < files.length; i += 1) {
     const file = files[i];
@@ -220,7 +310,7 @@ async function handleUpload(files) {
 
     let result;
     try {
-      result = await api.extract(file, false);
+      result = await api.extract(file, state.isSampleMode);
     } catch (err) {
       state.rejectedInBatch.push({ fileName: file.name, reason: describeError(err) });
       continue;
@@ -350,8 +440,11 @@ function setWeekGroup(file, result) {
       confirmed: !needsReview,
     },
     totalCredited: makeField(summary.total_credited, initialConfirmed(summary.total_credited, "total_credited", low, needsReview)),
-    kmDriven: null,
-    hoursOnline: null,
+    // Worker-entered, never extracted (REQUIREMENTS.md 5.2) -- prefilled with
+    // a plausible default in sample mode so there's nothing to type, per
+    // CLAUDE.md step 2.
+    kmDriven: state.isSampleMode ? SAMPLE_DEFAULT_WEEKLY_KM_DRIVEN : null,
+    hoursOnline: state.isSampleMode ? SAMPLE_DEFAULT_WEEKLY_HOURS_ONLINE : null,
   };
 }
 
@@ -442,10 +535,15 @@ function createDateField(fieldState, onChanged) {
   confirmBtn.type = "button";
   confirmBtn.className = "small confirm-btn";
 
+  const humanDate = document.createElement("span");
+  humanDate.className = "date-human";
+
   function refresh() {
     wrap.classList.toggle("unconfirmed", !fieldState.confirmed);
     confirmBtn.textContent = fieldState.confirmed ? STRINGS.review.dateConfirmed : STRINGS.review.confirmDate;
     confirmBtn.classList.toggle("is-confirmed", fieldState.confirmed);
+    const human = formatDateHuman(fieldState.value);
+    humanDate.textContent = human || "";
   }
 
   input.addEventListener("input", () => {
@@ -468,6 +566,7 @@ function createDateField(fieldState, onChanged) {
   row.appendChild(input);
   row.appendChild(confirmBtn);
   wrap.appendChild(row);
+  wrap.appendChild(humanDate);
   return wrap;
 }
 
@@ -741,7 +840,8 @@ function renderReview() {
     if (group.creditedOn) {
       const p = document.createElement("p");
       p.className = "readonly-note";
-      p.textContent = `${STRINGS.review.creditedOn}: ${group.creditedOn}`;
+      const human = formatDateHuman(group.creditedOn);
+      p.textContent = `${STRINGS.review.creditedOn}: ${group.creditedOn}${human ? ` (${human})` : ""}`;
       card.appendChild(p);
     }
 
@@ -762,6 +862,9 @@ function renderReview() {
     kmInput.type = "number";
     kmInput.min = "0";
     kmInput.step = "0.01";
+    if (group.kmDriven !== null && group.kmDriven !== undefined) {
+      kmInput.value = group.kmDriven;
+    }
     kmInput.addEventListener("input", () => {
       group.kmDriven = kmInput.value === "" ? null : Number(kmInput.value);
       onChanged();
@@ -782,6 +885,9 @@ function renderReview() {
     hoursInput.type = "number";
     hoursInput.min = "0";
     hoursInput.step = "0.01";
+    if (group.hoursOnline !== null && group.hoursOnline !== undefined) {
+      hoursInput.value = group.hoursOnline;
+    }
     hoursInput.addEventListener("input", () => {
       group.hoursOnline = hoursInput.value === "" ? null : Number(hoursInput.value);
       onChanged();
@@ -880,7 +986,7 @@ async function handleReviewContinue() {
     showScreen("costs");
   } catch (err) {
     setLoading(false);
-    showToast(describeError(err));
+    showApiError(err);
   }
 }
 
@@ -917,10 +1023,12 @@ function renderCosts() {
   document.getElementById("btn-save-costs").textContent = STRINGS.costs.save;
   document.getElementById("costs-saved-note").hidden = true;
 
-  document.getElementById("input-fuel").value = "";
-  document.getElementById("input-maintenance").value = "";
+  // Sample mode: prefill plausible defaults so there's nothing to type
+  // unless the visitor wants to change them (CLAUDE.md step 2).
+  document.getElementById("input-fuel").value = state.isSampleMode ? SAMPLE_DEFAULT_FUEL_PER_KM : "";
+  document.getElementById("input-maintenance").value = state.isSampleMode ? SAMPLE_DEFAULT_MAINTENANCE_PER_KM : "";
   document.getElementById("input-fixed-daily").value = "";
-  document.getElementById("input-hours-online").value = "";
+  document.getElementById("input-hours-online").value = state.isSampleMode && state.mode === "trip" ? SAMPLE_DEFAULT_TRIP_HOURS_ONLINE : "";
 
   // Weekly mode already collects hours_online as part of the week record
   // (FE-5): the costs screen's "hours online" field is trip mode only.
@@ -955,7 +1063,7 @@ async function handleSaveCosts() {
     await fetchAndShowResults();
   } catch (err) {
     setLoading(false);
-    showToast(describeError(err));
+    showApiError(err);
   }
 }
 
@@ -1011,7 +1119,7 @@ async function fetchAndShowResults() {
     showScreen("results");
   } catch (err) {
     setLoading(false);
-    showToast(describeError(err));
+    showApiError(err);
   }
 }
 
@@ -1114,7 +1222,7 @@ async function handleAsk(question) {
     answerBlock.hidden = false;
   } catch (err) {
     setLoading(false);
-    showToast(describeError(err));
+    showApiError(err);
   }
 }
 
@@ -1155,7 +1263,7 @@ async function handleOpenReport() {
     if (reportWindow) {
       reportWindow.close();
     }
-    showToast(describeError(err));
+    showApiError(err);
   }
 }
 
@@ -1184,7 +1292,7 @@ async function handleDeleteConfirmed() {
   } catch (err) {
     setLoading(false);
     cancelDeleteConfirm();
-    showToast(describeError(err));
+    showApiError(err);
   }
 }
 
@@ -1197,6 +1305,7 @@ export function initApp() {
   setupLanding();
   setupRejectedScreen();
   setupLightbox();
+  setupErrorLine();
   setupNav();
   document.getElementById("btn-review-continue").addEventListener("click", handleReviewContinue);
   document.getElementById("btn-save-costs").addEventListener("click", handleSaveCosts);
