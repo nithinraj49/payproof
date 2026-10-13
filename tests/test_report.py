@@ -148,7 +148,20 @@ def test_weekly_report_money_figures_have_rupee_symbol_and_units():
     )
     summary = compute_weekly_summary(week_input, CostInputs(fuel_cost_per_km=0.5, maintenance_cost_per_km=0.5))
     html = render_weekly_report(summary, {"lines": [{"label": "Base", "amount": 1000.0}], "deductions": []})
-    assert "₹1000.00" in html  # gross weekly
+    assert "₹1,000.00" in html  # gross weekly, Indian digit grouping
     assert "per hour online" in html
     assert "per km" in html
     assert "$" not in html
+
+
+def test_weekly_report_uses_indian_not_western_digit_grouping():
+    # 123456.78 groups as "1,23,456.78" in India, not the Western "123,456.78"
+    # -- a 6-digit figure is the smallest case where the two actually differ.
+    week_input = WeekInput(
+        lines=[PayoutLine(label="Base", amount=123456.78)], deductions=[], total_credited=123456.78,
+        km_driven=100.0, hours_online=50.0,
+    )
+    summary = compute_weekly_summary(week_input, CostInputs(fuel_cost_per_km=0.0, maintenance_cost_per_km=0.0))
+    html = render_weekly_report(summary, {"lines": [{"label": "Base", "amount": 123456.78}], "deductions": []})
+    assert "₹1,23,456.78" in html
+    assert "₹123,456.78" not in html

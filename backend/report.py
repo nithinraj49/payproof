@@ -55,17 +55,39 @@ def _label(field: str, fallback: str) -> str:
     return text[0].upper() + text[1:]
 
 
+def _indian_grouped_integer(digits: str) -> str:
+    """"123456" -> "1,23,456": last 3 digits form one group, every group
+    before that is 2 digits (Indian digit grouping, REQUIREMENTS.md section
+    7.2's "1,23,456" example) -- not the Western 3-3-3 grouping."""
+    if len(digits) <= 3:
+        return digits
+    last3 = digits[-3:]
+    rest = digits[:-3]
+    groups = []
+    while len(rest) > 2:
+        groups.insert(0, rest[-2:])
+        rest = rest[:-2]
+    if rest:
+        groups.insert(0, rest)
+    return ",".join(groups) + "," + last3
+
+
+def _format_amount(value: float) -> str:
+    integer_part, _, decimal_part = f"{value:.2f}".partition(".")
+    return f"{_indian_grouped_integer(integer_part)}.{decimal_part}"
+
+
 def _money(value: Optional[float]) -> str:
     if value is None:
         return "not available"
     sign = "-" if value < 0 else ""
-    return f"{sign}{_CURRENCY_SYMBOL}{abs(value):.2f}"
+    return f"{sign}{_CURRENCY_SYMBOL}{_format_amount(abs(value))}"
 
 
 def _rate(value: Optional[float], unit: str) -> str:
     if value is None:
         return "not available"
-    return f"{_CURRENCY_SYMBOL}{value:.2f} {unit}"
+    return f"{_CURRENCY_SYMBOL}{_format_amount(value)} {unit}"
 
 
 def _percent(value: Optional[float]) -> str:

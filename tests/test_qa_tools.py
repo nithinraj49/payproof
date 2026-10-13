@@ -105,3 +105,14 @@ def test_get_weekly_reports_per_hour_on_trips_unavailable():
         result = qa._tool_get_weekly("uid1")
     assert result["available"] is True
     assert result["per_hour_on_trips_unavailable"] == "not available in weekly mode — no per-trip minutes"
+
+
+def test_system_prompt_gives_exact_weekly_per_trip_hour_wording():
+    # Item 8 (13 Oct UI polish): the model must use this exact sentence
+    # instead of paraphrasing, and must not call trip data a hypothetical
+    # condition when the worker's actual data is weekly.
+    assert "Your weekly screenshot has no per-trip minutes, so that rate isn't available in weekly mode." in qa.SYSTEM_PROMPT
+    # The forbidden phrasing is named as an example to avoid, inside a
+    # sentence that tells the model not to use it -- not left unaddressed.
+    assert '"if you have trip data available"' in qa.SYSTEM_PROMPT
+    assert "never phrase it as a hypothetical" in qa.SYSTEM_PROMPT.lower()
