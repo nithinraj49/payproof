@@ -32,6 +32,35 @@ def check_limits(user_count: int, global_count: int, user_limit: int, global_lim
         raise ApiError(503, "service_busy", "PayProof has reached its usage limit for today. Please try again tomorrow.")
 
 
+def check_global_limit_only(
+    global_limit: int, db: Optional["firestore.Client"] = None, day: Optional[str] = None,
+) -> None:
+    """For a verified curated-sample extraction only (backend/main.py checks
+    the server-computed image hash against backend.sample_images before ever
+    calling this): never charged to a visitor's per-user daily limit, since
+    the whole point of the shared sample cache is that trying the demo costs
+    a visitor nothing (REQUIREMENTS.md section 19 rule 5). But the GLOBAL cap
+    must still apply to every real Gemini call, including the first visitor
+    who populates a sample image's cache entry -- so this still increments
+    the same `usage_global/{day}` counter check_and_increment uses, just
+    without touching any per-user document.
+    """
+    db = db or get_db()
+    day = day or _today()
+    global_ref = db.collection("usage_global").document(day)
+    transaction = db.transaction()
+
+    @firestore.transactional
+    def _run(transaction):
+        global_snap = global_ref.get(transaction=transaction)
+        global_count = (global_snap.get("gemini_calls") if global_snap.exists else 0) or 0
+        if global_count >= global_limit:
+            raise ApiError(503, "service_busy", "PayProof has reached its usage limit for today. Please try again tomorrow.")
+        transaction.set(global_ref, {"gemini_calls": global_count + 1}, merge=True)
+
+    _run(transaction)
+
+
 def check_and_increment(
     uid: str, kind: str, user_limit: int, global_limit: int,
     db: Optional["firestore.Client"] = None, day: Optional[str] = None,

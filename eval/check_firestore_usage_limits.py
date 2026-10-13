@@ -5,8 +5,9 @@ to build this (no Java: `firebase emulators:start` fails with "Could not
 spawn `java -version`"), so this check exists for the owner to run by hand.
 
 It is NOT part of `pytest -q` and never runs automatically. It uses the real
-check_and_increment() function from backend/usage_limits.py (not a
-reimplementation), against obviously-fake uid and day values
+check_and_increment() and check_global_limit_only() functions from
+backend/usage_limits.py (not a reimplementation), against obviously-fake uid
+and day values
 ("_throwaway_check_uid", "throwaway-test-<timestamp>") that can never collide
 with a real user or a real day's counters, then deletes every document it
 created. If this script is interrupted before cleanup, the leftover
@@ -18,11 +19,12 @@ Usage (PowerShell), from the repo root, with your own gcloud credentials:
 import datetime
 import sys
 
-from backend.usage_limits import check_and_increment, get_db
+from backend.usage_limits import check_and_increment, check_global_limit_only, get_db
 from backend.errors import ApiError
 
 TEST_UID = "_throwaway_check_uid"
 TEST_DAY = f"throwaway-test-{datetime.datetime.now().strftime('%Y%m%dT%H%M%S')}"
+TEST_DAY_GLOBAL_ONLY = f"throwaway-test-global-{datetime.datetime.now().strftime('%Y%m%dT%H%M%S')}"
 
 
 def main():
@@ -72,15 +74,41 @@ def main():
             if exc.status_code != 503:
                 failures.append(f"expected status 503, got {exc.status_code}")
 
+        print("\n5. check_global_limit_only (used for verified curated-sample extractions,")
+        print("   backend/main.py + backend/sample_images.py): first call with limit=1 should")
+        print("   succeed and touch ONLY usage_global, never any per-user document.")
+        global_only_ref = db.collection("usage_global").document(TEST_DAY_GLOBAL_ONLY)
+        check_global_limit_only(global_limit=1, db=db, day=TEST_DAY_GLOBAL_ONLY)
+        global_only_doc = global_only_ref.get()
+        print(f"   usage_global doc: {global_only_doc.to_dict()}")
+        if global_only_doc.to_dict().get("gemini_calls") != 1:
+            failures.append("check_global_limit_only did not increment gemini_calls to 1")
+
+        print("\n6. check_global_limit_only again with the same limit=1: should raise ApiError 503")
+        print("   (the global cap must always apply, even to a verified sample extraction).")
+        try:
+            check_global_limit_only(global_limit=1, db=db, day=TEST_DAY_GLOBAL_ONLY)
+            failures.append("second check_global_limit_only call did not raise (global limit should have blocked it)")
+        except ApiError as exc:
+            print(f"   Raised as expected: {exc.status_code} {exc.error_code}")
+            if exc.status_code != 503:
+                failures.append(f"expected status 503, got {exc.status_code}")
+
     finally:
         print("\nCleaning up throwaway documents...")
         user_ref.delete()
         global_ref.delete()
-        still_there = user_ref.get().exists or global_ref.get().exists
+        db.collection("usage_global").document(TEST_DAY_GLOBAL_ONLY).delete()
+        still_there = (
+            user_ref.get().exists
+            or global_ref.get().exists
+            or db.collection("usage_global").document(TEST_DAY_GLOBAL_ONLY).get().exists
+        )
         if still_there:
             print("!!! WARNING: at least one throwaway document still exists after delete. Remove it by hand:")
             print(f"    users/{TEST_UID}/usage/{TEST_DAY}")
             print(f"    usage_global/{TEST_DAY}")
+            print(f"    usage_global/{TEST_DAY_GLOBAL_ONLY}")
             failures.append("cleanup did not fully delete the throwaway documents")
         else:
             print("Confirmed deleted.")

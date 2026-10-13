@@ -8,8 +8,10 @@ from PIL import Image
 
 import backend.main as main_module
 from backend.auth import require_user_id
+from backend.errors import ApiError
 from backend.main import app
 from extraction.extract import ExtractionCallResult, RateLimitError
+from extraction.image_prep import prepare_image
 from extraction.schema import ExtractionResult
 
 client = TestClient(app)
@@ -171,13 +173,30 @@ def test_extract_rate_limit_from_gemini_returns_503(monkeypatch):
     assert response.json()["error_code"] == "service_busy"
 
 
-def test_extract_sample_image_skips_usage_limit_and_uses_shared_cache(monkeypatch):
+def _hash_of_prepared(raw_bytes: bytes, settings) -> str:
+    """The same hash backend/main.py computes server-side: of the *prepared*
+    (resized + re-encoded) bytes, never the raw upload."""
+    from backend.extraction_cache import hash_image
+    return hash_image(prepare_image(raw_bytes, settings.image_max_side_px, settings.image_jpeg_quality))
+
+
+def test_extract_known_sample_image_skips_per_user_limit_but_still_checks_global_cap(monkeypatch):
+    """A request whose server-computed hash IS in the allow-list (simulating
+    a real frontend/samples/*.jpg) gets sample treatment: shared cache, no
+    per-user charge -- but the global cap is still checked (via
+    check_global_limit_only), never skipped."""
     settings = _settings()
     monkeypatch.setattr(main_module, "get_settings", lambda: settings)
     monkeypatch.setattr(main_module, "get_client", lambda s: MagicMock())
 
-    check_calls = []
-    monkeypatch.setattr(main_module, "check_and_increment", lambda *a, **k: check_calls.append(a))
+    image_bytes = make_png_bytes(size=(340, 340))
+    known_hash = _hash_of_prepared(image_bytes, settings)
+    monkeypatch.setattr(main_module, "SAMPLE_IMAGE_HASHES", frozenset({known_hash}))
+
+    per_user_calls = []
+    monkeypatch.setattr(main_module, "check_and_increment", lambda *a, **k: per_user_calls.append(a))
+    global_only_calls = []
+    monkeypatch.setattr(main_module, "check_global_limit_only", lambda *a, **k: global_only_calls.append(a))
 
     sample_cache = {}
     monkeypatch.setattr(main_module, "get_cached_sample", lambda h: sample_cache.get(h))
@@ -188,14 +207,74 @@ def test_extract_sample_image_skips_usage_limit_and_uses_shared_cache(monkeypatc
     extract_mock = MagicMock(return_value=outcome)
     monkeypatch.setattr(main_module, "extract_screenshot", extract_mock)
 
-    image_bytes = make_png_bytes(size=(340, 340))
     r1 = client.post("/api/extract", data={"is_sample": "true"}, files={"file": ("s.png", image_bytes, "image/png")})
     r2 = client.post("/api/extract", data={"is_sample": "true"}, files={"file": ("s.png", image_bytes, "image/png")})
 
     assert r1.status_code == 200 and r2.status_code == 200
     assert r1.json() == r2.json()
     extract_mock.assert_called_once()  # second call served from the shared sample cache
-    assert len(check_calls) == 0  # usage limit never charged for a sample extraction
+    assert len(per_user_calls) == 0  # never charged to this visitor's own limit
+    assert len(global_only_calls) == 1  # but the global cap WAS checked, once (the cache miss)
+
+
+def test_extract_spoofed_is_sample_on_unknown_image_is_treated_as_a_normal_request(monkeypatch):
+    """The security fix this test locks in: is_sample=true on an image whose
+    hash is NOT in the server-side allow-list must be charged against the
+    normal per-user/global limits and must NOT be written to the shared
+    sample cache, exactly as if is_sample had never been sent."""
+    settings = _settings()
+    monkeypatch.setattr(main_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(main_module, "get_client", lambda s: MagicMock())
+    monkeypatch.setattr(main_module, "SAMPLE_IMAGE_HASHES", frozenset())  # nothing allow-listed
+
+    per_user_calls = []
+    monkeypatch.setattr(main_module, "check_and_increment", lambda *a, **k: per_user_calls.append(a))
+    global_only_calls = []
+    monkeypatch.setattr(main_module, "check_global_limit_only", lambda *a, **k: global_only_calls.append(a))
+
+    sample_cache = {}
+    monkeypatch.setattr(main_module, "get_cached_sample", lambda h: sample_cache.get(h))
+    set_sample_calls = []
+    monkeypatch.setattr(main_module, "set_cached_sample", lambda h, r: set_sample_calls.append(h))
+
+    result = ExtractionResult(screen_type="trip_detail", needs_review=False)
+    outcome = ExtractionCallResult(result=result, calls_made=1, prompt_tokens=100, output_tokens=50, thinking_tokens=0)
+    extract_mock = MagicMock(return_value=outcome)
+    monkeypatch.setattr(main_module, "extract_screenshot", extract_mock)
+
+    image_bytes = make_png_bytes(size=(341, 341))  # an "attacker's" arbitrary image
+    response = client.post("/api/extract", data={"is_sample": "true"}, files={"file": ("attack.png", image_bytes, "image/png")})
+
+    assert response.status_code == 200
+    assert len(per_user_calls) == 1  # charged exactly like a normal upload
+    assert len(global_only_calls) == 0  # not given the sample's global-only path
+    assert set_sample_calls == []  # never written into the shared sample cache
+
+
+def test_extract_known_sample_still_blocked_when_global_cap_reached(monkeypatch):
+    """The global cap must always apply to real Gemini calls -- including a
+    legitimate sample's first (cache-populating) call."""
+    settings = _settings()
+    monkeypatch.setattr(main_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(main_module, "get_client", lambda s: MagicMock())
+
+    image_bytes = make_png_bytes(size=(342, 342))
+    known_hash = _hash_of_prepared(image_bytes, settings)
+    monkeypatch.setattr(main_module, "SAMPLE_IMAGE_HASHES", frozenset({known_hash}))
+    monkeypatch.setattr(main_module, "get_cached_sample", lambda h: None)
+
+    def raise_global_limit(*a, **k):
+        raise ApiError(503, "service_busy", "PayProof has reached its usage limit for today. Please try again tomorrow.")
+
+    monkeypatch.setattr(main_module, "check_global_limit_only", raise_global_limit)
+    extract_mock = MagicMock()
+    monkeypatch.setattr(main_module, "extract_screenshot", extract_mock)
+
+    response = client.post("/api/extract", data={"is_sample": "true"}, files={"file": ("s.png", image_bytes, "image/png")})
+
+    assert response.status_code == 503
+    assert response.json()["error_code"] == "service_busy"
+    extract_mock.assert_not_called()  # blocked before any Gemini call
 
 
 def _settings(**overrides):

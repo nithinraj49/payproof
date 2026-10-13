@@ -12,6 +12,7 @@ from backend.errors import ApiError, api_error_handler, http_exception_handler
 from backend.extraction_cache import get_cached, hash_image, set_cached
 from backend.gemini_client import get_client
 from backend.sample_cache import get_cached_sample, set_cached_sample
+from backend.sample_images import SAMPLE_IMAGE_HASHES
 from backend.qa import ask_question
 from backend.report import render_trip_report, render_weekly_report
 from backend.store import (
@@ -19,7 +20,7 @@ from backend.store import (
     delete_all, get_costs, get_trips, get_weeks,
     save_answer, save_costs, save_trips, save_week,
 )
-from backend.usage_limits import check_and_increment
+from backend.usage_limits import check_and_increment, check_global_limit_only
 from engine.changes import detect_change
 from engine.earnings import compute_trip_summary, compute_weekly_summary
 from extraction.extract import RateLimitError, extract_screenshot
@@ -92,13 +93,27 @@ async def extract(
 
     image_hash = hash_image(jpeg_bytes)
 
-    if is_sample:
+    # The client's is_sample flag is never trusted for this decision -- it is
+    # trivially spoofable, and trusting it would let anyone skip both the
+    # per-user and (see below) the global daily Gemini limit, and write
+    # arbitrary content into the shared sample cache. Whether this request
+    # gets sample treatment is decided purely by the server-computed hash of
+    # the *prepared* image against the curated allow-list (backend/sample_images.py).
+    is_known_sample = image_hash in SAMPLE_IMAGE_HASHES
+    if is_sample and not is_known_sample:
+        logger.info("extraction uid=%s is_sample flag set but image hash is not an allow-listed sample; treated as a normal upload", user_id)
+
+    if is_known_sample:
         # Shared, persistent cache across all visitors (never user uploads):
         # REQUIREMENTS.md section 19 rule 5. A cache hit costs no Gemini call
         # and no usage-limit charge -- the whole point of the sample button.
         cached_sample = get_cached_sample(image_hash)
         if cached_sample is not None:
             return cached_sample.model_dump()
+        # Never charged to this visitor's per-user limit, but the GLOBAL cap
+        # must still apply to every real Gemini call -- including the first
+        # visitor who populates a sample image's cache entry.
+        check_global_limit_only(settings.limit_global_gemini_calls_per_day)
     else:
         cached = get_cached(image_hash)
         if cached is not None:
@@ -115,7 +130,7 @@ async def extract(
     # (extraction/extract.py's "payproof.gemini_calls" JSON line), not here --
     # that is the one line per Gemini call with no user id, per REQUIREMENTS.md
     # section 19.
-    if is_sample:
+    if is_known_sample:
         set_cached_sample(image_hash, outcome.result)
     else:
         set_cached(image_hash, outcome.result)
