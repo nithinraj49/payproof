@@ -3,6 +3,7 @@
 import { api, ApiError } from "./api.js";
 import { STRINGS } from "./strings.js";
 import { SAMPLE_IMAGES } from "./samples/index.js";
+import { currencySymbol, formatDateHuman, formatMoney, formatRate, formatPercent } from "./format.js";
 
 // Sample-mode defaults so a visitor never has to type anything except to
 // change a prefilled value (CLAUDE.md step 2: "no typing except changing
@@ -13,40 +14,10 @@ const SAMPLE_DEFAULT_TRIP_HOURS_ONLINE = 1.5;
 const SAMPLE_DEFAULT_WEEKLY_KM_DRIVEN = 300;
 const SAMPLE_DEFAULT_WEEKLY_HOURS_ONLINE = 42;
 
-const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-// Unambiguous "8 Oct 2026" text next to every date value, so day/month can
-// never be misread as the other (CLAUDE.md step 1).
-function formatDateHuman(isoDate) {
-  if (!isoDate) {
-    return null;
-  }
-  const parts = String(isoDate).split("-");
-  if (parts.length !== 3) {
-    return null;
-  }
-  const [year, month, day] = parts.map((p) => parseInt(p, 10));
-  if (!year || !month || !day || month < 1 || month > 12) {
-    return null;
-  }
-  return `${day} ${MONTH_NAMES[month - 1]} ${year}`;
-}
-
 let uidCounter = 0;
 function uid(prefix) {
   uidCounter += 1;
   return `${prefix}-${uidCounter}`;
-}
-
-function currencySymbol(code) {
-  // The app only ever shows rupees (REQUIREMENTS.md / PROGRESS.md: INR
-  // throughout, no per-user currency stored yet); this still reads the
-  // extraction result's own `currency` field so a non-INR screenshot isn't
-  // silently mislabelled.
-  if (!code || code === "INR" || code === "Rs" || code === "Rs.") {
-    return "₹";
-  }
-  return code;
 }
 
 // ---------------------------------------------------------------------------
@@ -105,6 +76,28 @@ const screens = {
 const appNav = document.getElementById("app-nav");
 const NAV_SCREENS = ["results", "ask", "evidence"];
 
+// Step indicator: Upload, Check, Costs, Results (item 4). Rejected is a
+// dead-end off the happy path, so the indicator hides there rather than
+// claiming a step that didn't complete.
+const SCREEN_TO_STEP = { landing: 1, review: 2, rejected: null, costs: 3, results: 4, ask: 4, evidence: 4 };
+const stepIndicatorEl = document.getElementById("step-indicator");
+
+function setStep(stepNumber) {
+  if (stepNumber === null || stepNumber === undefined) {
+    stepIndicatorEl.hidden = true;
+    return;
+  }
+  stepIndicatorEl.hidden = false;
+  for (let i = 1; i <= 4; i += 1) {
+    const dot = document.getElementById(`step-dot-${i}`);
+    dot.classList.toggle("active", i === stepNumber);
+    dot.classList.toggle("done", i < stepNumber);
+  }
+  for (let i = 1; i <= 3; i += 1) {
+    document.getElementById(`step-line-${i}`).classList.toggle("filled", i < stepNumber);
+  }
+}
+
 function showScreen(name) {
   for (const key of Object.keys(screens)) {
     screens[key].hidden = key !== name;
@@ -117,6 +110,7 @@ function showScreen(name) {
   } else {
     appNav.hidden = true;
   }
+  setStep(SCREEN_TO_STEP[name]);
   window.scrollTo(0, 0);
 }
 
@@ -248,7 +242,7 @@ function setupLanding() {
   const cardsEl = document.getElementById("sample-cards");
   SAMPLE_IMAGES.forEach((sample) => {
     const card = document.createElement("div");
-    card.className = "sample-card";
+    card.className = "sample-card tilt-card";
 
     const h4 = document.createElement("h4");
     h4.textContent = sample.label;
@@ -1071,23 +1065,77 @@ async function handleSaveCosts() {
 // Screen e: results
 // ---------------------------------------------------------------------------
 
-function formatMoney(value) {
-  if (value === null || value === undefined) {
-    return null;
+function createRateCard(labelText, valueText, noteText, delayIndex) {
+  const card = document.createElement("div");
+  card.className = "card rate-card tilt-card fade-slide-in";
+  card.style.setProperty("--stagger-index", delayIndex);
+
+  const value = document.createElement("p");
+  value.className = "rate-card-value";
+  value.textContent = valueText;
+  card.appendChild(value);
+
+  const label = document.createElement("p");
+  label.className = "rate-card-label";
+  label.textContent = labelText;
+  card.appendChild(label);
+
+  if (noteText) {
+    const note = document.createElement("p");
+    note.className = "rate-card-note";
+    note.textContent = noteText;
+    card.appendChild(note);
   }
-  return `${currencySymbol(state.currency)}${Number(value).toFixed(2)}`;
+
+  return card;
 }
 
-function formatRate(value, perText) {
-  const money = formatMoney(value);
-  return money === null ? null : `${money} ${perText}`;
+function appendNetEarningsFigure(container, valueText) {
+  const wrap = document.createElement("div");
+  wrap.className = "net-earnings";
+  const label = document.createElement("p");
+  label.className = "net-earnings-label";
+  label.textContent = STRINGS.results.netEarnings;
+  const value = document.createElement("p");
+  value.className = "net-earnings-value count-up";
+  value.textContent = valueText;
+  value.dataset.finalText = valueText;
+  wrap.appendChild(label);
+  wrap.appendChild(value);
+  container.appendChild(wrap);
+  return value;
 }
 
-function formatPercent(value) {
-  if (value === null || value === undefined) {
-    return null;
+function prefersReducedMotion() {
+  return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+// Net earnings counts up over 600ms (item 7); final values appear at once
+// under prefers-reduced-motion, and always land exactly on the real text
+// (no floating-point drift from the animation).
+function animateCountUp(el) {
+  if (!el) {
+    return;
   }
-  return `${(Number(value) * 100).toFixed(1)}%`;
+  const finalText = el.dataset.finalText;
+  const target = parseFloat(finalText.replace(/[^\d.-]/g, ""));
+  if (prefersReducedMotion() || !isFinite(target)) {
+    el.textContent = finalText;
+    return;
+  }
+  const duration = 600;
+  const start = performance.now();
+  function frame(now) {
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - (1 - t) * (1 - t);
+    el.textContent = formatMoney(target * eased, state.currency);
+    if (t < 1) {
+      requestAnimationFrame(frame);
+    } else {
+      el.textContent = finalText;
+    }
+  }
+  requestAnimationFrame(frame);
 }
 
 function addResultsRow(container, labelText, valueText) {
@@ -1128,32 +1176,62 @@ function renderResults(summary) {
   const body = document.getElementById("results-body");
   clearChildren(body);
 
+  const currency = state.currency;
+  let netEarningsEl;
+  const cardsWrap = document.createElement("div");
+  cardsWrap.className = "rate-cards";
+
   if (summary.mode === "trip") {
-    addResultsRow(body, STRINGS.results.netEarnings, formatMoney(summary.net_earnings) ?? "—");
-    addResultsRow(body, STRINGS.results.perHourOnTrips, formatRate(summary.net_per_engaged_hour, "per hour") ?? "—");
+    netEarningsEl = appendNetEarningsFigure(body, formatMoney(summary.net_earnings, currency) ?? "—");
+
+    cardsWrap.appendChild(createRateCard(
+      STRINGS.results.perHourOnTrips,
+      formatRate(summary.net_per_engaged_hour, "/ hr", currency) ?? "—",
+      null,
+      0,
+    ));
     if (summary.net_per_logged_in_hour !== null && summary.net_per_logged_in_hour !== undefined) {
-      addResultsRow(body, STRINGS.results.perHourOnline, formatRate(summary.net_per_logged_in_hour, "per hour"));
+      cardsWrap.appendChild(createRateCard(
+        STRINGS.results.perHourOnline,
+        formatRate(summary.net_per_logged_in_hour, "/ hr", currency),
+        null,
+        1,
+      ));
     } else {
-      const note = document.createElement("p");
-      note.className = "hint";
-      note.textContent = STRINGS.results.noLoggedInHours;
-      body.appendChild(note);
+      cardsWrap.appendChild(createRateCard(STRINGS.results.perHourOnline, "—", STRINGS.results.noLoggedInHours, 1));
     }
+    body.appendChild(cardsWrap);
+
     const why = document.createElement("p");
-    why.className = "hint";
+    why.className = "hint why-differ";
     why.textContent = STRINGS.results.whyTheyDiffer;
     body.appendChild(why);
-    addResultsRow(body, STRINGS.results.payPerKm, formatRate(summary.net_payout_per_km, "per km") ?? "—");
+
+    addResultsRow(body, STRINGS.results.payPerKm, formatRate(summary.net_payout_per_km, "per km", currency) ?? "—");
     addResultsRow(body, STRINGS.results.deductionShare, formatPercent(summary.deduction_share) ?? "—");
   } else if (summary.mode === "weekly") {
-    addResultsRow(body, STRINGS.results.netEarnings, formatMoney(summary.net_earnings_weekly) ?? "—");
-    addResultsRow(body, STRINGS.results.perHourOnline, formatRate(summary.net_per_online_hour, "per hour") ?? "—");
-    addResultsRow(body, STRINGS.results.perHourOnTrips, summary.per_hour_on_trips_unavailable);
+    netEarningsEl = appendNetEarningsFigure(body, formatMoney(summary.net_earnings_weekly, currency) ?? "—");
+
+    cardsWrap.appendChild(createRateCard(
+      STRINGS.results.perHourOnTrips,
+      "—",
+      summary.per_hour_on_trips_unavailable,
+      0,
+    ));
+    cardsWrap.appendChild(createRateCard(
+      STRINGS.results.perHourOnline,
+      formatRate(summary.net_per_online_hour, "/ hr", currency) ?? "—",
+      null,
+      1,
+    ));
+    body.appendChild(cardsWrap);
+
     const why = document.createElement("p");
-    why.className = "hint";
+    why.className = "hint why-differ";
     why.textContent = STRINGS.results.perHourOnTripsUnavailableNote;
     body.appendChild(why);
-    addResultsRow(body, STRINGS.results.payPerKm, formatRate(summary.net_payout_per_km, "per km") ?? "—");
+
+    addResultsRow(body, STRINGS.results.payPerKm, formatRate(summary.net_payout_per_km, "per km", currency) ?? "—");
     addResultsRow(body, STRINGS.results.deductionShare, formatPercent(summary.deduction_share) ?? "—");
   }
 
@@ -1169,6 +1247,8 @@ function renderResults(summary) {
     });
     body.appendChild(ul);
   }
+
+  animateCountUp(netEarningsEl);
 }
 
 // ---------------------------------------------------------------------------
@@ -1300,7 +1380,15 @@ async function handleDeleteConfirmed() {
 // Entry point
 // ---------------------------------------------------------------------------
 
+function renderStepLabels() {
+  document.getElementById("step-label-1").textContent = STRINGS.steps.upload;
+  document.getElementById("step-label-2").textContent = STRINGS.steps.check;
+  document.getElementById("step-label-3").textContent = STRINGS.steps.costs;
+  document.getElementById("step-label-4").textContent = STRINGS.steps.results;
+}
+
 export function initApp() {
+  renderStepLabels();
   renderLandingStrings();
   setupLanding();
   setupRejectedScreen();

@@ -67,6 +67,13 @@ export const STRINGS = {
     blankFieldHint: "Not readable from your screenshot — type the value from your screenshot.",
   },
 
+  steps: {
+    upload: "Upload",
+    check: "Check",
+    costs: "Costs",
+    results: "Results",
+  },
+
   nav: {
     results: "Results",
     ask: "Ask",

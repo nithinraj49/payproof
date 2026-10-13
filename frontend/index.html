@@ -4,13 +4,35 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PayProof</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header class="app-header">
-    <h1>PayProof</h1>
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 1024 1024" role="img" aria-label="PayProof logo" width="32" height="32">
+        <rect width="1024" height="1024" rx="224" fill="#14203C"/>
+        <rect class="brand-bar brand-bar-1" x="230" y="560" width="110" height="240" rx="30" fill="#00A896"/>
+        <rect class="brand-bar brand-bar-2" x="400" y="470" width="110" height="330" rx="30" fill="#00A896"/>
+        <rect class="brand-bar brand-bar-3" x="570" y="360" width="110" height="440" rx="30" fill="#00A896"/>
+        <rect class="brand-bar brand-bar-4" x="740" y="250" width="110" height="550" rx="30" fill="#00A896"/>
+        <rect x="200" y="830" width="680" height="30" rx="15" fill="#EAF0FF"/>
+      </svg>
+      <h1>PayProof</h1>
+    </div>
     <p id="auth-status" class="auth-status">Signing in&hellip;</p>
   </header>
+
+  <div id="step-indicator" class="step-indicator" hidden>
+    <div class="step-dot" id="step-dot-1"><span class="step-dot-num">1</span><span class="step-dot-label" id="step-label-1"></span></div>
+    <div class="step-line" id="step-line-1"><span class="step-line-fill"></span></div>
+    <div class="step-dot" id="step-dot-2"><span class="step-dot-num">2</span><span class="step-dot-label" id="step-label-2"></span></div>
+    <div class="step-line" id="step-line-2"><span class="step-line-fill"></span></div>
+    <div class="step-dot" id="step-dot-3"><span class="step-dot-num">3</span><span class="step-dot-label" id="step-label-3"></span></div>
+    <div class="step-line" id="step-line-3"><span class="step-line-fill"></span></div>
+    <div class="step-dot" id="step-dot-4"><span class="step-dot-num">4</span><span class="step-dot-label" id="step-label-4"></span></div>
+  </div>
 
   <nav id="app-nav" class="app-nav" hidden>
     <button id="nav-results" type="button" class="small"></button>
