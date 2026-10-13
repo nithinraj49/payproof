@@ -815,6 +815,28 @@ label.upload-btn:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(
   .tilt-card:active { transform: perspective(900px) scale(0.98); }
 }
 
+/* General button hover lift (pointer devices only) -- deliberately scoped
+   away from the review table and the costs/review forms (#screen-review,
+   #screen-costs) and from .confirm-btn, so nothing a worker must verify
+   ever animates. Everywhere else (landing, results, ask, evidence,
+   navigation) gets the same lift-and-bigger-shadow feedback as the tilt
+   cards. */
+@media (hover: hover) and (pointer: fine) {
+  #screen-landing button:not(.confirm-btn):hover,
+  #screen-rejected button:hover,
+  #screen-results button:not(.confirm-btn):hover,
+  #screen-ask button:not(.confirm-btn):hover,
+  #screen-evidence button:not(.confirm-btn):hover,
+  .app-nav button:hover,
+  label.upload-btn:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 8px 8px 0 var(--ink);
+  }
+  #screen-landing button.small:hover {
+    box-shadow: 6px 6px 0 var(--ink);
+  }
+}
+
 /* ---------------------------------------------------------------------
    Motion: transform/opacity only, each under 700ms, nothing looping.
    Disabled under prefers-reduced-motion -- final values appear at once.
