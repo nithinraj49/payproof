@@ -486,3 +486,37 @@ Obtained a real anonymous ID token via the Identity Toolkit REST API (`accounts:
 ### Next
 - Hosting deploy (`firebase deploy --only hosting`) still pending for the Phase 5 frontend work from the last two sessions -- not done this session, owner approval needed.
 - Not pushed, per instruction.
+
+## UI polish pass (13 Oct 2026) -- presentation only, no logic change
+
+Time-boxed ~2.5 hours. Item 9 held throughout: no JavaScript logic changed; every review rule (screenshot beside the table, needs_review forces every cell unconfirmed, date confirmed only by an explicit tap, nothing calculated before Confirm) and every existing element id/class verified still present.
+
+### Done, in the owner's priority order (item 10) -- nothing left out
+- **Palette (item 2):** CSS custom properties in `frontend/style.css` replace the old colours everywhere (confirmed by grep: no `#0b5d3b` or similar left). Computed real WCAG contrast ratios (not estimated) for every text/button pair: ink-on-background 16.13:1, ink-on-surface 15.16:1, muted-on-background 5.81:1, muted-on-surface 5.46:1, primary-text-on-background 4.90:1, white-on-primary-button 4.90:1, ink-on-highlight 14.58:1, error-on-error-bg 5.72:1 -- all clear 4.5:1. `accent` (#00A896) on white is only 2.98:1, failing even the 3:1 large-text threshold, so it's used purely as decoration (the header logo's bars) and never for the actual large-number glyphs (those stay `ink`) -- flagged to the owner rather than silently used somewhere it'd fail.
+- **Header logo (item 1):** `frontend/logo.svg`'s four bars inlined directly in the header (not `<img>` -- an image can't have its internal rects targeted by CSS, needed for the bar-rise animation), `favicon-32.png` and `apple-touch-icon.png` wired via `<link>`. These three files plus `logo-512.png` existed in `frontend/` unused before this session (the owner must have added them between sessions); now referenced, so committed to git for the first time.
+- **Rate cards (item 3):** `renderResults()` rebuilt around a big net-earnings figure plus two side-by-side cards (stack below 480px) -- trip mode shows both rates with a shared "why they differ" line; weekly mode's trips card shows the engine's own unavailability reason instead of a number, never a blank.
+- **Indian digit grouping (item 3):** new `frontend/format.js` (shared `formatMoney`/`formatRate`/`formatPercent`/`formatDateHuman`/`currencySymbol`, replacing duplicated copies that had accumulated in `app.js` across the last two sessions) plus `backend/report.py`'s `_money`/`_rate`. Both implement the same "123456" -> "1,23,456" algorithm as the number verifier's own Indian-grouping support (REQUIREMENTS.md 7.2). New backend test proves genuine Indian (not Western) grouping on a 6-digit figure -- the smallest case where the two conventions actually differ.
+- **Ask wording fixes (item 8):** two gaps in `backend/qa.py`'s `SYSTEM_PROMPT` (verifier and content policy untouched, as instructed) -- weekly per-trip-hour questions now get an exact required sentence instead of a paraphrase, and refusals must describe the worker's actual data situation rather than naming trip data as a hypothetical the worker might satisfy. New deterministic test asserts the prompt text directly (no live Gemini call needed, consistent with this codebase's existing mocked-only test policy).
+- **Hero image:** N/A -- `frontend/img/` does not exist and none of `hero.png`/`rejected.png`/`privacy.png`/`empty.png` are present. The instruction was explicit this step is conditional on the files existing, so nothing was built (not a time-box casualty).
+- **Step indicator (item 4):** Upload / Check / Costs / Results, wired into `showScreen()` via one lookup table (`SCREEN_TO_STEP`) so it updates automatically on every transition; hidden on the rejected screen (a dead end off the happy path).
+- **Count-up (item 7):** net earnings animates over 600ms via `requestAnimationFrame`, always landing exactly on the real formatted text (reads the target number back out of the final string rather than tracking it separately, so there's no floating-point drift risk between the animated and final values).
+- **Card tilt (item 6):** rate cards and sample cards get a resting <=4deg CSS perspective tilt with layered shadows; hover lifts 4px and straightens (pointer devices only, `@media (hover:hover) and (pointer:fine)`); touch gets a 0.98 press scale instead (`@media (hover:none)`).
+- **Logo bar animation (item 7):** the four inlined SVG bars rise in sequence once on load (~500ms total, 80ms stagger), `transform: scaleY` + opacity only.
+- **Spot illustrations:** N/A, same reason as the hero image.
+
+### Also done (not explicitly in the priority list but required by other items)
+- Buttons press-scale 0.98 over 150ms (item 7); step indicator line fills via a left-anchored `scaleX` transform rather than a background-colour transition, to stay inside the "animate only transform and opacity" rule, over 250ms.
+- Everything under `prefers-reduced-motion: reduce` snaps to final values -- verified the CSS rule exists for every animated class (`.fade-slide-in`, `.brand-bar`, `.tilt-card`) and the JS count-up checks `window.matchMedia` before animating.
+- Kept unchanged, not duplicated, as instructed: the version stamp (`frontend/version.js` bumped to this session's parent commit hash, same by-hand process as before -- there's still no build step to automate it), the `firebase.json` no-cache headers, and the on-screen API error line.
+
+### Verification
+- Every `getElementById` call in `app.js` (including template-literal ids like `step-dot-${i}`) checked against `index.html` -- all resolve; spot-checked the numbered ones individually too.
+- Every `STRINGS.*` path used in `app.js` checked against `strings.js` programmatically -- none missing.
+- `node --check` on every `frontend/*.js` file. `pytest -q`: **245 passed** (was 243; +2 for the Indian-grouping and system-prompt tests).
+- **Not independently verified in a real browser** (no browser-automation tool available in this environment): "no sideways scrolling at 360px" and the actual rendered look of the tilt/motion/palette were reasoned through from the CSS, not visually confirmed. The manual test checklist below should be run on a real phone before relying on this.
+
+### Backend files changed (Cloud Run deploy needed; Hosting deploy needed regardless for the frontend)
+`backend/qa.py` (two SYSTEM_PROMPT wording rules), `backend/report.py` (Indian digit grouping). `backend/main.py`, `engine/`, `extraction/` untouched.
+
+### Next
+- Not deployed, not pushed, per instruction. Both a Cloud Run deploy (this session's backend changes) and a Hosting deploy (this session's frontend changes, plus the pending sample-mode/date-label/version-stamp work from the previous session) are needed before any of this is live.
