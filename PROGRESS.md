@@ -520,3 +520,34 @@ Time-boxed ~2.5 hours. Item 9 held throughout: no JavaScript logic changed; ever
 
 ### Next
 - Not deployed, not pushed, per instruction. Both a Cloud Run deploy (this session's backend changes) and a Hosting deploy (this session's frontend changes, plus the pending sample-mode/date-label/version-stamp work from the previous session) are needed before any of this is live.
+
+## Neo-brutalist redesign, branch `ui-redesign` (13 Oct 2026)
+
+Separate branch, checked out by the owner before this session; `main` untouched. Time-boxed ~3 hours; backend untouched throughout (confirmed: `pytest -q` stayed at 245 passed, same count as `main`).
+
+### Done, all seven build items, presentation only
+- **Tokens/components (item 1):** `frontend/style.css` rewritten around the given neo-brutalist palette (ink/navy/teal/primary/amber/highlight/paper/white/muted/error) as CSS custom properties -- 3px ink borders, 6px/4px hard offset shadows, 12px card radius, one type scale (14/16/20/28/40/56), 8px spacing grid, Arial Black display font / Helvetica Neue body font. Buttons translate 4px and collapse their shadow on press (150ms); inputs get a thick border, 48px min height, a 4px focus ring with 3px offset.
+- **Contrast, computed not estimated:** ink/paper 15.50:1, ink/white 18.21:1, white/navy 13.57:1, white/primary-button 4.90:1, ink/amber 11.29:1, ink/highlight 16.45:1, muted/paper 8.23:1, muted/white 9.67:1, error/error-bg 5.72:1 -- all clear 4.5:1. `teal` on white is only 2.98:1 (fails even large-text AA), so kept decorative-only (logo bars), never small text or button fills, exactly as instructed. "Needs checking" cells never rely on colour alone -- the existing Confirm/Confirmed button text (unchanged from the prior session) is the non-colour signal.
+- **Header + step indicator (item 2):** logo mark now 40px with a hard border/shadow; step indicator (same JS/ids, same 250ms line-fill transition) restyled chunky.
+- **Results/Ask/Evidence (item 3):** net earnings moved into a navy `.results-hero` card; rate-card tilt tuned to the spec's <=3 degree resting tilt (was 4 in the previous session's softer redesign); Ask's answer and both Evidence-screen sections wrapped in matching `.card` treatment. Weekly mode's trips card still shows the engine's own unavailability reason, never a blank.
+- **Opening splash (item 4):** new `frontend/brutalist-bars.js`, adapted from `assets-src/logo-3d-preview.html` (read and inlined -- never loaded as a separate file) -- one drawing routine shared by the splash (`play()`, animated) and the static first-screen hero (item 5, `render()` called once, no loop). `initSplash()` runs independently of sign-in from `index.html`'s bootstrap script, so it can never delay or block Firebase auth or any API call: skipped entirely under `prefers-reduced-motion` or `?nosplash=1`, plays at most once per browser session (`sessionStorage`), a tap or key press skips it, slides up and is removed from the DOM afterward, `aria-hidden` with no focus trap, falls back to just showing the app if the script throws.
+- **First screen (item 5):** navy hero card with the same isometric bar chart rendered statically (no animation), a heavy headline, the sample button promoted to primary, "Upload my screenshots" rebuilt as a `label[for=file-input]` secondary button (pure HTML/CSS swap -- the file input's `change` handler is completely untouched), a three-line "how it works" strip, privacy note kept.
+- **Loading state (item 6):** CSS-only bouncing mini bar logo (`.loading-bars`) added inside the existing loading overlay, alongside the existing plain-words text.
+- **Glass (item 7):** the bottom nav and the "Verified" chip get `backdrop-filter` inside `@supports`, with their original solid colours as the fallback; nothing else uses glass or neomorphism.
+- **Nothing left out** -- every item in the owner's priority order was completed.
+
+### Verification
+- `scripts/check_ids.js` (new, dev-only, not deployed): parses every `getElementById`/`querySelector(All)` call in `app.js`, including the numbered template-literal families (`step-dot-${i}` etc.), and confirms each resolves in `index.html`. **Passes: 91 ids + 46 classes checked, none missing.**
+- `node --check` on every `frontend/*.js` file. `pytest -q`: **245 passed**, unchanged from `main` -- confirms `backend/` was genuinely never touched.
+- **Weekly sample's expected figures re-verified directly against the untouched engine** (bypassing the UI entirely): `compute_weekly_summary` with the real `L3_010` ground truth (lines 5257.63 + 3891.95, no deductions) and the sample-mode defaults (fuel 3, maintenance 1 per km, 300 km, 42 hours online) returns **net earnings 7949.58, 189.28 per online hour, 30.50 per km, 0.0% deduction share** -- an exact match to the owner's stated expected values, proving the redesign changed no calculation.
+- First-screen weight: **~100.7 KB** across `index.html` + `style.css` + every local JS module reachable at load time (`app.js`, `strings.js`, `format.js`, `brutalist-bars.js`, `api.js`, `firebase-config.js`, `version.js`, `samples/index.js` -- uncompressed byte count; no new external requests beyond the Firebase SDK that was already there).
+- **Not independently verified in a real browser** (no browser-automation tool available): the actual rendered look, the splash's timing/skip behaviour, and "no sideways scrolling at 360px" were reasoned through from the code, not visually confirmed. The manual checklist given to the owner should be run on a real phone (or the preview channel link) before relying on this.
+
+### Reference assets
+- `assets-src/logo-3d-preview.html` tracked in git (the splash source, read and inlined). `assets-src/gig-app-brutalist.html` (style reference only, a different product) is deliberately excluded via `.git/info/exclude` -- left untracked, not re-added.
+
+### Authorized domains question (researched, not yet live-tested)
+- Firebase's "Authorized domains" list governs OAuth redirect/continue-URL based sign-in (Google, Facebook, etc.) and the `auth/unauthorized-domain` error; anonymous sign-in (`signInAnonymously`) makes a direct Identity Toolkit API call with no redirect, so it should not depend on that list at all. No authoritative source found stating preview-channel domains are auto-authorized either way. **Recommend a quick live check on the actual preview URL** rather than trusting this without testing, since it's cheap to confirm once deployed.
+
+### Next
+- Preview channel deploy (`firebase hosting:channel:deploy ui-redesign --expires 7d --project payproof-nithin-2026`) -- owner approved verbally ("yes continue and deploy it fully"); not the live site, per the task's explicit hard constraint (which was never lifted). Not pushed to any remote.
