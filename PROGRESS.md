@@ -573,3 +573,76 @@ Separate branch, checked out by the owner before this session; `main` untouched.
 ### Next
 - Owner should do a real end-to-end pass on the live site (not just curl checks): a trip sample, a weekly sample, an order offer, and specifically re-test asking a question after an extraction (the exact sequence that triggered the bug) to confirm the fix holds.
 - Not pushed to any remote (local commits only, `main` and `ui-redesign` both have the same head now).
+
+## Button-clipping fix, weekly reconciliation gate, and hiding the version stamp (14 Oct 2026)
+
+Not logged at the time; recorded now for continuity.
+
+- **Button text clipping at 320-390px** (`7f6e383`): global `button{}` rule given `min-width: max-content; flex-shrink: 0; white-space: normal`, with the sibling input/field given `flex:1 1 auto; min-width:0` so it absorbs the shrink instead of the button's label clipping.
+- **Weekly reconciliation gate** (`8d1f9f1`): before a weekly save, if the earning lines don't sum to the screenshot's `total_credited` (tolerance 0.5, same constant the engine already uses), the Review screen shows a gate (`#reconciliation-gate`) offering "Add the missing line" or "Continue anyway" instead of silently saving; a matching persistent amber note appears on Results and in the evidence pack whenever the saved data still has a gap, independent of which path the worker took to get there. New stateless `POST /api/weekly-reconciliation` endpoint (no Firestore write, no Gemini call) checks the gap before saving. `pytest -q`: 256 passed.
+- **Version stamp hidden from the visible UI** (`ed276ec`, `90a4bc6`): owner's call, ambiguous instruction resolved via a clarifying question ("hide it, but keep it in the code" vs. remove it entirely) -- `.version-stamp { display: none; }` in `style.css`; `frontend/version.js` and the footer element/JS untouched, still inspectable in devtools.
+- Deployed: Cloud Run revision `payproof-00011-7nt` (backend changes) and Firebase Hosting (frontend changes), both with explicit owner approval.
+
+## In-app navigation (Back/Home/history) and a Results money chart (14 Oct 2026)
+
+Frontend-only, time-boxed ~2 hours, per the owner's explicit instruction: no backend changes, no new dependencies, every existing review rule and element id/class preserved, all text in `strings.js`, no browser arithmetic. Tested against the live site, not uvicorn/emulators (per instruction).
+
+### Item 1: Navigation
+- **Back buttons** on Review (`#btn-back-review`), Costs (`#btn-back-costs`) and Results (`#btn-back-results`): Costs to Review, Review to landing, Results to Costs, via a single `BACK_TARGETS` map in the new `frontend/nav-graph.js` (shared by the real app and the new dev-only checker script, so they can never drift apart).
+- **Step indicator**: dots are now real `<button>` elements; `setStep()` sets `dot.disabled = !done`, so only completed steps are tappable (`setupStepDotNavigation()`), current/future stay inert.
+- **Header logo+wordmark** (`#btn-brand-home`) and a new **Home** control (`#btn-home`) both go to the first screen via `goHome()`; `confirmLeaveIfUnsaved()` shows the plain confirmation ("Leave this screen? Your changes here are not saved yet.") whenever the Review or Costs screen is open and has anything typed. Home only navigates in-memory -- "Start over" and "Delete all my data" are unchanged, separate controls.
+- **History API**: `showScreen()` now does `history.pushState({screen:name}, "", "#"+name)` (unless skipped), and a `popstate` listener steps the phone's system Back button through in-app screens -- re-pushing the current screen to "undo" the browser's own pop if the worker declines the unsaved-edits prompt. The opening splash (`initSplash()`) is untouched and runs independently before any of this, so it cannot interfere or replay.
+- **Focus and semantics**: every screen heading got `tabindex="-1"`; `showScreen()` focuses the new screen's heading. Every clickable control involved is a real `<button type="button">`. All new labels (`back`, `home`, `brandHomeLabel`, `leaveConfirm`) live in `strings.js`.
+- **Costs-screen persistence** (item 1a's "keeps what the worker typed"): new `state.lastCosts`, written on every `input` event on the four cost fields (`setupCostsPersistence()`), read first by `renderCosts()` before falling back to sample defaults/blank -- so Back from Results or Results to Costs restores exactly what was typed, not the sample defaults.
+- **Dead-end checker**: new `scripts/check_nav_graph.js` (dev-only, not deployed, same pattern as `scripts/check_ids.js`) walks `BACK_TARGETS`/`STEP_TO_SCREEN` from `nav-graph.js` and confirms every screen has a valid back target or a known escape hatch (global Home, or the rejected screen's own "Try another screenshot" + its own Home). **PASS**: 7 screens checked, no dead ends.
+
+### Item 2: "Where your money went" bar chart (Results)
+- New `renderMoneyChart()` in `app.js`, appended to Results after the existing rows/notes. Inline SVG (a flat two-rect track+bar per item, 3px ink stroke, no 3D/tilt), a `.money-chart-bar.grow` class toggle drives a 400ms `transform: scaleX()` grow (left-anchored), gated by `prefersReducedMotion()` so under reduced motion the final width appears immediately with no transition -- same idiom already used for the step-indicator line fill.
+- Four bars: gross pay, platform deductions, your costs, net earnings, each labelled with its own rupee figure from the API response (`formatMoney`), bar length a pure visual scaling of the value relative to the largest of the four. No new numbers, no averages, no trend, computed anywhere in the browser.
+- **Weekly mode gap, reported rather than computed client-side:** `GET /api/summary?mode=weekly` does not return `total_credited` (only the derived `reconciliation_gap`) -- only the stateless `POST /api/weekly-reconciliation` check endpoint added in the previous task has it, and that is a different request shape. So the weekly "gross pay" bar uses `gross_weekly` (which the summary endpoint does return) instead of `total_credited`, matching the task's own "(or total credited in weekly mode)" wording as the closest available substitute. If any one of the four values is null (e.g. `worker_costs` when there is no distance data), that bar is simply omitted -- the rest of the chart still renders.
+
+### Verification
+- `node --check` on every `frontend/*.js` file (including the new `nav-graph.js`): all pass.
+- `scripts/check_ids.js`: PASS (101 ids, 77 classes, up from 70 before this task).
+- `scripts/check_nav_graph.js`: PASS, no dead ends.
+- `pytest -q`: **256 passed** -- unchanged from before this task, confirming `backend/`/`engine/` were genuinely untouched.
+- **Not independently verified in a real browser** beyond the curl-level checks below -- no browser-automation tool available in this environment. The manual checklist below should be run on a phone before relying on this.
+
+### Deploy
+- Tagged `live-before-nav` on `90a4bc6` (the commit live before this task started) as the rollback point.
+- `firebase deploy --only hosting --project payproof-nithin-2026` -- deploy complete, hosting URL `https://payproof-nithin-2026.web.app`.
+- Live verification (curl against the live site): `app.js`/`strings.js`/`style.css` all contain this change's new strings/classes (`BACK_TARGETS`, `chartGrossTrip`/`chartTitle`, `money-chart-bar`); `nav-graph.js` reachable (200); `app.js` has `Cache-Control: no-cache, no-store, must-revalidate`; `/health` 200; `/api/whoami` 401. **All checks passed -- no rollback needed.**
+- Not pushed to any remote, per instruction.
+
+### Manual test checklist (run on the live site, on a phone if possible)
+
+Trip sample (`https://payproof-nithin-2026.web.app`, "Try with sample screenshots" -> trip card):
+1. Confirm the trip, tap Back on the Review screen -- lands on the first screen; try the sample again (state resets cleanly).
+2. Confirm the trip again, continue to Costs, type a fuel cost, tap Back on Costs -- Review screen (your confirmed trip data still shown/confirmed). Tap the Costs step-dot (now tappable, it is completed) -- back on Costs, your typed fuel cost is still there (not reset to the sample default).
+3. Save costs, reach Results, tap Back on Results -- Costs screen, same typed values still present. Tap Home from Costs with nothing changed -- no confirmation prompt, straight to the first screen. Go back in, tap the Costs step-dot, change a value, tap Home -- a confirmation appears ("Leave this screen?..."); Cancel keeps you on Costs with your edit intact; confirming goes to the first screen.
+4. On Results, confirm the new "Where your money went" bar chart appears below the existing rows/notes: 4 bars (Gross pay, Platform deductions, Your costs, Net earnings), each with its own rupee figure, growing in over about 400ms (or appearing instantly if your OS/browser has "reduce motion" on).
+
+Weekly sample (same landing page, weekly card):
+1. Confirm the weekly screenshot, continue to Costs, save with the sample defaults (fuel 3, maintenance 1 per km).
+2. On Results, confirm the exact same figures as before this task: net earnings 7,949.58 rupees, 189.28 rupees per hour online, 30.50 rupees per km, 0.0% deduction share -- the chart changes how these are displayed, not their values.
+3. Confirm the money chart's "Gross weekly pay" bar shows the gross figure (this stands in for "total credited," which is not available in this response -- see above).
+4. Tap Back on Results -- Costs, values preserved; tap the Review step-dot -- Review screen, your confirmed weekly data preserved.
+
+Order offer (rejected) sample:
+1. Confirm it lands on the "We couldn't use this screenshot" screen with both "Try another screenshot" and its own Home button visible and working.
+
+Navigation-specific checks (any sample):
+- Phone's system Back button: after navigating a couple of screens deep, press the phone's own Back button (not the in-app one) -- it should step back through PayProof's own screens, not leave the site or go to the previous website in history. Confirm the opening splash does not replay when this happens.
+- Tapping a future step-dot (e.g. "Results" before you have reached it) does nothing (disabled, not tappable).
+- After confirming a trip/week and reaching Review, reload the page fresh and confirm the opening splash still plays normally (once per browser session) and does not interfere with anything.
+
+If anything above fails, stop and report it rather than rolling back -- rollback commands (do not run without being told to):
+
+```powershell
+git checkout live-before-nav -- frontend
+firebase deploy --only hosting --project payproof-nithin-2026
+```
+
+### Next
+- Owner to run the manual checklist above on a real phone.
+- Not pushed to any remote (local commits only).
