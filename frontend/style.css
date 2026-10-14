@@ -679,11 +679,10 @@ textarea { resize: vertical; }
 .error-line[hidden] { display: none; }
 
 .version-stamp {
-  text-align: center;
-  color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: var(--space-4) var(--space-2) var(--space-2);
+  /* Hidden from the visible UI (owner's call, 14 Oct 2026) -- still set in
+     the DOM via frontend/version.js, so it's there to check in devtools
+     (Elements panel / "Inspect") without being shown to a visitor or judge. */
+  display: none;
 }
 
 .sample-card h4 {
