@@ -616,10 +616,13 @@ function createDateField(fieldState, onChanged) {
   return wrap;
 }
 
-function createAmountListField(titleText, listState, labelHint, amountHint, addText, onChanged) {
+function createAmountListField(titleText, listState, labelHint, amountHint, addText, onChanged, kind) {
   const wrap = document.createElement("div");
   wrap.className = "field";
   wrap.dataset.role = "amount-list";
+  if (kind) {
+    wrap.dataset.kind = kind;
+  }
 
   const label = document.createElement("label");
   label.textContent = titleText;
@@ -768,6 +771,7 @@ function renderTripCard(group, trip, onChanged) {
 
 function renderReview() {
   document.getElementById("review-title").textContent = STRINGS.review.title;
+  document.getElementById("reconciliation-gate").hidden = true;
 
   const rejectedBlock = document.getElementById("review-rejected-in-batch");
   const rejectedList = document.getElementById("review-rejected-list");
@@ -892,7 +896,7 @@ function renderReview() {
     }
 
     card.appendChild(createAmountListField(
-      moneyLabel(STRINGS.review.lines), group.lines, STRINGS.review.lineLabel, STRINGS.review.lineAmount, STRINGS.review.addLine, onChanged,
+      moneyLabel(STRINGS.review.lines), group.lines, STRINGS.review.lineLabel, STRINGS.review.lineAmount, STRINGS.review.addLine, onChanged, "lines",
     ));
     card.appendChild(createAmountListField(
       moneyLabel(STRINGS.review.deductions), group.deductions, STRINGS.review.deductionLabel, STRINGS.review.deductionAmount, STRINGS.review.addDeduction, onChanged,
@@ -998,9 +1002,14 @@ function updateContinueButtonState() {
   hint.hidden = ready;
 }
 
+// Must match engine.earnings._RECONCILIATION_TOLERANCE (backend/report.py
+// imports that same constant; there is no shared constants file between
+// Python and JS, so this is deliberately kept in sync by hand).
+const RECONCILIATION_GATE_TOLERANCE = 0.5;
+
 async function handleReviewContinue() {
-  try {
-    if (state.mode === "trip") {
+  if (state.mode === "trip") {
+    try {
       const trips = state.tripGroups.flatMap((g) => g.trips).map((t) => ({
         trip_date: t.date.value,
         date_confirmed: t.date.confirmed,
@@ -1014,19 +1023,61 @@ async function handleReviewContinue() {
       }));
       setLoading(true, STRINGS.common.loading);
       await api.putTrips(trips);
-    } else if (state.mode === "weekly") {
-      const g = state.weekGroup;
-      const week = {
-        period_label: g.periodLabel.value,
-        lines: g.lines.items.map((l) => ({ label: l.label || "Earning", amount: l.amount || 0 })),
-        deductions: g.deductions.items.map((d) => ({ label: d.label || "Deduction", amount: d.amount || 0 })),
-        total_credited: g.totalCredited.value,
-        km_driven: g.kmDriven,
-        hours_online: g.hoursOnline,
-      };
-      setLoading(true, STRINGS.common.loading);
-      await api.putWeek(week);
+      setLoading(false);
+      renderCosts();
+      showScreen("costs");
+    } catch (err) {
+      setLoading(false);
+      showApiError(err);
     }
+    return;
+  }
+  if (state.mode === "weekly") {
+    await handleWeeklyReviewContinue();
+  }
+}
+
+function buildWeekPayload() {
+  const g = state.weekGroup;
+  return {
+    period_label: g.periodLabel.value,
+    lines: g.lines.items.map((l) => ({ label: l.label || "Earning", amount: l.amount || 0 })),
+    deductions: g.deductions.items.map((d) => ({ label: d.label || "Deduction", amount: d.amount || 0 })),
+    total_credited: g.totalCredited.value,
+    km_driven: g.kmDriven,
+    hours_online: g.hoursOnline,
+  };
+}
+
+// Reconciliation gate (step 2, 14 Oct 2026): checks the engine's own
+// reconciliation_gap (POST /api/weekly-reconciliation, no browser
+// arithmetic -- every number shown comes straight from that response)
+// before anything is saved, so a missing earning line can be caught while
+// the table is still editable.
+async function handleWeeklyReviewContinue() {
+  const weekPayload = buildWeekPayload();
+  let recon;
+  try {
+    setLoading(true, STRINGS.common.loading);
+    recon = await api.getWeeklyReconciliation(weekPayload);
+    setLoading(false);
+  } catch (err) {
+    setLoading(false);
+    showApiError(err);
+    return;
+  }
+  const gap = recon.reconciliation_gap;
+  if (gap !== null && gap !== undefined && Math.abs(gap) > RECONCILIATION_GATE_TOLERANCE) {
+    showReconciliationGate(recon);
+    return;
+  }
+  await saveWeekAndProceed(weekPayload);
+}
+
+async function saveWeekAndProceed(weekPayload) {
+  try {
+    setLoading(true, STRINGS.common.loading);
+    await api.putWeek(weekPayload);
     setLoading(false);
     renderCosts();
     showScreen("costs");
@@ -1034,6 +1085,45 @@ async function handleReviewContinue() {
     setLoading(false);
     showApiError(err);
   }
+}
+
+function showReconciliationGate(recon) {
+  const gateEl = document.getElementById("reconciliation-gate");
+  const textEl = document.getElementById("reconciliation-gate-text");
+  textEl.textContent = STRINGS.review.reconciliationWarning(
+    formatMoney(recon.net_payout_weekly, state.currency),
+    formatMoney(recon.total_credited, state.currency),
+  );
+  gateEl.hidden = false;
+  gateEl.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
+}
+
+function hideReconciliationGate() {
+  document.getElementById("reconciliation-gate").hidden = true;
+}
+
+function handleReconAddLine() {
+  hideReconciliationGate();
+  const g = state.weekGroup;
+  // No prefilled amount, as instructed -- the blank field is the prompt.
+  g.lines.items.push({ label: "", amount: null });
+  g.lines.confirmed = true; // the worker is directly entering this row
+  renderReview();
+  requestAnimationFrame(() => {
+    const linesWrap = document.querySelector('[data-role="amount-list"][data-kind="lines"]');
+    const rows = linesWrap ? linesWrap.querySelectorAll(".deduction-row") : [];
+    const lastRow = rows[rows.length - 1];
+    const labelInput = lastRow ? lastRow.querySelector('input[type="text"]') : null;
+    if (labelInput) {
+      labelInput.focus();
+    }
+  });
+}
+
+async function handleReconContinueAnyway() {
+  hideReconciliationGate();
+  const weekPayload = buildWeekPayload();
+  await saveWeekAndProceed(weekPayload);
 }
 
 // ---------------------------------------------------------------------------
@@ -1285,6 +1375,18 @@ function renderResults(summary) {
 
     addResultsRow(body, STRINGS.results.payPerKm, formatRate(summary.net_payout_per_km, "per km", currency) ?? "—");
     addResultsRow(body, STRINGS.results.deductionShare, formatPercent(summary.deduction_share) ?? "—");
+
+    // Persistent reconciliation note (step 2, 14 Oct 2026): derived straight
+    // from this same /api/summary response -- not from whatever happened at
+    // the review-screen gate -- so it reflects whatever is actually saved,
+    // whether the worker got here via "Continue anyway" or any other path.
+    const gap = summary.reconciliation_gap;
+    if (gap !== null && gap !== undefined && Math.abs(gap) > RECONCILIATION_GATE_TOLERANCE) {
+      const recon = document.createElement("p");
+      recon.className = "banner";
+      recon.textContent = STRINGS.results.reconciliationNote(formatMoney(Math.abs(gap), currency));
+      body.appendChild(recon);
+    }
   }
 
   if (summary.data_quality && summary.data_quality.length > 0) {
@@ -1448,6 +1550,10 @@ export function initApp() {
   setupErrorLine();
   setupNav();
   document.getElementById("btn-review-continue").addEventListener("click", handleReviewContinue);
+  document.getElementById("btn-recon-add-line").textContent = STRINGS.review.reconciliationAddLine;
+  document.getElementById("btn-recon-continue-anyway").textContent = STRINGS.review.reconciliationContinueAnyway;
+  document.getElementById("btn-recon-add-line").addEventListener("click", handleReconAddLine);
+  document.getElementById("btn-recon-continue-anyway").addEventListener("click", () => handleReconContinueAnyway());
   document.getElementById("btn-save-costs").addEventListener("click", handleSaveCosts);
   document.getElementById("btn-ask-submit").addEventListener("click", () => handleAsk());
   document.getElementById("btn-open-report").addEventListener("click", handleOpenReport);

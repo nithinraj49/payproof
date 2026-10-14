@@ -21,6 +21,14 @@ const htmlClasses = new Set();
 for (const m of indexHtml.matchAll(/\bclass="([^"]+)"/g)) {
   m[1].split(/\s+/).forEach((c) => c && htmlClasses.add(c));
 }
+// Classes app.js assigns to elements it creates itself (e.g.
+// `row.className = "deduction-row"`) never appear as a literal class="..."
+// in index.html at all -- they only exist once JS runs. A querySelector()
+// call targeting one of these is valid even though index.html never
+// mentions it, so these count as a second, equally valid source.
+for (const m of appJs.matchAll(/\.className\s*=\s*"([^"]+)"/g)) {
+  m[1].split(/\s+/).forEach((c) => c && htmlClasses.add(c));
+}
 
 // Known template-literal id families app.js builds at runtime (numbered 1-4
 // or 1-3), checked against the actual numbered ids in index.html instead of

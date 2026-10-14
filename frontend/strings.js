@@ -69,6 +69,9 @@ export const STRINGS = {
     confirmAndContinue: "Confirm and continue",
     mustConfirmAll: "Please confirm every highlighted field before continuing.",
     blankFieldHint: "Not readable from your screenshot — type the value from your screenshot.",
+    reconciliationWarning: (x, y) => `The earning lines add up to ${x}, but your screenshot says ${y} was credited. Some lines may be missing or cut off, so your pay may be higher than shown.`,
+    reconciliationAddLine: "Add the missing line",
+    reconciliationContinueAnyway: "Continue anyway",
   },
 
   steps: {
@@ -95,6 +98,7 @@ export const STRINGS = {
     deductionShare: "Share of earnings taken as platform deductions",
     dataQualityTitle: "Data quality notes",
     noLoggedInHours: "You didn't enter hours online, so \"per hour online\" isn't shown.",
+    reconciliationNote: (g) => `Your earning lines do not add up to the credited total: net earnings may be understated by about ${g}.`,
   },
 
   ask: {

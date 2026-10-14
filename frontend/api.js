@@ -105,6 +105,13 @@ export const api = {
     return request("/api/weeks", { method: "PUT", jsonBody: week });
   },
 
+  // Stateless pre-save check (step 2, 14 Oct 2026): the review screen calls
+  // this before PUT /api/weeks, so a worker can catch a missing earning
+  // line while the data is still editable. No Firestore write.
+  getWeeklyReconciliation(week) {
+    return request("/api/weekly-reconciliation", { method: "POST", jsonBody: week });
+  },
+
   putCosts(costs) {
     return request("/api/costs", { method: "PUT", jsonBody: costs });
   },

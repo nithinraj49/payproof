@@ -23,6 +23,7 @@ from backend.store import (
 from backend.usage_limits import check_and_increment, check_global_limit_only
 from engine.changes import detect_change
 from engine.earnings import compute_trip_summary, compute_weekly_summary
+from engine.models import CostInputs, PayoutLine, WeekInput
 from extraction.extract import RateLimitError, extract_screenshot
 from extraction.image_prep import prepare_image
 from extraction.image_quality import QUALITY_MESSAGES, check_image_quality
@@ -203,6 +204,40 @@ def put_weeks(body: WeekBody, user_id: str = Depends(require_user_id)):
     """Save one confirmed weekly summary for this user."""
     doc_id = save_week(user_id, body.model_dump())
     return {"saved": 1, "week_id": doc_id}
+
+
+# Zero-cost CostInputs purely to satisfy compute_weekly_summary's required
+# signature -- reconciliation_gap is computed from lines/deductions/
+# total_credited only, before any cost is ever applied, so this has no
+# effect on the number returned.
+_ZERO_COST_INPUTS = CostInputs(fuel_cost_per_km=0.0, maintenance_cost_per_km=0.0)
+
+
+@app.post("/api/weekly-reconciliation")
+def post_weekly_reconciliation(body: WeekBody, user_id: str = Depends(require_user_id)):
+    """Stateless reconciliation check for the weekly-mode review screen
+    (step 2, 14 Oct 2026): returns the engine's own reconciliation_gap for
+    the lines/deductions/total_credited the worker is about to confirm --
+    computed before PUT /api/weeks saves anything, so a missing earning
+    line can be caught first. No Firestore write, no Gemini call, no
+    per-user/global usage charge (not a Gemini-backed endpoint).
+    """
+    week_input = WeekInput(
+        lines=[PayoutLine(label=l.label, amount=l.amount) for l in body.lines],
+        deductions=[d.amount for d in body.deductions],
+        total_credited=body.total_credited,
+    )
+    try:
+        summary = compute_weekly_summary(week_input, _ZERO_COST_INPUTS)
+    except ValueError as exc:
+        raise ApiError(400, "invalid_data", str(exc))
+    return {
+        "gross_weekly": summary.gross_weekly,
+        "deductions_weekly": summary.deductions_weekly,
+        "net_payout_weekly": summary.net_payout_weekly,
+        "total_credited": body.total_credited,
+        "reconciliation_gap": summary.reconciliation_gap,
+    }
 
 
 @app.put("/api/costs")

@@ -165,3 +165,36 @@ def test_weekly_report_uses_indian_not_western_digit_grouping():
     html = render_weekly_report(summary, {"lines": [{"label": "Base", "amount": 123456.78}], "deductions": []})
     assert "₹1,23,456.78" in html
     assert "₹123,456.78" not in html
+
+
+def test_weekly_report_shows_reconciliation_warning_when_gap_exceeds_tolerance():
+    # Step 2 (14 Oct 2026): lines sum to less than total_credited, so a line
+    # may be missing -- the same wording shown on the Results screen.
+    week_input = WeekInput(
+        lines=[PayoutLine(label="Order earnings", amount=7345.0), PayoutLine(label="Incentive", amount=1678.0)],
+        deductions=[], total_credited=10120.0, km_driven=300.0, hours_online=40.0,
+    )
+    summary = compute_weekly_summary(week_input, CostInputs(fuel_cost_per_km=3.0, maintenance_cost_per_km=1.0))
+    html = render_weekly_report(summary, {"lines": [], "deductions": []})
+    assert "do not add up to the credited total" in html
+    assert "understated by about ₹1,097.00" in html
+
+
+def test_weekly_report_no_reconciliation_warning_when_gap_within_tolerance():
+    week_input = WeekInput(
+        lines=[PayoutLine(label="Order earnings", amount=9023.0)],
+        deductions=[], total_credited=9023.0, km_driven=300.0, hours_online=40.0,
+    )
+    summary = compute_weekly_summary(week_input, CostInputs(fuel_cost_per_km=3.0, maintenance_cost_per_km=1.0))
+    html = render_weekly_report(summary, {"lines": [], "deductions": []})
+    assert "do not add up" not in html
+
+
+def test_weekly_report_no_reconciliation_warning_when_total_credited_missing():
+    week_input = WeekInput(
+        lines=[PayoutLine(label="Order earnings", amount=9023.0)],
+        deductions=[], total_credited=None, km_driven=300.0, hours_online=40.0,
+    )
+    summary = compute_weekly_summary(week_input, CostInputs(fuel_cost_per_km=3.0, maintenance_cost_per_km=1.0))
+    html = render_weekly_report(summary, {"lines": [], "deductions": []})
+    assert "do not add up" not in html

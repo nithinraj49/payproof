@@ -19,6 +19,7 @@ import html as html_lib
 from typing import Any, Dict, List, Optional
 
 from backend.qa import CURRENCY_SYMBOLS, DEFAULT_CURRENCY, GLOSSARY
+from engine.earnings import _RECONCILIATION_TOLERANCE
 from engine.models import TripSummary, WeeklySummary
 
 _CURRENCY_SYMBOL = CURRENCY_SYMBOLS[DEFAULT_CURRENCY]
@@ -31,6 +32,7 @@ table { width: 100%; border-collapse: collapse; margin: 0.5rem 0 1rem; }
 th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #ddd; }
 th { font-weight: 600; width: 60%; }
 .notes { font-size: 0.9rem; color: #333; }
+.recon-warning { font-weight: 700; color: #8a3d00; background: #fff4c2; border: 1px solid #e0a800; border-radius: 6px; padding: 0.6rem 0.75rem; margin: 0 0 1rem; }
 .limits { font-size: 0.85rem; color: #333; border-top: 1px solid #ccc; padding-top: 0.75rem; margin-top: 2rem; }
 @media print {
   body { margin: 0; max-width: none; color: #000; }
@@ -235,8 +237,16 @@ def render_weekly_report(summary: WeeklySummary, week_row: Dict[str, Any]) -> st
         items = "".join(f"<li>{_esc(n)}</li>" for n in summary.data_quality)
         notes_html = f'<h2>Data-quality notes</h2><ul class="notes">{items}</ul>'
 
+    recon_html = ""
+    if summary.reconciliation_gap is not None and abs(summary.reconciliation_gap) > _RECONCILIATION_TOLERANCE:
+        recon_html = (
+            f'<p class="recon-warning">Your earning lines do not add up to the credited total: '
+            f'net earnings may be understated by about {_esc(_money(abs(summary.reconciliation_gap)))}.</p>'
+        )
+
     table_html = (
-        _rows_table(rows)
+        recon_html
+        + _rows_table(rows)
         + _label_amount_table("Earning lines", line_totals)
         + _label_amount_table("Deductions by type", deduction_totals)
     )
