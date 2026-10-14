@@ -155,8 +155,11 @@ button {
   font: inherit;
   font-size: var(--fs-200);
   font-weight: 800;
+  letter-spacing: -0.01em;
   min-height: var(--tap);
-  min-width: var(--tap);
+  min-width: max-content; /* never clip text (item 1): keep natural width */
+  flex-shrink: 0; /* in a flex row, the button never shrinks -- the input/field beside it does */
+  white-space: normal; /* wrap rather than clip if truly out of room */
   padding: var(--space-1) var(--space-2);
   border-radius: 8px;
   border: var(--bd);
@@ -190,7 +193,8 @@ button.secondary {
 button.small {
   padding: 0.35rem var(--space-1);
   min-height: 36px;
-  font-size: var(--fs-100);
+  font-size: 0.8125rem; /* 13px: a bit smaller than fs-100, extra headroom at 320-360px */
+  letter-spacing: -0.015em;
   box-shadow: var(--hard-sm);
 }
 button.small:active { box-shadow: 0 0 0 var(--ink); transform: translate(3px, 3px); }
@@ -579,7 +583,13 @@ textarea { resize: vertical; }
 .deduction-row .field,
 .line-row .field {
   flex: 1 1 auto;
+  min-width: 0; /* the two text/amount fields shrink at 320-360px; the Remove button (global button rule) does not */
   margin-bottom: 0;
+}
+
+.deduction-row .field input,
+.line-row .field input {
+  min-width: 0;
 }
 
 .toast {
