@@ -5,6 +5,7 @@ import { STRINGS } from "./strings.js";
 import { SAMPLE_IMAGES } from "./samples/index.js";
 import { currencySymbol, formatDateHuman, formatMoney, formatRate, formatPercent } from "./format.js";
 import { createBarScene, SPLASH_DURATION } from "./brutalist-bars.js";
+import { BACK_TARGETS, ROOT_SCREEN, STEP_TO_SCREEN } from "./nav-graph.js";
 
 const SPLASH_SESSION_KEY = "payproof_splash_shown";
 
@@ -79,6 +80,7 @@ const state = {
   loggedInHoursEntered: null,
   askAndEvidenceRendered: false,
   isSampleMode: false,
+  lastCosts: null, // { fuel, maintenance, fixedDaily, hoursOnline } as typed, so Back preserves it (item 1a)
 };
 
 function resetState() {
@@ -91,6 +93,7 @@ function resetState() {
   state.loggedInHoursEntered = null;
   state.askAndEvidenceRendered = false;
   state.isSampleMode = false;
+  state.lastCosts = null;
 }
 
 function makeField(value, confirmed) {
@@ -127,6 +130,10 @@ const NAV_SCREENS = ["results", "ask", "evidence"];
 const SCREEN_TO_STEP = { landing: 1, review: 2, rejected: null, costs: 3, results: 4, ask: 4, evidence: 4 };
 const stepIndicatorEl = document.getElementById("step-indicator");
 
+// Steps whose dot is strictly before the current one are "completed" and
+// become real, tappable <button> elements that jump straight to that screen
+// with state preserved (item 1b) -- the current and future steps stay
+// disabled (native <button disabled>, not just a visual style).
 function setStep(stepNumber) {
   if (stepNumber === null || stepNumber === undefined) {
     stepIndicatorEl.hidden = true;
@@ -135,15 +142,35 @@ function setStep(stepNumber) {
   stepIndicatorEl.hidden = false;
   for (let i = 1; i <= 4; i += 1) {
     const dot = document.getElementById(`step-dot-${i}`);
+    const done = i < stepNumber;
     dot.classList.toggle("active", i === stepNumber);
-    dot.classList.toggle("done", i < stepNumber);
+    dot.classList.toggle("done", done);
+    dot.disabled = !done;
   }
   for (let i = 1; i <= 3; i += 1) {
     document.getElementById(`step-line-${i}`).classList.toggle("filled", i < stepNumber);
   }
 }
 
-function showScreen(name) {
+// The heading each screen moves focus to after a navigation (item 1e).
+const SCREEN_HEADING_ID = {
+  landing: "landing-headline",
+  review: "review-title",
+  rejected: "rejected-title",
+  costs: "costs-title",
+  results: "results-title",
+  ask: "ask-title",
+  evidence: "evidence-title",
+};
+
+let suppressHistoryPush = false;
+
+// Public navigation entry point -- every screen transition in the app goes
+// through this, so the phone's system Back button (popstate, below) can
+// always step back through them (item 1d). Pass skipHistory only from the
+// popstate handler itself, to avoid pushing a new entry while responding
+// to one.
+function showScreen(name, { skipHistory = false } = {}) {
   for (const key of Object.keys(screens)) {
     screens[key].hidden = key !== name;
   }
@@ -157,6 +184,81 @@ function showScreen(name) {
   }
   setStep(SCREEN_TO_STEP[name]);
   window.scrollTo(0, 0);
+
+  const headingEl = document.getElementById(SCREEN_HEADING_ID[name]);
+  if (headingEl) {
+    headingEl.focus({ preventScroll: true });
+  }
+
+  if (!skipHistory && !suppressHistoryPush) {
+    history.pushState({ screen: name }, "", `#${name}`);
+  }
+}
+
+// A screen counts as having unsaved edits only while it's the one showing
+// (item 1c): Review and Costs are in-progress forms not yet submitted;
+// everything else is either read-only or already saved.
+function hasUnsavedEdits() {
+  return !screens.review.hidden || !screens.costs.hidden;
+}
+
+function confirmLeaveIfUnsaved() {
+  if (!hasUnsavedEdits()) {
+    return true;
+  }
+  return window.confirm(STRINGS.nav.leaveConfirm);
+}
+
+function goHome() {
+  if (!confirmLeaveIfUnsaved()) {
+    return;
+  }
+  showScreen(ROOT_SCREEN);
+}
+
+function handleBackButton(fromScreen) {
+  // Back is an expected, designed part of the flow -- no confirmation here
+  // (only Home/brand/step-dot taps get that, per instruction 1c).
+  const target = BACK_TARGETS[fromScreen];
+  if (target) {
+    showScreen(target);
+  }
+}
+
+function setupStepDotNavigation() {
+  for (let i = 1; i <= 4; i += 1) {
+    document.getElementById(`step-dot-${i}`).addEventListener("click", () => {
+      const dot = document.getElementById(`step-dot-${i}`);
+      if (dot.disabled) {
+        return;
+      }
+      if (!confirmLeaveIfUnsaved()) {
+        return;
+      }
+      showScreen(STEP_TO_SCREEN[i]);
+    });
+  }
+}
+
+// System Back button (item 1d): steps back through in-app screens instead
+// of leaving the site. Re-pushes the current screen to "undo" the browser's
+// own back-navigation if the worker declines an unsaved-edits prompt.
+window.addEventListener("popstate", (event) => {
+  const target = (event.state && event.state.screen) || ROOT_SCREEN;
+  if (target === currentScreenName()) {
+    return;
+  }
+  if (hasUnsavedEdits() && !window.confirm(STRINGS.nav.leaveConfirm)) {
+    history.pushState({ screen: currentScreenName() }, "", `#${currentScreenName()}`);
+    return;
+  }
+  suppressHistoryPush = true;
+  showScreen(target, { skipHistory: true });
+  suppressHistoryPush = false;
+});
+
+function currentScreenName() {
+  return Object.keys(screens).find((key) => !screens[key].hidden) || ROOT_SCREEN;
 }
 
 function setupNav() {
@@ -1160,15 +1262,38 @@ function renderCosts() {
   document.getElementById("costs-saved-note").hidden = true;
 
   // Sample mode: prefill plausible defaults so there's nothing to type
-  // unless the visitor wants to change them (CLAUDE.md step 2).
-  document.getElementById("input-fuel").value = state.isSampleMode ? SAMPLE_DEFAULT_FUEL_PER_KM : "";
-  document.getElementById("input-maintenance").value = state.isSampleMode ? SAMPLE_DEFAULT_MAINTENANCE_PER_KM : "";
-  document.getElementById("input-fixed-daily").value = "";
-  document.getElementById("input-hours-online").value = state.isSampleMode && state.mode === "trip" ? SAMPLE_DEFAULT_TRIP_HOURS_ONLINE : "";
+  // unless the visitor wants to change them (CLAUDE.md step 2). If the
+  // worker already typed/saved costs this visit (state.lastCosts), those
+  // values win so Back preserves what they entered (item 1a, 14 Oct 2026).
+  const lc = state.lastCosts;
+  document.getElementById("input-fuel").value =
+    lc ? lc.fuel : state.isSampleMode ? SAMPLE_DEFAULT_FUEL_PER_KM : "";
+  document.getElementById("input-maintenance").value =
+    lc ? lc.maintenance : state.isSampleMode ? SAMPLE_DEFAULT_MAINTENANCE_PER_KM : "";
+  document.getElementById("input-fixed-daily").value = lc ? lc.fixedDaily : "";
+  document.getElementById("input-hours-online").value =
+    lc ? lc.hoursOnline : state.isSampleMode && state.mode === "trip" ? SAMPLE_DEFAULT_TRIP_HOURS_ONLINE : "";
 
   // Weekly mode already collects hours_online as part of the week record
   // (FE-5): the costs screen's "hours online" field is trip mode only.
   document.getElementById("field-hours-online").hidden = state.mode !== "trip";
+}
+
+// Keeps state.lastCosts in sync with what's typed, so navigating away and
+// back (item 1a) restores it even before Save is pressed.
+function captureCostsInput() {
+  state.lastCosts = {
+    fuel: document.getElementById("input-fuel").value,
+    maintenance: document.getElementById("input-maintenance").value,
+    fixedDaily: document.getElementById("input-fixed-daily").value,
+    hoursOnline: document.getElementById("input-hours-online").value,
+  };
+}
+
+function setupCostsPersistence() {
+  ["input-fuel", "input-maintenance", "input-fixed-daily", "input-hours-online"].forEach((id) => {
+    document.getElementById(id).addEventListener("input", captureCostsInput);
+  });
 }
 
 async function handleSaveCosts() {
@@ -1294,6 +1419,106 @@ function addResultsRow(container, labelText, valueText) {
   container.appendChild(row);
 }
 
+// "Where your money went" bar chart (item 2, 14 Oct 2026). Bar lengths are
+// only a visual scaling of the four ₹ figures the API already returned --
+// no new numbers, no averages, computed here. Weekly mode has no
+// total_credited field in GET /api/summary (only the derived
+// reconciliation_gap), so gross_weekly stands in for it, per the task's own
+// "(or total credited in weekly mode)" wording.
+function moneyChartItems(summary) {
+  const items =
+    summary.mode === "trip"
+      ? [
+          { key: "gross", label: STRINGS.results.chartGrossTrip, value: summary.gross_pay },
+          { key: "deductions", label: STRINGS.results.chartDeductions, value: summary.platform_deductions },
+          { key: "costs", label: STRINGS.results.chartCosts, value: summary.worker_costs },
+          { key: "net", label: STRINGS.results.chartNetEarnings, value: summary.net_earnings },
+        ]
+      : [
+          { key: "gross", label: STRINGS.results.chartGrossWeekly, value: summary.gross_weekly },
+          { key: "deductions", label: STRINGS.results.chartDeductions, value: summary.deductions_weekly },
+          { key: "costs", label: STRINGS.results.chartCosts, value: summary.worker_costs_weekly },
+          { key: "net", label: STRINGS.results.chartNetEarnings, value: summary.net_earnings_weekly },
+        ];
+  return items.filter((item) => item.value !== null && item.value !== undefined);
+}
+
+function renderMoneyChart(container, summary) {
+  const items = moneyChartItems(summary);
+  if (items.length === 0) {
+    return;
+  }
+
+  const section = document.createElement("div");
+  section.className = "card money-chart";
+  const h3 = document.createElement("h3");
+  h3.textContent = STRINGS.results.chartTitle;
+  section.appendChild(h3);
+
+  const max = Math.max(...items.map((item) => Math.abs(item.value)), 1);
+  const reduce = prefersReducedMotion();
+  const svgNS = "http://www.w3.org/2000/svg";
+  const bars = [];
+
+  items.forEach((item) => {
+    const row = document.createElement("div");
+    row.className = "money-chart-row";
+
+    const labelLine = document.createElement("div");
+    labelLine.className = "money-chart-label-line";
+    const label = document.createElement("span");
+    label.className = "money-chart-label";
+    label.textContent = item.label;
+    const value = document.createElement("span");
+    value.className = "money-chart-value";
+    value.textContent = formatMoney(item.value, state.currency) ?? "—";
+    labelLine.appendChild(label);
+    labelLine.appendChild(value);
+    row.appendChild(labelLine);
+
+    const pct = Math.max(0, Math.min(1, Math.abs(item.value) / max));
+    const svg = document.createElementNS(svgNS, "svg");
+    svg.setAttribute("viewBox", "0 0 100 10");
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.setAttribute("role", "presentation");
+    svg.setAttribute("aria-hidden", "true");
+    svg.classList.add("money-chart-svg");
+
+    const track = document.createElementNS(svgNS, "rect");
+    track.setAttribute("x", "0");
+    track.setAttribute("y", "0");
+    track.setAttribute("width", "100");
+    track.setAttribute("height", "10");
+    track.classList.add("money-chart-track");
+    svg.appendChild(track);
+
+    const bar = document.createElementNS(svgNS, "rect");
+    bar.setAttribute("x", "0");
+    bar.setAttribute("y", "0");
+    bar.setAttribute("width", String(pct * 100));
+    bar.setAttribute("height", "10");
+    bar.classList.add("money-chart-bar", `money-chart-bar-${item.key}`);
+    if (reduce) {
+      bar.classList.add("grow");
+    }
+    svg.appendChild(bar);
+    bars.push(bar);
+
+    row.appendChild(svg);
+    section.appendChild(row);
+  });
+
+  container.appendChild(section);
+
+  if (!reduce) {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        bars.forEach((bar) => bar.classList.add("grow"));
+      });
+    });
+  }
+}
+
 async function fetchAndShowResults() {
   const loggedInHours = state.mode === "trip" ? state.loggedInHoursEntered : undefined;
   try {
@@ -1388,6 +1613,8 @@ function renderResults(summary) {
       body.appendChild(recon);
     }
   }
+
+  renderMoneyChart(body, summary);
 
   if (summary.data_quality && summary.data_quality.length > 0) {
     const h3 = document.createElement("h3");
@@ -1541,6 +1768,29 @@ function renderStepLabels() {
   document.getElementById("step-label-4").textContent = STRINGS.steps.results;
 }
 
+function setupNavigationControls() {
+  document.getElementById("btn-home").textContent = STRINGS.nav.home;
+  document.getElementById("btn-brand-home").setAttribute("aria-label", STRINGS.nav.brandHomeLabel);
+  document.getElementById("btn-brand-home").addEventListener("click", goHome);
+  document.getElementById("btn-home").addEventListener("click", goHome);
+  document.getElementById("btn-rejected-home").textContent = STRINGS.nav.home;
+  document.getElementById("btn-rejected-home").addEventListener("click", goHome);
+
+  document.getElementById("btn-back-review").textContent = STRINGS.nav.back;
+  document.getElementById("btn-back-review").addEventListener("click", () => handleBackButton("review"));
+  document.getElementById("btn-back-costs").textContent = STRINGS.nav.back;
+  document.getElementById("btn-back-costs").addEventListener("click", () => handleBackButton("costs"));
+  document.getElementById("btn-back-results").textContent = STRINGS.nav.back;
+  document.getElementById("btn-back-results").addEventListener("click", () => handleBackButton("results"));
+
+  setupStepDotNavigation();
+
+  // Establishes a sane root for the very first popstate (e.g. the phone
+  // Back button pressed before any in-app navigation happened yet), without
+  // adding an extra history entry.
+  history.replaceState({ screen: ROOT_SCREEN }, "", `#${ROOT_SCREEN}`);
+}
+
 export function initApp() {
   renderStepLabels();
   renderLandingStrings();
@@ -1549,16 +1799,18 @@ export function initApp() {
   setupLightbox();
   setupErrorLine();
   setupNav();
+  setupNavigationControls();
   document.getElementById("btn-review-continue").addEventListener("click", handleReviewContinue);
   document.getElementById("btn-recon-add-line").textContent = STRINGS.review.reconciliationAddLine;
   document.getElementById("btn-recon-continue-anyway").textContent = STRINGS.review.reconciliationContinueAnyway;
   document.getElementById("btn-recon-add-line").addEventListener("click", handleReconAddLine);
   document.getElementById("btn-recon-continue-anyway").addEventListener("click", () => handleReconContinueAnyway());
   document.getElementById("btn-save-costs").addEventListener("click", handleSaveCosts);
+  setupCostsPersistence();
   document.getElementById("btn-ask-submit").addEventListener("click", () => handleAsk());
   document.getElementById("btn-open-report").addEventListener("click", handleOpenReport);
   document.getElementById("btn-delete-data").addEventListener("click", showDeleteConfirm);
   document.getElementById("btn-delete-confirm-yes").addEventListener("click", handleDeleteConfirmed);
   document.getElementById("btn-delete-confirm-cancel").addEventListener("click", cancelDeleteConfirm);
-  showScreen("landing");
+  showScreen("landing", { skipHistory: true }); // root state already set via replaceState above
 }

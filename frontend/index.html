@@ -27,8 +27,8 @@
   </div>
 
   <header class="app-header">
-    <div class="brand">
-      <svg class="brand-mark" viewBox="0 0 1024 1024" role="img" aria-label="PayProof logo" width="40" height="40">
+    <button type="button" id="btn-brand-home" class="brand">
+      <svg class="brand-mark" viewBox="0 0 1024 1024" role="img" aria-hidden="true" width="40" height="40">
         <rect width="1024" height="1024" rx="224" fill="#14203C"/>
         <rect class="brand-bar brand-bar-1" x="230" y="560" width="110" height="240" rx="30" fill="#00A896"/>
         <rect class="brand-bar brand-bar-2" x="400" y="470" width="110" height="330" rx="30" fill="#00A896"/>
@@ -37,18 +37,19 @@
         <rect x="200" y="830" width="680" height="30" rx="15" fill="#EAF0FF"/>
       </svg>
       <h1>PayProof</h1>
-    </div>
+    </button>
+    <button type="button" id="btn-home" class="small header-home-btn"></button>
     <p id="auth-status" class="auth-status">Signing in&hellip;</p>
   </header>
 
   <div id="step-indicator" class="step-indicator" hidden>
-    <div class="step-dot" id="step-dot-1"><span class="step-dot-num">1</span><span class="step-dot-label" id="step-label-1"></span></div>
+    <button type="button" class="step-dot" id="step-dot-1" disabled><span class="step-dot-num">1</span><span class="step-dot-label" id="step-label-1"></span></button>
     <div class="step-line" id="step-line-1"><span class="step-line-fill"></span></div>
-    <div class="step-dot" id="step-dot-2"><span class="step-dot-num">2</span><span class="step-dot-label" id="step-label-2"></span></div>
+    <button type="button" class="step-dot" id="step-dot-2" disabled><span class="step-dot-num">2</span><span class="step-dot-label" id="step-label-2"></span></button>
     <div class="step-line" id="step-line-2"><span class="step-line-fill"></span></div>
-    <div class="step-dot" id="step-dot-3"><span class="step-dot-num">3</span><span class="step-dot-label" id="step-label-3"></span></div>
+    <button type="button" class="step-dot" id="step-dot-3" disabled><span class="step-dot-num">3</span><span class="step-dot-label" id="step-label-3"></span></button>
     <div class="step-line" id="step-line-3"><span class="step-line-fill"></span></div>
-    <div class="step-dot" id="step-dot-4"><span class="step-dot-num">4</span><span class="step-dot-label" id="step-label-4"></span></div>
+    <button type="button" class="step-dot" id="step-dot-4" disabled><span class="step-dot-num">4</span><span class="step-dot-label" id="step-label-4"></span></button>
   </div>
 
   <nav id="app-nav" class="app-nav" hidden>
@@ -68,7 +69,7 @@
             <text y="7" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="20" fill="#0D1330">&#8377;</text>
           </g>
         </svg>
-        <p id="landing-headline" class="landing-headline"></p>
+        <p id="landing-headline" class="landing-headline" tabindex="-1"></p>
         <p id="landing-tagline" class="landing-subhead"></p>
       </div>
       <button id="btn-try-sample" class="primary" type="button"></button>
@@ -88,7 +89,8 @@
 
     <!-- Screen b: review -->
     <section id="screen-review" class="screen" hidden>
-      <h2 id="review-title"></h2>
+      <button type="button" id="btn-back-review" class="small back-btn"></button>
+      <h2 id="review-title" tabindex="-1"></h2>
       <div id="review-rejected-in-batch" hidden>
         <p id="review-rejected-in-batch-label"></p>
         <ul id="review-rejected-list" class="rejected-list"></ul>
@@ -105,14 +107,16 @@
 
     <!-- Screen c: rejected -->
     <section id="screen-rejected" class="screen" hidden>
-      <h2 id="rejected-title"></h2>
+      <h2 id="rejected-title" tabindex="-1"></h2>
       <p id="rejected-reason"></p>
       <button id="btn-try-another" class="primary" type="button"></button>
+      <button id="btn-rejected-home" class="secondary" type="button"></button>
     </section>
 
     <!-- Screen d: costs -->
     <section id="screen-costs" class="screen" hidden>
-      <h2 id="costs-title"></h2>
+      <button type="button" id="btn-back-costs" class="small back-btn"></button>
+      <h2 id="costs-title" tabindex="-1"></h2>
       <div class="field">
         <label id="label-fuel" for="input-fuel"></label>
         <input id="input-fuel" type="number" min="0" step="0.01" inputmode="decimal" />
@@ -137,13 +141,14 @@
 
     <!-- Screen e: results -->
     <section id="screen-results" class="screen" hidden>
-      <h2 id="results-title"></h2>
+      <button type="button" id="btn-back-results" class="small back-btn"></button>
+      <h2 id="results-title" tabindex="-1"></h2>
       <div id="results-body"></div>
     </section>
 
     <!-- Screen f: ask -->
     <section id="screen-ask" class="screen" hidden>
-      <h2 id="ask-title"></h2>
+      <h2 id="ask-title" tabindex="-1"></h2>
       <div id="ask-suggestions"></div>
       <div class="field">
         <label id="label-ask-question" for="input-ask-question"></label>
@@ -158,7 +163,7 @@
 
     <!-- Screen g: evidence pack and delete -->
     <section id="screen-evidence" class="screen" hidden>
-      <h2 id="evidence-title"></h2>
+      <h2 id="evidence-title" tabindex="-1"></h2>
       <div class="card">
         <button id="btn-open-report" class="secondary" type="button"></button>
         <p id="evidence-privacy-note" class="privacy-note"></p>

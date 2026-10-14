@@ -70,10 +70,38 @@ body {
   background: var(--white);
 }
 
+.app-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.app-header .auth-status {
+  flex-basis: 100%;
+}
+
 .brand {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  /* Reset button chrome: this is a real <button> for keyboard/SR access
+     (item 1c, 14 Oct 2026) but must look exactly like the plain logo lockup
+     it replaced, not a bordered/shadowed button. */
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  min-width: 0;
+  min-height: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.brand:active { transform: none; box-shadow: none; }
+
+.header-home-btn {
+  flex: 0 0 auto;
 }
 
 .brand-mark {
@@ -198,6 +226,11 @@ button.small {
   box-shadow: var(--hard-sm);
 }
 button.small:active { box-shadow: 0 0 0 var(--ink); transform: translate(3px, 3px); }
+
+.back-btn {
+  display: inline-flex;
+  margin-bottom: var(--space-2);
+}
 
 button:disabled {
   opacity: 0.5;
@@ -351,7 +384,24 @@ textarea { resize: vertical; }
   align-items: center;
   gap: 0.25rem;
   flex: 0 0 auto;
+  /* Reset button chrome: a completed step is a real tappable <button>
+     (item 1b, 14 Oct 2026), but the dot/label pair below supplies all the
+     visible styling -- the button itself must stay invisible. */
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  min-width: 0;
+  min-height: 0;
+  font: inherit;
 }
+.step-dot:active { transform: none; }
+.step-dot:disabled {
+  opacity: 1; /* current/future steps are dimmed via step-dot-num/-label colour, not global disabled opacity */
+  cursor: default;
+}
+.step-dot:not(:disabled) { cursor: pointer; }
+.step-dot.done:not(:disabled):hover .step-dot-num { box-shadow: var(--hard); }
 
 .step-dot-num {
   width: 32px;
@@ -902,7 +952,52 @@ label.upload-btn:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(
     transition: none !important;
     transform: none !important;
   }
-  button, .step-line-fill, #splash {
+  button, .step-line-fill, #splash, .money-chart-bar {
     transition: none !important;
   }
 }
+
+/* ---------------------------------------------------------------------
+   "Where your money went" bar chart (item 2, 14 Oct 2026): flat, inline
+   SVG, bar length is only a visual scaling of the API's own ₹ figures --
+   no numbers are computed here.
+--------------------------------------------------------------------- */
+
+.money-chart { margin-top: var(--space-3); }
+
+.money-chart-row + .money-chart-row { margin-top: var(--space-2); }
+
+.money-chart-label-line {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-1);
+  font-size: var(--fs-100);
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.money-chart-label { color: var(--muted); }
+.money-chart-value { color: var(--ink); font-weight: 900; }
+
+.money-chart-svg {
+  display: block;
+  width: 100%;
+  height: 22px;
+  overflow: visible;
+}
+
+.money-chart-track { fill: var(--paper); stroke: var(--ink); stroke-width: 3; }
+
+.money-chart-bar {
+  stroke: var(--ink);
+  stroke-width: 3;
+  transform: scaleX(0);
+  transform-origin: 0 0;
+  transition: transform 400ms ease-out;
+}
+.money-chart-bar.grow { transform: scaleX(1); }
+
+.money-chart-bar-gross { fill: var(--navy); }
+.money-chart-bar-deductions { fill: var(--error); }
+.money-chart-bar-costs { fill: var(--amber); }
+.money-chart-bar-net { fill: var(--primary); }

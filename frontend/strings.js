@@ -85,6 +85,10 @@ export const STRINGS = {
     results: "Results",
     ask: "Ask",
     evidence: "Evidence & delete",
+    back: "Back",
+    home: "Home",
+    brandHomeLabel: "PayProof -- go to the first screen",
+    leaveConfirm: "Leave this screen? Your changes here are not saved yet.",
   },
 
   results: {
@@ -99,6 +103,12 @@ export const STRINGS = {
     dataQualityTitle: "Data quality notes",
     noLoggedInHours: "You didn't enter hours online, so \"per hour online\" isn't shown.",
     reconciliationNote: (g) => `Your earning lines do not add up to the credited total: net earnings may be understated by about ${g}.`,
+    chartTitle: "Where your money went",
+    chartGrossTrip: "Gross pay",
+    chartGrossWeekly: "Gross weekly pay",
+    chartDeductions: "Platform deductions",
+    chartCosts: "Your costs",
+    chartNetEarnings: "Net earnings",
   },
 
   ask: {
