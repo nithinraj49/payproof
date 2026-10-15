@@ -58,6 +58,13 @@ Before any deploy and any `git push` (show the exact command); when you need a s
 - Small commits with clear messages. Run `pytest` before every commit.
 - Prefer the simplest thing that satisfies the requirement. Never claim something works unless you ran it; report failures honestly.
 
+## Deploy policy
+
+- **Never `git push`.** The owner pushes and tags. Never tag `v1.0`; after the owner tags `v1.0`, only bug fixes are allowed.
+- **Frontend-only change** (`frontend/`): run the tests, tag the current commit as a rollback point (`git tag live-before-<name>`), deploy Hosting (`firebase deploy --only hosting --project payproof-nithin-2026`), then verify with `curl.exe` that the new code is served (print only the matching line), that `Cache-Control` is no-cache, that `/health` returns 200 and that `/api/whoami` returns 401.
+- **Any backend change** (`backend/`, `engine/`, `extraction/`, `deploy/env.yaml`): use the `deploy-check` skill and get the owner's approval of the exact command first (`--project payproof-nithin-2026`, `--region asia-south1`, the `payproof-run` service account, `--allow-unauthenticated`, `--max-instances=3`, `--memory=1Gi`, `--timeout=60`, `--env-vars-file=deploy/env.yaml`). If the command changes at all, ask again. Deploy the backend before Hosting when both change. Afterwards show the live-vs-file environment table (every row must match, no `GEMINI_API_KEY`), `/health`, `/api/whoami` 401 and the last 20 log lines.
+- Application logs may contain only status codes, endpoint names, outcomes, token counts, estimated costs and counts. Never a user id, token, email, question, answer or extracted value.
+
 ## Commands (PowerShell)
 
 - Run locally: `uvicorn backend.main:app --reload` (use `gcloud auth application-default login`)
