@@ -6,11 +6,11 @@ All data in this report is **simulated** (fictional platforms, generated screens
 
 | Item | Value |
 |---|---|
-| Cloud Run service | `payproof`, region `asia-south1`, revision **`payproof-00013-qbn`** (100% of traffic), service account `payproof-run`, max instances 3, 1 vCPU, 1 GiB, 60 s timeout, **min instances 0** |
+| Cloud Run service | `payproof`, region `asia-south1`, revision **`payproof-00014-pkr`** (100% of traffic, final deploy of 15 Oct 2026), service account `payproof-run`, max instances 3, 1 vCPU, 1 GiB, 60 s timeout, **min instances 0** |
 | Environment | all 21 variables match `deploy/env.yaml`, no `GEMINI_API_KEY`; Vertex AI at `VERTEX_LOCATION=global`, `gemini-3.1-flash-lite` for extraction and answers |
-| Firebase Hosting | last deployed 15 Oct 2026 (after revision 00013), `https://payproof-nithin-2026.web.app`; `Cache-Control: no-cache, no-store, must-revalidate` confirmed on `app.js` |
-| Rollback points | tags `live-before-nav`, `live-before-phase6-fixes`, `live-before-batch2`; previous Cloud Run revisions `payproof-00012-6gx`, `payproof-00011-7nt` |
-| Pending backend fixes (committed locally, **not deployed**) | one: the evidence-pack header says "N confirmed trip(s)" until the final backend deploy (fixed in `backend/report.py`, test `tests/test_report_header.py`). The final deploy needs the owner's approval. |
+| Firebase Hosting | last deployed 15 Oct 2026 (the frontend did not change in the final backend deploy), `https://payproof-nithin-2026.web.app`; `Cache-Control: no-cache, no-store, must-revalidate` confirmed on `app.js` |
+| Rollback points | tags `live-before-nav`, `live-before-phase6-fixes`, `live-before-batch2`; previous Cloud Run revisions `payproof-00013-qbn`, `payproof-00012-6gx`, `payproof-00011-7nt` |
+| Pending backend fixes | none: the evidence-pack header fix (`backend/report.py`, test `tests/test_report_header.py`) went out in revision 00014 |
 | Tests | `pytest -q`: 283 passed. `node --check` on every JS file, `scripts/check_ids.js` and `scripts/check_nav_graph.js`: all pass. |
 
 ## 2. Fixes made in Phase 6
@@ -65,7 +65,26 @@ Anonymous throwaway users, simulated images only, run before the Decimal change 
 | Data-quality text | "Trip 1: the amounts add up to ₹147.02, but its screenshot says ₹136.65." | exactly that, flagged trips = 1 | PASS |
 | Evidence-pack wording | plain note, amber warning, no raw wording | note and warning present; header still says "trip(s)" | FAIL, fix pending deploy |
 
-**Final deploy regression (to be filled in after the owner approves the final backend deploy):** E2, E3, E5, E6, E7, data-quality text and the evidence-pack header singular and plural.
+### Final deploy: revision `payproof-00014-pkr` (15 Oct 2026, owner-approved, identical command)
+
+Deploy checks: all 21 environment variables match `deploy/env.yaml`, no `GEMINI_API_KEY`, service account `payproof-run`, max instances 3, 1 GiB, 60 s, min instances unchanged (0); `/health` 200 on Cloud Run; `/api/whoami` 401 on Cloud Run and through Hosting; the last 20 log lines show a clean startup and the two check requests.
+
+Short regression on the final revision (live API, throwaway users deleted afterwards, **no Gemini calls**):
+
+| Check | Expected | Actual | Result |
+|---|---|---|---|
+| E2 | gap 1,097; net payout 9,023; net earnings 7,823; ₹30.08/km; ₹195.58/h; zero case 0 | 1097.0; 9023.0; 7823.0; 30.08; 195.58; 0.0 | PASS |
+| E3 | computed ₹147.02 vs ₹136.65, gap ₹10.37; matching trip not flagged | exactly that; matching = 0 flagged | PASS |
+| E5 via Hosting | friendly errors | text file 415, fake JPEG 400, 9 MB 413, PDF 415 (all with `error_code`) | PASS |
+| E5 direct to Cloud Run | friendly errors | identical | PASS |
+| E6 | 128 / 192.00 / 85.33 / 20.00 / 0.0588 | 128.0 / 192.0 / 85.33 / 20.0 / 0.0588 | PASS |
+| E7 | 6,120 / 127.50 / 15.77 / 0.0353 | 6120.0 / 127.5 / 15.77 / 0.0353, no notes | PASS |
+| Data-quality text | "Trip 1: the amounts add up to ₹147.02, but its screenshot says ₹136.65." | exactly that, flagged trips = 1 | PASS |
+| Evidence pack, mismatch | plain note and amber warning, no raw wording | both present, no `(s)` or `[0]` | PASS |
+| Evidence-pack header, 1 trip | "trip mode, 1 confirmed trip you uploaded or entered" | present, no `(s)` | PASS |
+| Evidence-pack header, 2 trips | "trip mode, 2 confirmed trips you uploaded or entered" | present, no `(s)` | PASS |
+
+E5 note: the intermittent dropped connection (section 10) was not seen in this run.
 
 ## 5. Privacy evidence
 
@@ -152,7 +171,6 @@ Order-offer rejection: 5 of 5. The one silent gap is `L3_004` `period_label` (nu
 - **Single currency:** notes and the evidence pack use ₹ with Indian grouping; there is no per-user currency.
 - **The pay-change signal is disabled** (offline evaluation found no usable estimator); `GET /api/changes` returns "unavailable".
 - **English only.** A regional language is future work.
-- **The evidence-pack header ("N confirmed trip(s)")** stays until the final backend deploy.
 - **Not verified in a real browser:** no browser-automation tool was available. The focus-outline fix, the client-side upload check, the trip reconciliation panel and its spacing, and the demo flow were checked from the code and the served files only. Please rehearse `docs/DEMO.md` once on a phone.
 - **Not pushed, not tagged.**
 
