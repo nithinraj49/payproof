@@ -1,4 +1,4 @@
-# PayProof extraction evaluation results
+﻿# PayProof extraction evaluation results
 
 Generated 9 Oct 2026, corrected 9 Oct 2026. Model: `gemini-3.1-flash-lite`. Backend: Vertex AI (`VERTEX_LOCATION=global`). Numbers reflect the real production pipeline: `extraction/prompt.py`, the response-schema constraint on `low_confidence_fields`, the `normalize_low_confidence_labels` backstop, and `apply_deterministic_safeguards` all ran exactly as the deployed app would run them.
 
@@ -141,7 +141,7 @@ Same 50 simulated images (standard 30, moderate 10, hard 10), same model (`gemin
 
 **Transient infrastructure failure, stated plainly:** the first attempt stopped at image 10 of 30 (`L1_010`) with `ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain`. This was a TLS problem on the local network path of the machine running the evaluation (the request never reached Google, 0 tokens, nothing billed). It is **not a model result and is not counted as a miss**: that one failed-call record was deleted and `L1_010` was re-run in the resumed run, where it succeeded. No certificate or proxy setting was changed. Nine images (`L1_001` to `L1_009`) had already completed before the stop and were kept.
 
-**Calls made:** 51 billed extraction calls for 50 images (one schema-invalid retry on `N1_004`, which the pipeline allows), about $0.049 (unverified prices). That is 5 more than the 46 announced beforehand: because the script did not apply the gate, the four hard images the gate blocks in production (`H1_001`, `H1_003`, `H1_008`, `H1_009`) were sent to Gemini anyway (4 extra calls), plus the one retry.
+**Calls made:** 51 billed extraction calls for 50 images (one schema-invalid retry on `N1_004`, which the pipeline allows), $0.0472 computed from the saved token counts (131,550 in, 9,557 out; unverified prices). That is 5 more than the 46 announced beforehand: because the script did not apply the gate, the four hard images the gate blocks in production (`H1_001`, `H1_003`, `H1_008`, `H1_009`) were sent to Gemini anyway (4 extra calls), plus the one retry.
 
 ### Standard set (30 images): identical to the 9 Oct numbers, as run and in production view
 

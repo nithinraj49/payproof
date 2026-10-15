@@ -647,8 +647,36 @@ firebase deploy --only hosting --project payproof-nithin-2026
 - Owner to run the manual checklist above on a real phone.
 - Not pushed to any remote (local commits only).
 
-## Phase 6 (15 Oct 2026): pending backend fixes (committed locally, NOT deployed)
+## Phase 6: test and harden -- done except the final backend deploy (15 Oct 2026)
 
-Live now: Cloud Run `payproof-00013-qbn`, Hosting deployed 15 Oct. One final backend deploy (identical command, owner approval first) will carry everything below, before `v1.0` is tagged. Then Hosting if the frontend changed, then the short no-Gemini regression (E2, E3, E5, E6, E7, data-quality text, evidence-pack header singular/plural).
+Full detail, tables and evidence: `docs/PHASE6_REPORT.md`. Demo script: `docs/DEMO.md`. Evaluation numbers: `eval/RESULTS.md` ("Phase 6 re-run on the final code"). Not pushed, `v1.0` not tagged (owner does both).
 
-1. Evidence-pack header said "N confirmed trip(s)": now "1 confirmed trip" / "N confirmed trips" (`backend/report.py`, test `tests/test_report_header.py`). Known cosmetic issue until deployed.
+### Live state
+- Cloud Run `payproof-00013-qbn` (100% traffic, 21 env vars match `deploy/env.yaml`, no `GEMINI_API_KEY`, min instances 0). Hosting deployed 15 Oct after it. Rollback tags: `live-before-nav`, `live-before-phase6-fixes`, `live-before-batch2`; previous revisions `payproof-00012-6gx`, `payproof-00011-7nt`.
+- Tests: 283 passed. `node --check`, `scripts/check_ids.js`, `scripts/check_nav_graph.js` pass.
+
+### Done this phase
+- Fixes: heading focus outline, money-chart gross fill, trip reconciliation gate (`POST /api/trip-reconciliation`, amber note on Results and in the evidence pack), user id removed from logs (+ guard test), Decimal ROUND_HALF_UP money (7823/40 = 195.58), plain data-quality notes with human trip numbering, browser-side upload check (type and 8 MB), 16 px panel spacing, CLAUDE.md "Deploy policy" section.
+- Acceptance A1-A13 and E1-E8 run on the live API (all pass except E5, intermittent dropped connection through Hosting, cause not found). Privacy (Step 3) and grounding audit (Step 4, incl. six live refusal questions) pass. Evaluation re-run: standard 171/172 and moderate 61/61 unchanged; hard tier changed (see RESULTS.md); 0 confidently wrong everywhere. Latency: extraction median 3.43 s (max 4.60 s), answers median 2.81 s (max 4.91 s), cold start about 8.3 s.
+- `eval/run_extraction_eval.py` now applies the live quality gate and production safeguards; `eval/production_view.py` re-applies them offline to saved records.
+- Spend: 78 Gemini calls, about $0.059 in total.
+
+### Known limitations (full list in the report)
+Simulated data only; real and degraded weekly screens untested; gate thresholds tuned on simulated data; hard-tier answers not perfectly repeatable; slow 9 MB uploads through Hosting (about 25 s) with 2 dropped connections in about 75 sequences; verifier treats amounts quoted from data-quality notes as ungrounded (safe failure); cold start about 8 s.
+
+### Pending backend fixes (committed locally, NOT deployed)
+1. Evidence-pack header said "N confirmed trip(s)": now "1 confirmed trip" / "N confirmed trips" (`backend/report.py`, `tests/test_report_header.py`).
+
+Before tagging `v1.0`: one final backend deploy (identical command, owner approval first), then Hosting only if the frontend changed, then the short no-Gemini regression (E2, E3, E5, E6, E7, data-quality text, evidence-pack header singular and plural). Minimum instances is the owner's separate Friday decision (recommendation: `--min-instances=1` for the judging window, about $5 for 17 Oct to 7 Nov, then back to 0).
+
+### Resume commands (PowerShell)
+```powershell
+cd C:\dev\payproof
+pytest -q
+Get-ChildItem frontend\*.js | ForEach-Object { node --check $_.FullName }
+node scripts/check_ids.js; node scripts/check_nav_graph.js
+git status; git log --oneline | Select-Object -First 8
+# Final backend deploy (needs the owner's approval of this exact command):
+gcloud run deploy payproof --source . --project payproof-nithin-2026 --region asia-south1 --service-account payproof-run@payproof-nithin-2026.iam.gserviceaccount.com --allow-unauthenticated --max-instances=3 --memory=1Gi --timeout=60 --env-vars-file=deploy/env.yaml --quiet
+```
+
