@@ -1,0 +1,45 @@
+{
+  "name": "H1_009",
+  "layout": "H1",
+  "noise": "hard",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": "QuickDash",
+    "currency": null,
+    "language_detected": "en",
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": null,
+        "order_id": null,
+        "order_type": "Food Delivery",
+        "base_pay": 10.0,
+        "incentive": null,
+        "tip": null,
+        "deductions": [
+          {
+            "label": "Platform Fee",
+            "amount": 2.0
+          }
+        ],
+        "total_payout": 8.0,
+        "distance_km": null,
+        "duration_min": null,
+        "low_confidence_fields": [
+          "base_pay",
+          "total_payout"
+        ]
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": true,
+    "notes": "The image is extremely blurry, making it difficult to read the exact numbers. I have estimated the values based on the visible shapes, but they should be verified."
+  },
+  "failed_call": false,
+  "error": null,
+  "calls_made": 1,
+  "prompt_tokens": 2631,
+  "output_tokens": 267,
+  "thinking_tokens": 0
+}

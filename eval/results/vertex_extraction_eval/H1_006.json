@@ -1,0 +1,43 @@
+{
+  "name": "H1_006",
+  "layout": "H1",
+  "noise": "hard",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": "RideWave",
+    "currency": null,
+    "language_detected": "en",
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": "2023-05-02",
+        "order_id": "Passenger ride - 886 2763",
+        "order_type": null,
+        "base_pay": 113.22,
+        "incentive": null,
+        "tip": 15.13,
+        "deductions": [],
+        "total_payout": 128.35,
+        "distance_km": null,
+        "duration_min": null,
+        "low_confidence_fields": [
+          "trip_date",
+          "order_id",
+          "base_pay",
+          "tip",
+          "total_payout"
+        ]
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": true,
+    "notes": "The image is extremely blurry, making it difficult to read the exact numbers and text."
+  },
+  "failed_call": false,
+  "error": null,
+  "calls_made": 1,
+  "prompt_tokens": 2631,
+  "output_tokens": 266,
+  "thinking_tokens": 0
+}
