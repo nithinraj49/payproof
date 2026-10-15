@@ -85,7 +85,7 @@ async def extract(
         settings.quality_max_brightness,
     )
     if not quality.passed:
-        logger.info("extraction uid=%s rejected by quality gate reason=%s", user_id, quality.reason)
+        logger.info("extraction rejected by quality gate reason=%s", quality.reason)
         result = ExtractionResult(
             screen_type="other", trips=[], payout_summary=None,
             needs_review=True, notes=QUALITY_MESSAGES[quality.reason],
@@ -102,7 +102,7 @@ async def extract(
     # the *prepared* image against the curated allow-list (backend/sample_images.py).
     is_known_sample = image_hash in SAMPLE_IMAGE_HASHES
     if is_sample and not is_known_sample:
-        logger.info("extraction uid=%s is_sample flag set but image hash is not an allow-listed sample; treated as a normal upload", user_id)
+        logger.info("extraction is_sample flag set but image hash is not an allow-listed sample; treated as a normal upload")
 
     if is_known_sample:
         # Shared, persistent cache across all visitors (never user uploads):
@@ -486,5 +486,5 @@ def get_report(
 def delete_data(user_id: str = Depends(require_user_id)):
     """Delete all stored data for this user (REQUIREMENTS.md sections 2 and 11)."""
     count = delete_all(user_id)
-    logger.info("delete uid=%s documents_deleted=%d", user_id, count)
+    logger.info("delete documents_deleted=%d", count)
     return {"deleted": True, "documents_removed": count}
