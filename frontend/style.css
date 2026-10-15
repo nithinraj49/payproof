@@ -64,6 +64,15 @@ body {
   outline-offset: 3px;
 }
 
+/* Screen headings and the landing headline take focus only through a
+   programmatic focus() when a screen changes (tabindex="-1", so the
+   keyboard never tabs onto them). That must never draw an outline, after a
+   tap or otherwise. Real keyboard focus on buttons and inputs is unchanged. */
+[tabindex="-1"]:focus,
+[tabindex="-1"]:focus-visible {
+  outline: none;
+}
+
 .app-header {
   padding: var(--space-2);
   border-bottom: var(--bd);
@@ -997,7 +1006,7 @@ label.upload-btn:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(
 }
 .money-chart-bar.grow { transform: scaleX(1); }
 
-.money-chart-bar-gross { fill: var(--navy); }
+.money-chart-bar-gross { fill: #8FA3F7; } /* light blue: distinct from the ink frame and the navy hero card */
 .money-chart-bar-deductions { fill: var(--error); }
 .money-chart-bar-costs { fill: var(--amber); }
 .money-chart-bar-net { fill: var(--primary); }

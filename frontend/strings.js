@@ -70,6 +70,9 @@ export const STRINGS = {
     mustConfirmAll: "Please confirm every highlighted field before continuing.",
     blankFieldHint: "Not readable from your screenshot — type the value from your screenshot.",
     reconciliationWarning: (x, y) => `The earning lines add up to ${x}, but your screenshot says ${y} was credited. Some lines may be missing or cut off, so your pay may be higher than shown.`,
+    tripReconciliationWarning: (x, y) => `These amounts add up to ${x}, but your screenshot says ${y} was paid. Check the incentive, tip and deductions.`,
+    tripReconciliationFix: "Fix the numbers",
+    tripReconciliationContinue: "Continue anyway",
     reconciliationAddLine: "Add the missing line",
     reconciliationContinueAnyway: "Continue anyway",
   },
@@ -103,6 +106,9 @@ export const STRINGS = {
     dataQualityTitle: "Data quality notes",
     noLoggedInHours: "You didn't enter hours online, so \"per hour online\" isn't shown.",
     reconciliationNote: (g) => `Your earning lines do not add up to the credited total: net earnings may be understated by about ${g}.`,
+    tripReconciliationNote: (n) => (n === 1
+      ? "1 trip does not add up to the total payout shown in its screenshot, so these figures may be off."
+      : `${n} trips do not add up to the total payout shown in their screenshots, so these figures may be off.`),
     chartTitle: "Where your money went",
     chartGrossTrip: "Gross pay",
     chartGrossWeekly: "Gross weekly pay",

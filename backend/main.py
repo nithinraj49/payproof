@@ -22,7 +22,7 @@ from backend.store import (
 )
 from backend.usage_limits import check_and_increment, check_global_limit_only
 from engine.changes import detect_change
-from engine.earnings import compute_trip_summary, compute_weekly_summary
+from engine.earnings import compute_trip_summary, compute_weekly_summary, reconcile_trips
 from engine.models import CostInputs, PayoutLine, WeekInput
 from extraction.extract import RateLimitError, extract_screenshot
 from extraction.image_prep import prepare_image
@@ -240,6 +240,33 @@ def post_weekly_reconciliation(body: WeekBody, user_id: str = Depends(require_us
     }
 
 
+@app.post("/api/trip-reconciliation")
+def post_trip_reconciliation(body: PutTripsBody, user_id: str = Depends(require_user_id)):
+    """Stateless reconciliation check for the trip-mode review screen: which
+    of the trips about to be confirmed have base pay + incentive + tip -
+    deductions differing from total payout by more than 0.5, with the
+    engine's own figures for the warning text. No Firestore write, no Gemini
+    call, no usage charge.
+    """
+    trips = [_to_trip_input(t.model_dump()) for t in body.trips]
+    try:
+        flagged = reconcile_trips(trips)
+    except ValueError as exc:
+        raise ApiError(400, "invalid_data", str(exc))
+    return {
+        "flagged_count": len(flagged),
+        "flagged": [
+            {
+                "trip_index": f.trip_index,
+                "computed_total": f.computed_total,
+                "total_payout": f.total_payout,
+                "gap": f.gap,
+            }
+            for f in flagged
+        ],
+    }
+
+
 @app.put("/api/costs")
 def put_costs(body: CostsBody, user_id: str = Depends(require_user_id)):
     """Save (or overwrite) cost inputs for this user."""
@@ -284,6 +311,7 @@ def get_summary(
             "deduction_share": summary.deduction_share,
             "total_distance_km": summary.total_distance_km,
             "trip_count": summary.trip_count,
+            "reconciliation_flagged_trips": len(reconcile_trips(trip_inputs)),
             "data_quality": summary.data_quality,
         }
 
@@ -438,7 +466,7 @@ def get_report(
             summary = compute_trip_summary(trip_inputs, cost_inputs, logged_in_hours=logged_in_hours)
         except ValueError as exc:
             raise ApiError(400, "invalid_data", str(exc))
-        html_doc = render_trip_report(summary, trip_rows)
+        html_doc = render_trip_report(summary, trip_rows, reconcile_trips(trip_inputs))
     else:
         week_rows = get_weeks(user_id)
         if not week_rows:

@@ -42,6 +42,15 @@ class TripInput:
 
 
 @dataclass
+class TripReconciliation:
+    """One trip whose parts do not add up to its screenshot's total payout."""
+    trip_index: int
+    computed_total: float
+    total_payout: float
+    gap: float
+
+
+@dataclass
 class TripSummary:
     gross_pay: Optional[float]
     platform_deductions: Optional[float]

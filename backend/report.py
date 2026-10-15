@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Optional
 
 from backend.qa import CURRENCY_SYMBOLS, DEFAULT_CURRENCY, GLOSSARY
 from engine.earnings import _RECONCILIATION_TOLERANCE
-from engine.models import TripSummary, WeeklySummary
+from engine.models import TripReconciliation, TripSummary, WeeklySummary
 
 _CURRENCY_SYMBOL = CURRENCY_SYMBOLS[DEFAULT_CURRENCY]
 
@@ -173,7 +173,11 @@ _WEEKLY_METHOD = """
 """
 
 
-def render_trip_report(summary: TripSummary, trip_rows: List[Dict[str, Any]]) -> str:
+def render_trip_report(
+    summary: TripSummary,
+    trip_rows: List[Dict[str, Any]],
+    reconciliation: Optional[List[TripReconciliation]] = None,
+) -> str:
     rows = [
         (_label("trip_count", "Trip count"), _count(summary.trip_count)),
         (_label("gross_pay", "Gross pay"), _money(summary.gross_pay)),
@@ -200,7 +204,19 @@ def render_trip_report(summary: TripSummary, trip_rows: List[Dict[str, Any]]) ->
         items = "".join(f"<li>{_esc(n)}</li>" for n in summary.data_quality)
         notes_html = f'<h2>Data-quality notes</h2><ul class="notes">{items}</ul>'
 
-    table_html = _rows_table(rows) + _label_amount_table("Deductions by type", deduction_totals)
+    recon_html = ""
+    if reconciliation:
+        parts = "".join(
+            f"<li>Trip {r.trip_index + 1}: the amounts add up to {_esc(_money(r.computed_total))}, "
+            f"but the screenshot says {_esc(_money(r.total_payout))} was paid.</li>"
+            for r in reconciliation
+        )
+        recon_html = (
+            '<p class="recon-warning">Some trips do not add up to the total payout shown in the screenshot, '
+            f'so figures built from them may be off.</p><ul class="notes">{parts}</ul>'
+        )
+
+    table_html = recon_html + _rows_table(rows) + _label_amount_table("Deductions by type", deduction_totals)
     return _page(
         "PayProof evidence pack (trip mode)",
         f"trip mode, {summary.trip_count} confirmed trip(s) you uploaded or entered",

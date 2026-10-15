@@ -112,6 +112,12 @@ export const api = {
     return request("/api/weekly-reconciliation", { method: "POST", jsonBody: week });
   },
 
+  // Stateless trip-mode check (engine figures only, no Firestore write, no
+  // Gemini call): which trips do not add up to their screenshot's total.
+  getTripReconciliation(trips) {
+    return request("/api/trip-reconciliation", { method: "POST", jsonBody: { trips } });
+  },
+
   putCosts(costs) {
     return request("/api/costs", { method: "PUT", jsonBody: costs });
   },

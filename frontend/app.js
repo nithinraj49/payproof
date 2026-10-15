@@ -874,6 +874,7 @@ function renderTripCard(group, trip, onChanged) {
 function renderReview() {
   document.getElementById("review-title").textContent = STRINGS.review.title;
   document.getElementById("reconciliation-gate").hidden = true;
+  document.getElementById("trip-reconciliation-gate").hidden = true;
 
   const rejectedBlock = document.getElementById("review-rejected-in-batch");
   const rejectedList = document.getElementById("review-rejected-list");
@@ -1111,32 +1112,90 @@ const RECONCILIATION_GATE_TOLERANCE = 0.5;
 
 async function handleReviewContinue() {
   if (state.mode === "trip") {
-    try {
-      const trips = state.tripGroups.flatMap((g) => g.trips).map((t) => ({
-        trip_date: t.date.value,
-        date_confirmed: t.date.confirmed,
-        base_pay: t.basePay.value,
-        incentive: t.incentive.value,
-        tip: t.tip.value,
-        deductions: t.deductions.items.map((d) => ({ label: d.label || "Deduction", amount: d.amount || 0 })),
-        total_payout: t.totalPayout.value,
-        distance_km: t.distanceKm.value,
-        duration_min: t.durationMin.value,
-      }));
-      setLoading(true, STRINGS.common.loading);
-      await api.putTrips(trips);
-      setLoading(false);
-      renderCosts();
-      showScreen("costs");
-    } catch (err) {
-      setLoading(false);
-      showApiError(err);
-    }
+    await handleTripReviewContinue();
     return;
   }
   if (state.mode === "weekly") {
     await handleWeeklyReviewContinue();
   }
+}
+
+function buildTripPayload() {
+  return state.tripGroups.flatMap((g) => g.trips).map((t) => ({
+    trip_date: t.date.value,
+    date_confirmed: t.date.confirmed,
+    base_pay: t.basePay.value,
+    incentive: t.incentive.value,
+    tip: t.tip.value,
+    deductions: t.deductions.items.map((d) => ({ label: d.label || "Deduction", amount: d.amount || 0 })),
+    total_payout: t.totalPayout.value,
+    distance_km: t.distanceKm.value,
+    duration_min: t.durationMin.value,
+  }));
+}
+
+// Trip reconciliation gate: asks the engine (POST /api/trip-reconciliation,
+// no browser arithmetic, no Gemini call) whether base pay + incentive + tip
+// - deductions matches the screenshot's total payout before anything is
+// saved. Every number in the warning comes straight from that response.
+async function handleTripReviewContinue() {
+  const trips = buildTripPayload();
+  let recon;
+  try {
+    setLoading(true, STRINGS.common.loading);
+    recon = await api.getTripReconciliation(trips);
+    setLoading(false);
+  } catch (err) {
+    setLoading(false);
+    showApiError(err);
+    return;
+  }
+  if (recon.flagged_count > 0) {
+    showTripReconciliationGate(recon.flagged[0]);
+    return;
+  }
+  await saveTripsAndProceed(trips);
+}
+
+async function saveTripsAndProceed(trips) {
+  try {
+    setLoading(true, STRINGS.common.loading);
+    await api.putTrips(trips);
+    setLoading(false);
+    renderCosts();
+    showScreen("costs");
+  } catch (err) {
+    setLoading(false);
+    showApiError(err);
+  }
+}
+
+function showTripReconciliationGate(flagged) {
+  const gateEl = document.getElementById("trip-reconciliation-gate");
+  document.getElementById("trip-reconciliation-gate-text").textContent =
+    STRINGS.review.tripReconciliationWarning(
+      formatMoney(flagged.computed_total, state.currency),
+      formatMoney(flagged.total_payout, state.currency),
+    );
+  gateEl.hidden = false;
+  gateEl.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
+}
+
+function hideTripReconciliationGate() {
+  document.getElementById("trip-reconciliation-gate").hidden = true;
+}
+
+function handleTripReconFix() {
+  hideTripReconciliationGate();
+  document.getElementById("review-groups").scrollIntoView({
+    behavior: prefersReducedMotion() ? "auto" : "smooth",
+    block: "start",
+  });
+}
+
+async function handleTripReconContinueAnyway() {
+  hideTripReconciliationGate();
+  await saveTripsAndProceed(buildTripPayload());
 }
 
 function buildWeekPayload() {
@@ -1576,6 +1635,17 @@ function renderResults(summary) {
 
     addResultsRow(body, STRINGS.results.payPerKm, formatRate(summary.net_payout_per_km, "per km", currency) ?? "—");
     addResultsRow(body, STRINGS.results.deductionShare, formatPercent(summary.deduction_share) ?? "—");
+
+    // Persistent amber note: derived from this /api/summary response (the
+    // stored trips), so it shows however the worker got here, e.g. via
+    // "Continue anyway" on the Check screen.
+    const flaggedTrips = summary.reconciliation_flagged_trips;
+    if (flaggedTrips !== null && flaggedTrips !== undefined && flaggedTrips > 0) {
+      const recon = document.createElement("p");
+      recon.className = "banner";
+      recon.textContent = STRINGS.results.tripReconciliationNote(flaggedTrips);
+      body.appendChild(recon);
+    }
   } else if (summary.mode === "weekly") {
     netEarningsEl = appendNetEarningsFigure(body, formatMoney(summary.net_earnings_weekly, currency) ?? "—");
 
@@ -1801,6 +1871,10 @@ export function initApp() {
   setupNav();
   setupNavigationControls();
   document.getElementById("btn-review-continue").addEventListener("click", handleReviewContinue);
+  document.getElementById("btn-trip-recon-fix").textContent = STRINGS.review.tripReconciliationFix;
+  document.getElementById("btn-trip-recon-continue").textContent = STRINGS.review.tripReconciliationContinue;
+  document.getElementById("btn-trip-recon-fix").addEventListener("click", handleTripReconFix);
+  document.getElementById("btn-trip-recon-continue").addEventListener("click", () => handleTripReconContinueAnyway());
   document.getElementById("btn-recon-add-line").textContent = STRINGS.review.reconciliationAddLine;
   document.getElementById("btn-recon-continue-anyway").textContent = STRINGS.review.reconciliationContinueAnyway;
   document.getElementById("btn-recon-add-line").addEventListener("click", handleReconAddLine);

@@ -8,6 +8,7 @@ from typing import List, Optional
 from engine.models import (
     CostInputs,
     TripInput,
+    TripReconciliation,
     TripSummary,
     WeekInput,
     WeeklySummary,
@@ -19,6 +20,34 @@ _RECONCILIATION_TOLERANCE = 0.5
 def _validate_non_negative(value: Optional[float], name: str) -> None:
     if value is not None and value < 0:
         raise ValueError(f"{name} must not be negative (got {value})")
+
+
+def reconcile_trips(trips: List[TripInput]) -> List[TripReconciliation]:
+    """Trips where base pay + incentive + tip - deductions differs from the
+    screenshot's total payout by more than the tolerance (0.5).
+
+    A trip with no total_payout cannot be checked and is never flagged.
+    Missing parts count as 0, the same as compute_trip_summary.
+    """
+    flagged: List[TripReconciliation] = []
+    for i, t in enumerate(trips):
+        if t.total_payout is None:
+            continue
+        for name, val in [("base_pay", t.base_pay), ("incentive", t.incentive),
+                          ("tip", t.tip), ("total_payout", t.total_payout)]:
+            _validate_non_negative(val, f"trip[{i}].{name}")
+        if any(d < 0 for d in t.deductions):
+            raise ValueError(f"trip[{i}].deductions must not be negative")
+        computed = (t.base_pay or 0.0) + (t.incentive or 0.0) + (t.tip or 0.0) - sum(t.deductions)
+        gap = round(computed - t.total_payout, 4)
+        if abs(gap) > _RECONCILIATION_TOLERANCE:
+            flagged.append(TripReconciliation(
+                trip_index=i,
+                computed_total=round(computed, 2),
+                total_payout=round(t.total_payout, 2),
+                gap=round(gap, 2),
+            ))
+    return flagged
 
 
 def compute_trip_summary(
