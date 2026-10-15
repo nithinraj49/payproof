@@ -1,0 +1,82 @@
+{
+  "name": "H1_010",
+  "layout": "H1",
+  "noise": "hard",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": "QuickCash",
+    "currency": null,
+    "language_detected": "en",
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": null,
+        "order_id": null,
+        "order_type": null,
+        "base_pay": null,
+        "incentive": null,
+        "tip": null,
+        "deductions": [],
+        "total_payout": null,
+        "distance_km": null,
+        "duration_min": null,
+        "low_confidence_fields": [
+          "base_pay",
+          "distance_km",
+          "duration_min",
+          "incentive",
+          "order_id",
+          "order_type",
+          "tip",
+          "total_payout",
+          "trip_date"
+        ]
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": true,
+    "notes": "The image is extremely blurry and no text or numbers are legible."
+  },
+  "failed_call": false,
+  "error": null,
+  "calls_made": 1,
+  "prompt_tokens": 2631,
+  "output_tokens": 250,
+  "thinking_tokens": 0,
+  "predicted_raw": {
+    "platform_label": "QuickCash",
+    "currency": null,
+    "language_detected": "en",
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": null,
+        "order_id": null,
+        "order_type": null,
+        "base_pay": null,
+        "incentive": null,
+        "tip": null,
+        "deductions": [],
+        "total_payout": null,
+        "distance_km": null,
+        "duration_min": null,
+        "low_confidence_fields": [
+          "base_pay",
+          "distance_km",
+          "duration_min",
+          "incentive",
+          "order_id",
+          "order_type",
+          "tip",
+          "total_payout",
+          "trip_date"
+        ]
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": true,
+    "notes": "The image is extremely blurry and no text or numbers are legible."
+  },
+  "gate_blocked": false
+}

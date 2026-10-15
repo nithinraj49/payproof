@@ -133,13 +133,17 @@ Every "confidently wrong" count above (0 on every tier) is defined **at the imag
 
 ## Phase 6 re-run on the final code (15 Oct 2026, SIMULATED data)
 
-Same 50 simulated images (standard 30, moderate 10, hard 10), same model (`gemini-3.1-flash-lite`, Vertex AI, `VERTEX_LOCATION=global`), same extraction code that is deployed (`extraction/` is unchanged since before the 14 Oct deploy). Run through `extraction.extract.extract_screenshot()` directly, paced 5 s apart, stop-on-first-error. The 9 Oct tables above are kept unchanged as history; per-image results from that run are in `eval/results/history_2026-10-09_vertex_extraction_eval/`, and this run's are in `eval/results/vertex_extraction_eval/`. Counts below come from `python -m eval.full_analysis` (same scoring as the 9 Oct tables).
+Same 50 simulated images (standard 30, moderate 10, hard 10), same model (`gemini-3.1-flash-lite`, Vertex AI, `VERTEX_LOCATION=global`), same extraction code that is deployed (`extraction/` is unchanged since before the 14 Oct deploy), paced 5 s apart, stop-on-first-error. The 9 Oct tables above are kept unchanged as history; their per-image results are in `eval/results/history_2026-10-09_vertex_extraction_eval/`. This run's raw per-image results are in `eval/results/vertex_extraction_eval/`, and the production view (below) is in `eval/results/production_view_2026-10-15/`. Counts come from `python -m eval.full_analysis` (same scoring as the 9 Oct tables).
+
+**Two ways to read this run, reported side by side.**
+- **As run (raw model output):** the standard (30) and hard (10) images went through `eval/run_extraction_eval.py`, which at the time called the model directly. It did not apply the live app's quality gate, the label normalizer or the deterministic safeguards. The moderate (10) images went through `eval/run_tier_eval.py`, which uses the real production path (`extract_screenshot`).
+- **Production view (what the deployed app would show for the same model output):** `python -m eval.production_view` re-applies, offline and with no Gemini call, the quality gate, the label normalizer and the deterministic safeguards to every saved record. `run_extraction_eval.py` has since been fixed to apply the gate and the same post-processing itself (and to report both), covered by `tests/test_eval_gate.py`. The evaluation was not re-run.
 
 **Transient infrastructure failure, stated plainly:** the first attempt stopped at image 10 of 30 (`L1_010`) with `ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain`. This was a TLS problem on the local network path of the machine running the evaluation (the request never reached Google, 0 tokens, nothing billed). It is **not a model result and is not counted as a miss**: that one failed-call record was deleted and `L1_010` was re-run in the resumed run, where it succeeded. No certificate or proxy setting was changed. Nine images (`L1_001` to `L1_009`) had already completed before the stop and were kept.
 
-**Calls made:** 51 billed extraction calls for 50 images (one schema-invalid retry on `N1_004`, which the pipeline allows). That is 5 more than the 46 announced beforehand: `run_extraction_eval.py` does not apply the image-quality gate, so the four hard images the gate blocks in production (`H1_001`, `H1_003`, `H1_008`, `H1_009`) were sent to Gemini anyway (4 extra calls), plus the one retry. Estimated cost about $0.047 (unverified prices).
+**Calls made:** 51 billed extraction calls for 50 images (one schema-invalid retry on `N1_004`, which the pipeline allows), about $0.049 (unverified prices). That is 5 more than the 46 announced beforehand: because the script did not apply the gate, the four hard images the gate blocks in production (`H1_001`, `H1_003`, `H1_008`, `H1_009`) were sent to Gemini anyway (4 extra calls), plus the one retry.
 
-### Standard set (30 images): identical to the 9 Oct numbers
+### Standard set (30 images): identical to the 9 Oct numbers, as run and in production view
 
 | Outcome | Lenient | Strict |
 |---|---|---|
@@ -157,31 +161,31 @@ Same single silent gap as before: `L3_004` `period_label` came back `null` with 
 
 61/61 correct (strict and lenient), 0 silent gaps, 0 abstained, 0 failed calls, 0 wrong-flagged, 0 confidently wrong. Image-level confidently wrong: **0**.
 
-### Hard set (10 images): changed, and why
+### Hard set (10 images)
 
-As run (all 10 images sent to Gemini):
-
-| Outcome | Lenient | Strict |
+| Outcome (fields) | As run (raw model output) | Production view (gate + normalizer + safeguards) |
 |---|---|---|
 | Correct | 0/56 | 0/56 |
 | Silent gap | 0/56 | 0/56 |
-| Abstained | 33/56 | 33/56 |
+| Abstained | 33/56 | 29/56 |
 | Failed call | 0/56 | 0/56 |
-| Gate-blocked | 0/56 | 0/56 |
-| Wrong, flagged | 23/56 | 23/56 |
+| Gate-blocked (zero Gemini cost) | 0/56 | 23/56 |
+| Wrong, flagged | 23/56 | 4/56 |
 | Confidently wrong | 0/56 | 0/56 |
 | **Sum check** | **56/56** | **56/56** |
 
-Production view (the gate stops `H1_001`, `H1_003`, `H1_008` and `H1_009` before Gemini, so in the live app those images never get a model answer): gate-blocked 23, abstained 19, wrong-flagged 14, correct 0, confidently wrong 0 (sum 56/56).
+Lenient and strict are identical in both views.
 
-**Field-level flag breakdown of the 23 wrong-flagged values (as run):** 12 individually listed in `low_confidence_fields`, 7 flagged at image level only, 4 with no per-field flag possible (deduction amounts and labels). So 11 of 23 (48%) would show as ordinary, unhighlighted cells if a UI trusted cell-level highlighting alone, which is why the Check screen treats every cell as unconfirmed when `needs_review` is true. Image-level confidently wrong: **0**. Field-level confidently wrong: **0**.
+**Production view, in detail:** the gate stops four images (`H1_001`, `H1_003`, `H1_008`, `H1_009`, all "too blurry"), so in the live app they never reach the model. For the other six, the safeguards null every field the model itself listed as low-confidence, which turns most wrong values into honest blanks. The 4 wrong-flagged values left are: `trip_date` on `H1_002` (2024-09-08 against a true 2026-09-08) and on `H1_007` (2023-05-22 against 2026-09-23), and `H1_007`'s deduction amount (11.32 against 17.33) and label (`Platform Fee` against `Platform fee`).
 
-`trip_date`: 0/10 correct (5 abstained, 5 wrong-flagged with a plausible 2023/2024 date against a true 2026 date). The date is only ever used after the worker's explicit tap.
+**Field-level flag breakdown:** as run, the 23 wrong-flagged values were 12 individually listed in `low_confidence_fields`, 7 flagged at image level only and 4 with no per-field flag possible (deduction amounts and labels). In the production view the 4 remaining are 2 flagged at image level only (the two dates) and 2 with no per-field flag possible (the deduction amount and label). So 4 of 4 would show as ordinary, unhighlighted cells if a UI trusted cell-level highlighting alone, which is why the Check screen treats every cell as unconfirmed when `needs_review` is true. Image-level confidently wrong: **0** in both views. Field-level confidently wrong: **0** in both views.
+
+`trip_date`: 0/10 correct in both views (production view: 4 gate-blocked, 4 abstained, 2 wrong-flagged with a plausible 2023/2024 date against a true 2026 date). The date is only ever used after the worker's explicit tap.
 
 ### Did any number change from the 9 Oct run?
 
 - **Standard and moderate: no.** Every count is identical (171/172 with one silent gap; 61/61), strict and lenient.
-- **Hard: yes.** 9 Oct: correct 2, abstained 27, gate-blocked 7 (one image), wrong-flagged 20, confidently wrong 0. Now (as run): correct 0, abstained 33, gate-blocked 0, wrong-flagged 23, confidently wrong 0. Two reasons, neither a change in the headline safety number: (1) this run sent all 10 images to the model, whereas the 9 Oct table counted one image (`H1_009`) as gate-blocked; (2) the model's answers on unreadable images are not perfectly repeatable even at temperature 0 (the two 9 Oct "correct" values were deduction labels; the same labels now come back as `Platform Fee` against the true `Platform fee`, which strict string matching scores as wrong). **The main safety number is unchanged: 0 confidently wrong on every tier.**
+- **Hard: yes.** 9 Oct: correct 2, abstained 27, gate-blocked 7 (one image), wrong-flagged 20, confidently wrong 0. As run now: correct 0, abstained 33, gate-blocked 0, wrong-flagged 23. Production view now: correct 0, abstained 29, gate-blocked 23 (four images), wrong-flagged 4. Reasons: (1) the 9 Oct table counted only one image (`H1_009`) as gate-blocked, whereas the gate as configured today blocks four; (2) the model's answers on unreadable images are not perfectly repeatable even at temperature 0 (the two 9 Oct "correct" values were deduction labels; the same labels now come back as `Platform Fee` against the true `Platform fee`, which strict string matching scores as wrong). **The main safety number is unchanged: 0 confidently wrong on every tier, in both views.**
 
 ## Change-detection evaluation (20 simulated trip histories)
 

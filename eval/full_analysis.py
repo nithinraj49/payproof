@@ -1,4 +1,4 @@
-"""Offline re-analysis of all saved eval/results/vertex_extraction_eval/*.json
+﻿"""Offline re-analysis of all saved eval/results/vertex_extraction_eval/*.json
 records (zero Gemini calls). This is analysis tooling, not production code --
 it never touches extraction/ or backend/, makes no Gemini calls, and nothing
 here is deployed.
@@ -26,10 +26,12 @@ here is deployed.
 Usage: python -m eval.full_analysis
 """
 import json
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-RESULTS_DIR = ROOT / "eval" / "results" / "vertex_extraction_eval"
+# Optional override, e.g. eval/results/production_view_2026-10-15 (see eval/production_view.py).
+RESULTS_DIR = ROOT / os.environ.get("PAYPROOF_EVAL_RESULTS_DIR", "eval/results/vertex_extraction_eval")
 MANIFEST = json.loads((ROOT / "eval" / "generated" / "manifest.json").read_text())
 MANIFEST_BY_NAME = {e["name"]: e for e in MANIFEST}
 

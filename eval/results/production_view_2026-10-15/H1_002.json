@@ -1,0 +1,70 @@
+{
+  "name": "H1_002",
+  "layout": "H1",
+  "noise": "hard",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": "Ziplin",
+    "currency": null,
+    "language_detected": null,
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": "2024-09-08",
+        "order_id": "888-85314",
+        "order_type": "Passenger ride",
+        "base_pay": null,
+        "incentive": null,
+        "tip": null,
+        "deductions": [],
+        "total_payout": null,
+        "distance_km": null,
+        "duration_min": null,
+        "low_confidence_fields": [
+          "base_pay",
+          "incentive",
+          "tip",
+          "total_payout"
+        ]
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": true,
+    "notes": "The line item 'Commission fee' with value 0.70 is a deduction not explicitly mapped in the schema, and the total payout value is blurry."
+  },
+  "failed_call": false,
+  "error": null,
+  "calls_made": 1,
+  "prompt_tokens": 2631,
+  "output_tokens": 206,
+  "thinking_tokens": 0,
+  "predicted_raw": {
+    "platform_label": "Ziplin",
+    "currency": null,
+    "language_detected": null,
+    "screen_type": "trip_detail",
+    "trips": [
+      {
+        "trip_date": "2024-09-08",
+        "order_id": "888-85314",
+        "order_type": "Passenger ride",
+        "base_pay": 10.18,
+        "incentive": null,
+        "tip": null,
+        "deductions": [],
+        "total_payout": 10.88,
+        "distance_km": null,
+        "duration_min": null,
+        "low_confidence_fields": [
+          "incentive",
+          "tip"
+        ]
+      }
+    ],
+    "payout_summary": null,
+    "needs_review": true,
+    "notes": "The line item 'Commission fee' with value 0.70 is a deduction not explicitly mapped in the schema, and the total payout value is blurry."
+  },
+  "gate_blocked": false
+}

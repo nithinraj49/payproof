@@ -32,8 +32,14 @@ from pydantic import ValidationError
 
 from backend.config import get_settings
 from backend.gemini_client import get_client
-from extraction.extract import RateLimitError, _call_once, _is_rate_limit
+import json as jsonlib
+
+from extraction.extract import (
+    RateLimitError, _call_once, _is_rate_limit,
+    apply_deterministic_safeguards, normalize_low_confidence_labels,
+)
 from extraction.image_prep import prepare_image
+from extraction.image_quality import QUALITY_MESSAGES, check_image_quality
 from extraction.schema import ExtractionResult
 from eval.model_selection import PRICE_PER_1M
 
@@ -71,9 +77,30 @@ def estimate_cost(model: str, n_calls: int) -> float:
     return n_calls * (ESTIMATED_INPUT_TOKENS / 1_000_000 * price["input"] + ESTIMATED_OUTPUT_TOKENS / 1_000_000 * price["output"])
 
 
+def quality_gate_reason(settings, jpeg_bytes: bytes):
+    """The same deterministic gate backend/main.py applies before any Gemini
+    call, with the same settings. Returns the failure reason, or None if the
+    image passes. A blocked image costs zero Gemini calls in the live app, so
+    it must cost zero here too."""
+    quality = check_image_quality(
+        jpeg_bytes,
+        settings.quality_min_short_side_px,
+        settings.quality_min_sharpness,
+        settings.quality_min_contrast,
+        settings.quality_min_brightness,
+        settings.quality_max_brightness,
+    )
+    return None if quality.passed else quality.reason
+
+
 def call_with_one_retry(client, settings, model: str, jpeg_bytes: bytes):
     """One call, one retry on schema-invalid output. Raises RateLimitError (systemic)
-    or RuntimeError (the image's own failure) on total failure."""
+    or RuntimeError (the image's own failure) on total failure.
+
+    Returns the PRODUCTION result: the label normalizer and the deterministic
+    safeguards run exactly as in extraction.extract.extract_screenshot(), so
+    these numbers are what the live app would show. The raw (pre-safeguard)
+    model output is returned too, so a run can be reported both ways."""
     calls_made = 0
     prompt_tokens = output_tokens = thinking_tokens = 0
     last_exc = None
@@ -91,9 +118,12 @@ def call_with_one_retry(client, settings, model: str, jpeg_bytes: bytes):
         output_tokens += ot
         thinking_tokens += tt
         try:
-            result = ExtractionResult.model_validate_json(response.text)
-            return result, prompt_tokens, output_tokens, thinking_tokens, calls_made
-        except ValidationError as exc:
+            raw_data = jsonlib.loads(response.text)
+            raw_data = normalize_low_confidence_labels(raw_data)
+            raw_result = ExtractionResult.model_validate(raw_data)
+            result = apply_deterministic_safeguards(raw_result)
+            return (result, raw_result), prompt_tokens, output_tokens, thinking_tokens, calls_made
+        except (ValidationError, ValueError) as exc:
             last_exc = exc
             continue
     raise RuntimeError(f"{type(last_exc).__name__}: {last_exc}") if last_exc else RuntimeError("unknown failure")
@@ -174,9 +204,35 @@ def evaluate_set(client, settings, model: str, entries: list, total_calls_made: 
             jpeg_bytes = prepare_image(raw, settings.image_max_side_px, settings.image_jpeg_quality)
             failed = False
             error_text = None
+            raw_result = None
+
+            # The live app's deterministic quality gate runs BEFORE any Gemini
+            # call (backend/main.py). A blocked image costs zero calls, is
+            # recorded as gate-blocked (never as a model result), and is not
+            # paced or counted against the call cap.
+            gate_reason = quality_gate_reason(settings, jpeg_bytes)
+            if gate_reason is not None:
+                blocked = ExtractionResult(screen_type="other", trips=[], payout_summary=None,
+                                           needs_review=True, notes=QUALITY_MESSAGES[gate_reason])
+                record = {
+                    "name": entry["name"], "layout": layout, "noise": noise, "model": model, "backend": "vertex",
+                    "predicted": blocked.model_dump(), "gate_blocked": True, "gate_reason": gate_reason,
+                    "failed_call": False, "error": None, "calls_made": 0,
+                    "prompt_tokens": 0, "output_tokens": 0, "thinking_tokens": 0,
+                }
+                cached_path.write_text(json.dumps(record, indent=2))
+                print(f"  {entry['name']} [{layout}/{noise}]: gate-blocked ({gate_reason}), 0 Gemini calls")
+                result = blocked
+                per_image.append({"name": entry["name"], "layout": layout, "noise": noise, "failed": False})
+                if layout == "N1":
+                    n1_check = check_n1(result)
+                    n1_check["name"] = entry["name"]
+                    n1_check["failed_call"] = False
+                    n1_results.append(n1_check)
+                continue
 
             try:
-                result, prompt_tokens, output_tokens, thinking_tokens, calls_made = call_with_one_retry(client, settings, model, jpeg_bytes)
+                (result, raw_result), prompt_tokens, output_tokens, thinking_tokens, calls_made = call_with_one_retry(client, settings, model, jpeg_bytes)
             except RateLimitError:
                 raise  # systemic: caller stops the whole run regardless of the flag
             except Exception as exc:
@@ -191,7 +247,9 @@ def evaluate_set(client, settings, model: str, entries: list, total_calls_made: 
 
             record = {
                 "name": entry["name"], "layout": layout, "noise": noise, "model": model, "backend": "vertex",
-                "predicted": result.model_dump(), "failed_call": failed, "error": error_text,
+                "predicted": result.model_dump(),
+                "predicted_raw": raw_result.model_dump() if raw_result is not None else None,
+                "gate_blocked": False, "failed_call": failed, "error": error_text,
                 "calls_made": calls_made, "prompt_tokens": prompt_tokens, "output_tokens": output_tokens,
                 "thinking_tokens": thinking_tokens,
             }
@@ -308,12 +366,21 @@ def main():
     standard, hard = load_manifest()
     all_entries = standard + hard
     remaining = [e for e in all_entries if not (RESULTS_DIR / f"{e['name']}.json").exists()]
-    cost = estimate_cost(model, len(remaining))
+    # Images the live app's quality gate blocks cost zero Gemini calls.
+    gate_blocked = []
+    callable_remaining = []
+    for e in remaining:
+        jpeg = prepare_image((ROOT / e["image"]).read_bytes(), settings.image_max_side_px, settings.image_jpeg_quality)
+        reason = quality_gate_reason(settings, jpeg)
+        (gate_blocked if reason else callable_remaining).append((e["name"], reason) if reason else e)
+    cost = estimate_cost(model, len(callable_remaining))
 
     print(f"Backend: vertex, location: {settings.vertex_location}, project: {settings.project_id}, model: {model}")
     print(f"Standard set: {len(standard)} images (L1/L3/N1). Hard set: {len(hard)} images (H1).")
     print(f"Already cached (will be reused, not re-called): {len(all_entries) - len(remaining)}/{len(all_entries)}")
-    print(f"Gemini calls planned THIS run: {len(remaining)} (1 each; a schema-invalid retry adds at most 1 more per image)")
+    print(f"Blocked by the live app's quality gate (zero Gemini calls): {len(gate_blocked)}"
+          + (" -- " + ", ".join(f"{n}:{r}" for n, r in gate_blocked) if gate_blocked else ""))
+    print(f"Gemini calls planned THIS run: {len(callable_remaining)} (1 each; a schema-invalid retry adds at most 1 more per image)")
     print(f"Cap this run: {args.cap} calls, including retries. Pacing: {args.pace}s between calls. "
           f"stop_on_first_error={args.stop_on_first_error}")
     print(f"Estimated cost (paid-tier, real Vertex AI billing): ~${round(cost, 4)}")

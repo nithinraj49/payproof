@@ -1,0 +1,35 @@
+{
+  "name": "H1_001",
+  "layout": "H1",
+  "noise": "hard",
+  "model": "gemini-3.1-flash-lite",
+  "backend": "vertex",
+  "predicted": {
+    "platform_label": null,
+    "currency": null,
+    "language_detected": null,
+    "screen_type": "other",
+    "trips": [],
+    "payout_summary": null,
+    "needs_review": true,
+    "notes": "This image looks too blurry to read. Please retake this screenshot in focus."
+  },
+  "failed_call": false,
+  "error": null,
+  "calls_made": 1,
+  "prompt_tokens": 2631,
+  "output_tokens": 48,
+  "thinking_tokens": 0,
+  "predicted_raw": {
+    "platform_label": null,
+    "currency": null,
+    "language_detected": null,
+    "screen_type": "other",
+    "trips": [],
+    "payout_summary": null,
+    "needs_review": true,
+    "notes": "The image is too blurry to read any specific values or labels, making it impossible to extract data."
+  },
+  "gate_blocked": true,
+  "gate_reason": "too_blurry"
+}
