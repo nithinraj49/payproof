@@ -448,12 +448,35 @@ async function handleUseSample(sample) {
 // Upload + extraction
 // ---------------------------------------------------------------------------
 
+// Checked in the browser before anything is uploaded (no network call): keep
+// in step with the server's MAX_UPLOAD_MB (deploy/env.yaml) and its allowed
+// content types (backend/main.py ALLOWED_CONTENT_TYPES).
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+const ALLOWED_UPLOAD_TYPES = ["image/png", "image/jpeg", "image/webp"];
+
+function uploadProblem(file) {
+  if (!ALLOWED_UPLOAD_TYPES.includes(file.type)) {
+    return STRINGS.errors.badType;
+  }
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return STRINGS.errors.tooLarge;
+  }
+  return null;
+}
+
 async function handleUpload(files, isSample) {
   resetState();
   state.isSampleMode = !!isSample;
 
   for (let i = 0; i < files.length; i += 1) {
     const file = files[i];
+    if (!isSample) {
+      const problem = uploadProblem(file);
+      if (problem) {
+        state.rejectedInBatch.push({ fileName: file.name, reason: problem });
+        continue;
+      }
+    }
     setLoading(true, STRINGS.upload.processing(i + 1, files.length));
 
     let result;

@@ -212,6 +212,22 @@ button:active {
   box-shadow: 0 0 0 var(--ink);
 }
 
+/* Reconciliation panels (trip and weekly): 16px above the panel (from the
+   "Add another trip" button) and 16px between its two stacked buttons, so
+   the hard shadows never touch. */
+#trip-reconciliation-gate,
+#reconciliation-gate {
+  margin-top: var(--space-2);
+}
+#trip-reconciliation-gate button,
+#reconciliation-gate button {
+  display: block;
+}
+#trip-reconciliation-gate button + button,
+#reconciliation-gate button + button {
+  margin-top: var(--space-2);
+}
+
 button.primary {
   background: var(--primary);
   color: #FFFFFF;

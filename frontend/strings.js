@@ -178,7 +178,7 @@ export const STRINGS = {
     sessionExpired: "Your session expired. Please reload the page.",
     network: "Could not reach PayProof. Check your connection and try again.",
     timeout: "That took too long. Please try again.",
-    tooLarge: "That screenshot is too large. Please upload a smaller image.",
+    tooLarge: "That screenshot is larger than 8 MB. Please upload a smaller image.",
     badType: "Please upload a PNG, JPEG or WebP image.",
     busy: "PayProof is busy right now. Please try again in a minute.",
     generic: "Something went wrong. Please try again.",

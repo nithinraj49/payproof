@@ -229,7 +229,7 @@ def render_weekly_report(summary: WeeklySummary, week_row: Dict[str, Any]) -> st
         (_label("gross_weekly", "Gross weekly pay"), _money(summary.gross_weekly)),
         (_label("deductions_weekly", "Weekly deductions"), _money(summary.deductions_weekly)),
         (_label("net_payout_weekly", "Total credited"), _money(summary.net_payout_weekly)),
-        ("Reconciliation gap", _money(summary.reconciliation_gap)),
+        ("Credited total minus the earning lines", _money(summary.reconciliation_gap)),
         (_label("worker_costs_weekly", "Worker costs"), _money(summary.worker_costs_weekly)),
         (_label("net_earnings_weekly", "Net earnings"), _money(summary.net_earnings_weekly)),
         (_label("net_per_online_hour", "Net pay per online hour"), _rate(summary.net_per_online_hour, "per hour online")),

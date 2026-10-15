@@ -1,4 +1,4 @@
-"""Engine tests: both worked examples from REQUIREMENTS.md sections 5.1 and 5.2,
+﻿"""Engine tests: both worked examples from REQUIREMENTS.md sections 5.1 and 5.2,
 plus at least 8 hand-computed additional cases per mode. No network calls.
 
 Hand calculations appear in comments above each test.
@@ -107,7 +107,7 @@ def test_trip_empty_list_returns_none_metrics():
     assert r.gross_pay is None
     assert r.net_earnings is None
     assert r.net_per_engaged_hour is None
-    assert "no trips" in r.data_quality[0]
+    assert "No trips" in r.data_quality[0]
 
 
 def test_trip_zero_distance_returns_none_per_km():
@@ -160,7 +160,7 @@ def test_trip_reconciliation_gap_flagged():
         trips=[t(base=100, km=4, mins=20, total=50.0)],
         costs=costs(),
     )
-    assert any("reconciliation" in note for note in r.data_quality)
+    assert any("add up" in note for note in r.data_quality)
     # gross and net_payout come from components, not total_payout
     assert r.gross_pay == 100.0
     assert r.net_payout == 100.0
@@ -377,7 +377,7 @@ def test_weekly_no_km_returns_none_costs():
     assert r.net_earnings_weekly is None
     assert r.net_per_online_hour is None
     assert r.net_payout_per_km is None
-    assert any("km_driven" in note for note in r.data_quality)
+    assert any("Distance driven" in note for note in r.data_quality)
 
 
 def test_weekly_no_hours_returns_none_per_hour():
@@ -397,7 +397,7 @@ def test_weekly_no_hours_returns_none_per_hour():
     assert r.net_per_online_hour is None
     assert r.net_payout_per_km == 20.0
     assert r.net_earnings_weekly == 4800.0
-    assert any("hours_online" in note for note in r.data_quality)
+    assert any("Hours online" in note for note in r.data_quality)
 
 
 def test_weekly_zero_km_returns_none_per_km():
@@ -431,7 +431,7 @@ def test_weekly_total_credited_missing_no_recon():
     )
     assert r.reconciliation_gap is None
     # No reconciliation quality note expected
-    assert not any("reconciliation" in note for note in r.data_quality)
+    assert not any("add up" in note for note in r.data_quality)
 
 
 def test_weekly_reconciliation_gap_flagged():
@@ -444,7 +444,7 @@ def test_weekly_reconciliation_gap_flagged():
         costs=costs(),
     )
     assert r.reconciliation_gap == -1000.0
-    assert any("reconciliation" in note for note in r.data_quality)
+    assert any("add up" in note for note in r.data_quality)
 
 
 def test_weekly_negative_deduction_rejected():
