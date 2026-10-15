@@ -1,4 +1,4 @@
-# PayProof progress log
+﻿# PayProof progress log
 
 ## Environment and model decisions (current, 7 Oct 2026)
 
@@ -657,12 +657,12 @@ Full detail, tables and evidence: `docs/PHASE6_REPORT.md`. Demo script: `docs/DE
 
 ### Done this phase
 - Fixes: heading focus outline, money-chart gross fill, trip reconciliation gate (`POST /api/trip-reconciliation`, amber note on Results and in the evidence pack), user id removed from logs (+ guard test), Decimal ROUND_HALF_UP money (7823/40 = 195.58), plain data-quality notes with human trip numbering, browser-side upload check (type and 8 MB), 16 px panel spacing, CLAUDE.md "Deploy policy" section.
-- Acceptance A1-A13 and E1-E8 run on the live API (all pass except E5, intermittent dropped connection through Hosting, cause not found). Privacy (Step 3) and grounding audit (Step 4, incl. six live refusal questions) pass. Evaluation re-run: standard 171/172 and moderate 61/61 unchanged; hard tier changed (see RESULTS.md); 0 confidently wrong everywhere. Latency: extraction median 3.43 s (max 4.60 s), answers median 2.81 s (max 4.91 s), cold start about 8.3 s.
+- Acceptance A1-A13 and E1-E8 run on the live API (all pass except E5, intermittent dropped connection through Hosting, cause not found). Privacy (Step 3) and grounding audit (Step 4, incl. six live refusal questions) pass. Evaluation re-run: standard 171/172 and moderate 61/61 unchanged; hard tier changed (see RESULTS.md); 0 confidently wrong everywhere. Latency: extraction median 3.43 s (max 4.60 s), answers median 2.81 s (max 4.91 s), cold start 3.85 s and 8.3 s (two measurements).
 - `eval/run_extraction_eval.py` now applies the live quality gate and production safeguards; `eval/production_view.py` re-applies them offline to saved records.
 - Spend: 78 Gemini calls, about $0.059 in total.
 
 ### Known limitations (full list in the report)
-Simulated data only; real and degraded weekly screens untested; gate thresholds tuned on simulated data; hard-tier answers not perfectly repeatable; slow 9 MB uploads through Hosting (about 25 s) with 2 dropped connections in about 75 sequences; verifier treats amounts quoted from data-quality notes as ungrounded (safe failure); cold start about 8 s.
+Simulated data only; real and degraded weekly screens untested; gate thresholds tuned on simulated data; hard-tier answers not perfectly repeatable; slow 9 MB uploads through Hosting (about 25 s) with 2 dropped connections in about 75 sequences; verifier treats amounts quoted from data-quality notes as ungrounded (safe failure); cold start about 4 to 8 s.
 
 ### Pending backend fixes (committed locally, NOT deployed)
 1. Evidence-pack header said "N confirmed trip(s)": now "1 confirmed trip" / "N confirmed trips" (`backend/report.py`, `tests/test_report_header.py`).

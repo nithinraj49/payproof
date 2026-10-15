@@ -1,4 +1,4 @@
-# Phase 6 report: test and harden (15 Oct 2026)
+﻿# Phase 6 report: test and harden (15 Oct 2026)
 
 All data in this report is **simulated** (fictional platforms, generated screenshots, throwaway test users). No real-platform image was used anywhere. Bug fixes and checks only; no new features. Nothing was pushed and `v1.0` is not tagged.
 
@@ -126,9 +126,9 @@ Order-offer rejection: 5 of 5. The one silent gap is `L3_004` `period_label` (nu
 | Extraction (simulated image, one Gemini call) | 3.43 s, 2.69 s, 4.60 s | **3.43 s** | **4.60 s** |
 | Answer (one question, one or two Gemini requests) | 2.81, 4.71, 4.91, 4.72, 2.38, 2.48, 2.66 s | **2.81 s** | **4.91 s** |
 | Warm API request (`/health` direct / `/api/whoami` via Hosting) | 5 each | 0.42 s / 0.69 s | 0.45 s / 0.97 s |
-| **Cold start** (first request after idle, direct to Cloud Run `/health`) | 1 measured | **8.3 s** (the log shows "Starting new instance") | |
+| **Cold start** (first request after 15+ minutes idle, direct to Cloud Run `/health`) | 2 measured: 8.3 s and 3.85 s (the log shows "Starting new instance" both times; warm requests after the second took 0.30 to 0.34 s) | **about 6 s (range 3.9 to 8.3 s)** | **8.3 s** |
 
-**Recommendation on minimum instances (not changed; for the owner's Friday decision):** the cold start adds about 8 s to the first API call of a visit (the first sample extraction would take about 9 s instead of 1 s). One always-on instance (1 vCPU, 1 GiB) costs roughly $7 a month at idle rates, about $5 for 17 Oct to 7 Nov (unverified price). I recommend `--min-instances=1` for the judging window and back to 0 afterwards; it needs its own approval and is not part of the final deploy.
+**Recommendation on minimum instances (not changed; for the owner's Friday decision):** the cold start adds roughly 4 to 8 s to the first API call of a visit (the first sample extraction would take about 5 to 9 s instead of about 1 s). One always-on instance (1 vCPU, 1 GiB) costs roughly $7 a month at idle rates, about $5 for 17 Oct to 7 Nov (unverified price). I recommend `--min-instances=1` for the judging window and back to 0 afterwards; it needs its own approval and is not part of the final deploy.
 
 ## 9. Gemini spend in Phase 6
 
@@ -148,7 +148,7 @@ Order-offer rejection: 5 of 5. The one silent gap is `L3_004` `period_label` (nu
 - **Upload through Firebase Hosting:** a 9 MB upload takes about 25 s through Hosting (median 24 to 27 s, max 32 s) versus about 1 s direct to Cloud Run, and 2 of about 75 test sequences dropped the connection before it reached the app (no entry in the Cloud Run request log; 60 further uploads were clean). The cause is not identified. The browser now rejects files over 8 MB and non-image types before uploading.
 - **Verifier gap:** amounts quoted from data-quality notes are treated as ungrounded (safe failure).
 - **A plausible wrong date or a self-consistent fabrication cannot be caught by code.** The date is used only after the worker's explicit tap, and the screenshot sits beside the table for checking.
-- **Cold start of about 8 s** with minimum instances at 0.
+- **Cold start of about 4 to 8 s** (two measurements: 3.85 s and 8.3 s) with minimum instances at 0.
 - **Single currency:** notes and the evidence pack use ₹ with Indian grouping; there is no per-user currency.
 - **The pay-change signal is disabled** (offline evaluation found no usable estimator); `GET /api/changes` returns "unavailable".
 - **English only.** A regional language is future work.
