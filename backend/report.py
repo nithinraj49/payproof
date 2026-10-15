@@ -219,7 +219,9 @@ def render_trip_report(
     table_html = recon_html + _rows_table(rows) + _label_amount_table("Deductions by type", deduction_totals)
     return _page(
         "PayProof evidence pack (trip mode)",
-        f"trip mode, {summary.trip_count} confirmed trip(s) you uploaded or entered",
+        "trip mode, "
+        + ("1 confirmed trip" if summary.trip_count == 1 else f"{summary.trip_count} confirmed trips")
+        + " you uploaded or entered",
         table_html, _TRIP_METHOD, notes_html,
     )
 

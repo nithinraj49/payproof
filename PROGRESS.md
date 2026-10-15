@@ -646,3 +646,9 @@ firebase deploy --only hosting --project payproof-nithin-2026
 ### Next
 - Owner to run the manual checklist above on a real phone.
 - Not pushed to any remote (local commits only).
+
+## Phase 6 (15 Oct 2026): pending backend fixes (committed locally, NOT deployed)
+
+Live now: Cloud Run `payproof-00013-qbn`, Hosting deployed 15 Oct. One final backend deploy (identical command, owner approval first) will carry everything below, before `v1.0` is tagged. Then Hosting if the frontend changed, then the short no-Gemini regression (E2, E3, E5, E6, E7, data-quality text, evidence-pack header singular/plural).
+
+1. Evidence-pack header said "N confirmed trip(s)": now "1 confirmed trip" / "N confirmed trips" (`backend/report.py`, test `tests/test_report_header.py`). Known cosmetic issue until deployed.
