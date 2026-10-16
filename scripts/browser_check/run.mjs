@@ -4,8 +4,10 @@
 // digits 0-9, language switching, mic states (fake SpeechRecognition), header selector fit.
 // usage: node scripts/browser_check/run.mjs [langs=en,hi,ta,te,kn,ml] [widths=320,360,390] [voice=1]
 // env: SHOTS=<dir> saves 360 px screenshots (en, ta) there; TAG=<name> names the overlap detail JSON in the temp folder;
-//      EDGE=<path to msedge.exe or chrome.exe>. Exit code 1 if any check fails; overlap hits are counted as checks too.
-import { spawn } from "child_process";
+//      EDGE=<path to msedge.exe or chrome.exe>. Every check prints one line: language, width, screen, pass or FAIL, seconds.
+//      A browser call with no answer for 60 s (or nothing finishing for 60 s) is a TIMEOUT failure and the run continues with a fresh browser;
+//      a second timeout after the same screen stops the run (exit 3) and prints the last 20 lines. Exit code 1 if any check fails; overlap hits are counted as checks too.
+import { spawn, spawnSync } from "child_process";
 import { mkdtempSync, writeFileSync, mkdirSync } from "fs";
 import os from "os";
 import path from "path";
@@ -19,31 +21,22 @@ const PORT = 9333 + Math.floor(Math.random() * 500);
 
 const { server, port } = await startServer();
 const BASE = `http://127.0.0.1:${port}/?nosplash=1`;
-const profile = mkdtempSync(path.join(os.tmpdir(), "edge-prof-"));
-const edge = spawn(EDGE, ["--headless=new", `--remote-debugging-port=${PORT}`, `--user-data-dir=${profile}`, "--no-first-run", "--disable-gpu", "--hide-scrollbars", "about:blank"], { stdio: "ignore" });
-
+let edge = null, ws = null;
+let id = 0; const pending = new Map(); const consoleErrors = [];
+const SEND_TIMEOUT_MS = 60000; // one browser call that gets no answer for 60 s is a timeout (a failure; the run continues)
 async function until(fn, ms = 10000, step = 100) {
   const t0 = Date.now();
   for (;;) { const v = await fn(); if (v) return v; if (Date.now() - t0 > ms) throw new Error("timeout waiting"); await new Promise((r) => setTimeout(r, step)); }
 }
-const targets = await until(async () => { try { const r = await fetch(`http://127.0.0.1:${PORT}/json`); const j = await r.json(); return j.find((t) => t.type === "page"); } catch { return null; } }, 20000, 300);
-const ws = new WebSocket(targets.webSocketDebuggerUrl);
-await new Promise((r) => (ws.onopen = r));
-let id = 0; const pending = new Map(); const consoleErrors = [];
-ws.onmessage = (m) => {
-  const d = JSON.parse(m.data);
-  if (d.id && pending.has(d.id)) { pending.get(d.id)(d); pending.delete(d.id); }
-  else if (d.method === "Runtime.exceptionThrown") consoleErrors.push(d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text);
-  else if (d.method === "Runtime.consoleAPICalled" && d.params.type === "error") consoleErrors.push(d.params.args.map((a) => a.value || a.description).join(" "));
-};
-const send = (method, params = {}) => new Promise((resolve, reject) => { const i = ++id; pending.set(i, (d) => (d.error ? reject(new Error(method + ": " + d.error.message)) : resolve(d.result))); ws.send(JSON.stringify({ id: i, method, params })); });
+const send = (method, params = {}) => new Promise((resolve, reject) => {
+  const i = ++id;
+  const timer = setTimeout(() => { pending.delete(i); reject(new Error("timeout: no answer to " + method + " within 60 s")); }, SEND_TIMEOUT_MS);
+  pending.set(i, (d) => { clearTimeout(timer); if (d.error) reject(new Error(method + ": " + d.error.message)); else resolve(d.result); });
+  ws.send(JSON.stringify({ id: i, method, params }));
+});
 const ev = async (expr) => { const r = await send("Runtime.evaluate", { expression: expr, awaitPromise: true, returnByValue: true }); if (r.exceptionDetails) throw new Error("eval: " + (r.exceptionDetails.exception?.description || r.exceptionDetails.text) + " :: " + expr.slice(0, 120)); return r.result.value; };
 const waitEv = (expr, ms) => until(() => ev(expr), ms);
-await send("Page.enable"); await send("Runtime.enable");
-await send("Emulation.setFocusEmulationEnabled", { enabled: true }); // headless pages are not focused by default; needed so :focus-visible rings exist
-
-// Fake speech recognition + shortened 15 s timer, installed before every page load.
-await send("Page.addScriptToEvaluateOnNewDocument", { source: `
+const INIT_SOURCE = `
   (() => {
     const realSetTimeout = window.setTimeout.bind(window);
     window.setTimeout = (fn, ms, ...a) => realSetTimeout(fn, ms === 15000 ? 400 : ms, ...a);
@@ -64,7 +57,31 @@ await send("Page.addScriptToEvaluateOnNewDocument", { source: `
     }
     window.SpeechRecognition = FakeSR;
   })();
-` });
+`;
+
+async function startBrowser() {
+  const profile = mkdtempSync(path.join(os.tmpdir(), "edge-prof-"));
+  const PORT = 9333 + Math.floor(Math.random() * 500);
+  edge = spawn(EDGE, ["--headless=new", `--remote-debugging-port=${PORT}`, `--user-data-dir=${profile}`, "--no-first-run", "--disable-gpu", "--hide-scrollbars", "about:blank"], { stdio: "ignore" });
+  const target = await until(async () => { try { const r = await fetch(`http://127.0.0.1:${PORT}/json`); const j = await r.json(); return j.find((t) => t.type === "page"); } catch { return null; } }, 20000, 300);
+  ws = new WebSocket(target.webSocketDebuggerUrl);
+  await new Promise((r) => (ws.onopen = r));
+  ws.onmessage = (m) => {
+    const d = JSON.parse(m.data);
+    if (d.id && pending.has(d.id)) { pending.get(d.id)(d); pending.delete(d.id); }
+    else if (d.method === "Runtime.exceptionThrown") consoleErrors.push(d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text);
+    else if (d.method === "Runtime.consoleAPICalled" && d.params.type === "error") consoleErrors.push(d.params.args.map((a) => a.value || a.description).join(" "));
+  };
+  await send("Page.enable"); await send("Runtime.enable");
+  await send("Emulation.setFocusEmulationEnabled", { enabled: true }); // headless pages are not focused by default; needed so :focus-visible rings exist
+  await send("Page.addScriptToEvaluateOnNewDocument", { source: INIT_SOURCE });
+}
+function killBrowser() {
+  try { ws.close(); } catch { /* already closed */ }
+  if (edge) spawnSync("taskkill", ["/PID", String(edge.pid), "/T", "/F"], { stdio: "ignore" });
+  pending.clear();
+}
+await startBrowser();
 
 const overflowFn = `(() => {
   const vw = window.innerWidth, bad = [];
@@ -137,9 +154,25 @@ async function checkOverlap(lang, width, step) {
   }
 }
 
-const results = []; let failures = 0;
-const T0 = Date.now();
-function record(lang, width, step, ok, detail = "") { if (process.env.VERBOSE) console.log(`[${Math.round((Date.now() - T0) / 1000)}s] ${lang} ${width} ${step} ${ok ? "ok" : "FAIL"}`); results.push({ lang, width, step, ok, detail }); if (!ok) { failures += 1; console.log(`FAIL [${lang} ${width}px] ${step} ${detail}`); } }
+const results = []; let failures = 0; const timeoutCounts = {};
+const recent = []; // the last output lines, shown when the run stops on a repeated timeout
+function out(line) { recent.push(line); if (recent.length > 20) recent.shift(); console.log(line); }
+let lastTick = Date.now(), lastStep = "(start)";
+function record(lang, width, step, ok, detail = "") {
+  const now = Date.now();
+  out(`${lang} ${width}px | ${step} | ${ok ? "pass" : "FAIL"} | ${((now - lastTick) / 1000).toFixed(1)}s${ok || !detail ? "" : " | " + detail}`);
+  lastTick = now; lastStep = lang + " " + width + "px " + step;
+  results.push({ lang, width, step, ok, detail });
+  if (!ok) failures += 1;
+}
+// Watchdog: if no check finishes and no step ends for 60 s, every waiting browser call is failed as a timeout.
+setInterval(() => {
+  if (Date.now() - lastTick > 60000) {
+    lastTick = Date.now();
+    for (const fn of [...pending.values()]) fn({ error: { message: "timeout: nothing finished for 60 s after '" + lastStep + "'" } });
+    pending.clear();
+  }
+}, 5000).unref();
 async function checkOverflow(lang, width, step) { const bad = await ev(overflowFn); record(lang, width, step + " layout", bad.length === 0, bad.slice(0, 6).join(" | ")); await checkOverlap(lang, width, step); }
 const click = (sel) => ev(`document.querySelector(${JSON.stringify(sel)}).click()`);
 const visible = (sel) => `(() => { const e = document.querySelector(${JSON.stringify(sel)}); return !!e && !e.hidden && !e.closest("[hidden]"); })()`;
@@ -268,7 +301,21 @@ for (const lang of LANGS) {
       record(lang, width, "gate stays open and is re-translated on switch", gate2.open && gate2.text !== gateText1 && /147\.02/.test(gate2.text) && /136\.65/.test(gate2.text), gate2.text.slice(0, 80));
       modes.reconFlag = false;
     } catch (err) {
-      record(lang, width, "scenario", false, String(err.message || err).slice(0, 300));
+      const msg = String(err.message || err).slice(0, 300);
+      const timedOut = /timeout/i.test(msg);
+      record(lang, width, timedOut ? "TIMEOUT (hung step is the one right after: " + lastStep + ")" : "scenario", false, msg);
+      if (timedOut) {
+        const key = lang + "|" + lastStep;
+        timeoutCounts[key] = (timeoutCounts[key] || 0) + 1;
+        if (timeoutCounts[key] >= 2) {
+          out(`STOP: ${lang} timed out twice after the same screen: ${lastStep}`);
+          console.log("--- last 20 lines ---\n" + recent.join("\n"));
+          killBrowser(); server.close();
+          process.exit(3);
+        }
+        killBrowser();
+        try { await startBrowser(); } catch (e2) { out("could not restart the browser: " + e2.message); process.exit(4); }
+      }
     }
   }
 }
@@ -306,5 +353,5 @@ writeFileSync(path.join(os.tmpdir(), "overlap-detail-" + (process.env.TAG || "ru
 writeFileSync(path.join(os.tmpdir(), "drive-results.json"), JSON.stringify(results, null, 1));
 console.log(`\nchecks: ${results.length}, failures: ${failures}, page errors: ${consoleErrors.length}`);
 consoleErrors.slice(0, 8).forEach((e) => console.log("console error:", String(e).slice(0, 200)));
-ws.close(); edge.kill(); server.close();
+killBrowser(); server.close();
 process.exit(failures ? 1 : 0);
