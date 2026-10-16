@@ -1071,12 +1071,6 @@ option {
   box-shadow: var(--hard-sm);
 }
 
-.lang-field .lang-select {
-  width: 100%;
-  min-height: var(--tap);
-  font-size: var(--fs-200);
-}
-
 .machine-note {
   margin: 0;
   padding: 0.4rem var(--space-2);
