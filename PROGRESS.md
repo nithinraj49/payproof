@@ -722,3 +722,9 @@ Rollback tags: `live-stage1` (= 5797520, the deployed Stage 1), `live-before-i18
 - Spacing: one `--off` shadow-offset variable; `--gap` and `--gap-sm` (offset + 8px) space stacked buttons, cards, chips, labels, notes. Cause of the "tall dark bars": sample cards had `tilt-card` (hard shadow) but no `card` box; now `card sample-card tilt-card`.
 - `scripts/browser_check/` (dev-only, not deployed): headless Edge run over a stubbed API (no Gemini, no network). Fails on layout overflow, text-vs-shadow overlap, wrong digits, language-switch problems, mic states. Run: `node scripts/browser_check/run.mjs en,ta 360 1` (set `SHOTS=<folder>` for 360 px screenshots).
 - Overlap hits (EN+TA, 360 px, all screens): 215 before, 0 after.
+
+## Stage 1.3: machine-translation note removed -- built 17 Oct 2026, NOT deployed yet
+
+Machine-translation note removed from the UI by owner decision; translations for hi, te, kn, ml are still unreviewed and must be described as such in README, deck and description.
+
+The key `lang.machineNote` is gone from all language files (161 keys each). To bring the strip back: `git revert` the commit titled "ui: remove the machine-translation note" (a comment in `frontend/index.html` says the same). The deployed Stage 1.1 commit (the rollback point for this change) is 81e7500.

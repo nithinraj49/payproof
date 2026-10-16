@@ -140,7 +140,6 @@
   "errors.technicalLine": "പിശക് {status} ({code}) — അടയ്ക്കാൻ തൊടുക",
   "splash.tagline": "നിങ്ങൾ യഥാർത്ഥത്തിൽ എത്ര സമ്പാദിക്കുന്നു എന്ന് അറിയൂ.",
   "lang.label": "ഭാഷ",
-  "lang.machineNote": "മെഷീൻ പരിഭാഷ, ഇതുവരെ പരിശോധിച്ചിട്ടില്ല",
   "samples.trip.label": "ട്രിപ്പ് സ്ക്രീൻഷോട്ട്",
   "samples.trip.description": "പൂർത്തിയായ ഡെലിവറി ട്രിപ്പിന്റെ രസീത്.",
   "samples.weekly.label": "ആഴ്ചത്തെ പേയ്‌മെന്റ് സ്ക്രീൻഷോട്ട്",

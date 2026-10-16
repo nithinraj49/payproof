@@ -8,12 +8,12 @@ const FALLBACK = "en";
 
 // Endonyms are the languages' own names, so they are not translation keys.
 export const LANGUAGES = [
-  { code: "en", name: "English", speech: "en-IN", machine: false }, // i18n-ignore
-  { code: "hi", name: "हिन्दी", speech: "hi-IN", machine: true }, // i18n-ignore
-  { code: "ta", name: "தமிழ்", speech: "ta-IN", machine: true }, // i18n-ignore
-  { code: "te", name: "తెలుగు", speech: "te-IN", machine: true }, // i18n-ignore
-  { code: "kn", name: "ಕನ್ನಡ", speech: "kn-IN", machine: true }, // i18n-ignore
-  { code: "ml", name: "മലയാളം", speech: "ml-IN", machine: true }, // i18n-ignore
+  { code: "en", name: "English", speech: "en-IN" }, // i18n-ignore
+  { code: "hi", name: "हिन्दी", speech: "hi-IN" }, // i18n-ignore
+  { code: "ta", name: "தமிழ்", speech: "ta-IN" }, // i18n-ignore
+  { code: "te", name: "తెలుగు", speech: "te-IN" }, // i18n-ignore
+  { code: "kn", name: "ಕನ್ನಡ", speech: "kn-IN" }, // i18n-ignore
+  { code: "ml", name: "മലയാളം", speech: "ml-IN" }, // i18n-ignore
 ];
 
 const dictionaries = {}; // code -> { key: text }, cached in memory
@@ -92,10 +92,7 @@ export function applyStaticStrings(root = document) {
       el.setAttribute(attr, t(el.getAttribute(`data-i18n-${attr}`)));
     });
   }
-  const note = document.getElementById("machine-note");
-  if (note) {
-    note.hidden = !languageInfo().machine;
-  }
+  // The "machine translation" note logic was here: see the comment in index.html to bring it back.
   document.title = t("app.name");
   fitSvgText(document.getElementById("splash-tag"), 400);
 }

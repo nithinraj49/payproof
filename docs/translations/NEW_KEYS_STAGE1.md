@@ -1,6 +1,5 @@
 # New keys added in stage 1 (language setting and voice input), translated in stage 1.1
 
-All 22 keys are translated in all five languages (machine translation, **not yet read by a native speaker**). Keep `{placeholders}` and the rupee sign unchanged; digits stay 0 to 9; `PayProof`, `Chrome` and `Google` stay in Latin letters. `lang.machineNote` should be removed per language once a person has reviewed that language.
 
 
 ## Hindi (हिन्दी)
@@ -8,7 +7,6 @@ All 22 keys are translated in all five languages (machine translation, **not yet
 | Key | English | Translation |
 |---|---|---|
 | `lang.label` | Language | भाषा |
-| `lang.machineNote` | Machine translation, not yet reviewed | मशीन अनुवाद, अभी जाँचा नहीं गया |
 | `samples.trip.label` | Trip screenshot | ट्रिप का स्क्रीनशॉट |
 | `samples.trip.description` | A completed delivery trip receipt. | पूरी हो चुकी डिलीवरी ट्रिप की रसीद। |
 | `samples.weekly.label` | Weekly payout screenshot | साप्ताहिक भुगतान का स्क्रीनशॉट |
@@ -35,7 +33,6 @@ All 22 keys are translated in all five languages (machine translation, **not yet
 | Key | English | Translation |
 |---|---|---|
 | `lang.label` | Language | மொழி |
-| `lang.machineNote` | Machine translation, not yet reviewed | இயந்திர மொழிபெயர்ப்பு, இன்னும் சரிபார்க்கப்படவில்லை |
 | `samples.trip.label` | Trip screenshot | பயணம் ஸ்கிரீன்ஷாட் |
 | `samples.trip.description` | A completed delivery trip receipt. | முடிந்த டெலிவரி பயணத்தின் ரசீது. |
 | `samples.weekly.label` | Weekly payout screenshot | வாராந்திரத் தொகை ஸ்கிரீன்ஷாட் |
@@ -62,7 +59,6 @@ All 22 keys are translated in all five languages (machine translation, **not yet
 | Key | English | Translation |
 |---|---|---|
 | `lang.label` | Language | భాష |
-| `lang.machineNote` | Machine translation, not yet reviewed | యంత్ర అనువాదం, ఇంకా సరిచూడలేదు |
 | `samples.trip.label` | Trip screenshot | ట్రిప్ స్క్రీన్‌షాట్ |
 | `samples.trip.description` | A completed delivery trip receipt. | పూర్తయిన డెలివరీ ట్రిప్ రసీదు. |
 | `samples.weekly.label` | Weekly payout screenshot | వారపు చెల్లింపు స్క్రీన్‌షాట్ |
@@ -89,7 +85,6 @@ All 22 keys are translated in all five languages (machine translation, **not yet
 | Key | English | Translation |
 |---|---|---|
 | `lang.label` | Language | ಭಾಷೆ |
-| `lang.machineNote` | Machine translation, not yet reviewed | ಯಂತ್ರ ಅನುವಾದ, ಇನ್ನೂ ಪರಿಶೀಲಿಸಿಲ್ಲ |
 | `samples.trip.label` | Trip screenshot | ಟ್ರಿಪ್ ಸ್ಕ್ರೀನ್‌ಶಾಟ್ |
 | `samples.trip.description` | A completed delivery trip receipt. | ಮುಗಿದ ಡೆಲಿವರಿ ಟ್ರಿಪ್‌ನ ರಸೀದಿ. |
 | `samples.weekly.label` | Weekly payout screenshot | ವಾರದ ಪಾವತಿ ಸ್ಕ್ರೀನ್‌ಶಾಟ್ |
@@ -116,7 +111,6 @@ All 22 keys are translated in all five languages (machine translation, **not yet
 | Key | English | Translation |
 |---|---|---|
 | `lang.label` | Language | ഭാഷ |
-| `lang.machineNote` | Machine translation, not yet reviewed | മെഷീൻ പരിഭാഷ, ഇതുവരെ പരിശോധിച്ചിട്ടില്ല |
 | `samples.trip.label` | Trip screenshot | ട്രിപ്പ് സ്ക്രീൻഷോട്ട് |
 | `samples.trip.description` | A completed delivery trip receipt. | പൂർത്തിയായ ഡെലിവറി ട്രിപ്പിന്റെ രസീത്. |
 | `samples.weekly.label` | Weekly payout screenshot | ആഴ്ചത്തെ പേയ്‌മെന്റ് സ്ക്രീൻഷോട്ട് |

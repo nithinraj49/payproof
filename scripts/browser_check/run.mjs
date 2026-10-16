@@ -192,11 +192,11 @@ for (const lang of LANGS) {
     try {
       modes.reconFlag = false;
       await load(lang, width);
-      const info = await ev(`({ htmlLang: document.documentElement.lang, stored: sessionStorage.getItem("payproof_lang"), headerSel: document.getElementById("lang-select-header").value, landingSel: (document.getElementById("lang-select-landing") || {}).value || null, note: !document.getElementById("machine-note").hidden, noteText: document.getElementById("machine-note").textContent, font: getComputedStyle(document.body).fontFamily.split(",")[0], headline: document.getElementById("landing-headline").textContent, title: document.title })`);
-      record(lang, width, "language state", info.htmlLang === lang && info.stored === lang && info.headerSel === lang && info.landingSel === null && info.note === (lang !== "en") && info.headline.length > 0, JSON.stringify(info));
+      const info = await ev(`({ htmlLang: document.documentElement.lang, stored: sessionStorage.getItem("payproof_lang"), headerSel: document.getElementById("lang-select-header").value, landingSel: (document.getElementById("lang-select-landing") || {}).value || null, noteGone: document.getElementById("machine-note") === null, font: getComputedStyle(document.body).fontFamily.split(",")[0], headline: document.getElementById("landing-headline").textContent, title: document.title })`);
+      record(lang, width, "language state", info.htmlLang === lang && info.stored === lang && info.headerSel === lang && info.landingSel === null && info.noteGone && info.headline.length > 0, JSON.stringify(info));
       const fit = await ev(`(() => { const s = document.getElementById("lang-select-header").getBoundingClientRect(), h = document.getElementById("btn-home").getBoundingClientRect(); return { sameRow: Math.abs((s.top + s.bottom) / 2 - (h.top + h.bottom) / 2) < 6, inView: s.left >= 0 && h.right <= window.innerWidth, selW: Math.round(s.width) }; })()`);
       record(lang, width, "header selector fits beside Home", fit.sameRow && fit.inView, JSON.stringify(fit));
-      if (width === WIDTHS[0]) console.log(`${lang}: font=${info.font} note=${info.note} "${info.noteText}" headline="${info.headline}"`);
+      if (width === WIDTHS[0]) console.log(`${lang}: font=${info.font} headline="${info.headline}"`);
       await checkOverflow(lang, width, "first screen");
       const broken = await ev(`[...document.querySelectorAll(".step-dot-label")].filter((el) => { const words = el.textContent.trim().split(/\s+/).length; const lh = parseFloat(getComputedStyle(el).lineHeight) || 14; return Math.round(el.getBoundingClientRect().height / lh) > words; }).map((el) => el.textContent)`);
       record(lang, width, "step labels not broken mid-word", broken.length === 0, broken.join(","));

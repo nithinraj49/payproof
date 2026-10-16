@@ -140,7 +140,6 @@
   "errors.technicalLine": "त्रुटि {status} ({code}) — बंद करने के लिए टैप करें",
   "splash.tagline": "जानिए आप असल में कितना कमाते हैं।",
   "lang.label": "भाषा",
-  "lang.machineNote": "मशीन अनुवाद, अभी जाँचा नहीं गया",
   "samples.trip.label": "ट्रिप का स्क्रीनशॉट",
   "samples.trip.description": "पूरी हो चुकी डिलीवरी ट्रिप की रसीद।",
   "samples.weekly.label": "साप्ताहिक भुगतान का स्क्रीनशॉट",
