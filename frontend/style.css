@@ -21,7 +21,8 @@
   --hard: 6px 6px 0 var(--ink);
   --hard-sm: 4px 4px 0 var(--ink);
 
-  --display: "Arial Black", "Helvetica Neue", Arial, sans-serif;
+  --display-latin: "Arial Black", "Helvetica Neue", Arial, sans-serif;
+  --display: var(--display-latin);
   --font: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
 
   /* Type scale: 14 / 16 / 20 / 28 / 40 / 56 px */
@@ -56,6 +57,7 @@ body {
   font-size: var(--fs-200);
   min-width: 0;
   overflow-x: hidden;
+  overflow-wrap: anywhere; /* long words in any language wrap instead of clipping */
   -webkit-font-smoothing: antialiased;
 }
 
@@ -89,6 +91,15 @@ body {
 
 .app-header .auth-status {
   flex-basis: 100%;
+}
+
+.header-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .brand {
@@ -194,9 +205,11 @@ button {
   font-weight: 800;
   letter-spacing: -0.01em;
   min-height: var(--tap);
-  min-width: max-content; /* never clip text (item 1): keep natural width */
-  flex-shrink: 0; /* in a flex row, the button never shrinks -- the input/field beside it does */
-  white-space: normal; /* wrap rather than clip if truly out of room */
+  min-width: 0;
+  max-width: 100%; /* a long label (any language) wraps inside the button instead of overflowing or being clipped */
+  flex-shrink: 0; /* in a flex row the button keeps its natural width up to max-width; rows that can run out of room wrap (.field-row, .deduction-row) */
+  white-space: normal;
+  overflow-wrap: anywhere;
   padding: var(--space-1) var(--space-2);
   border-radius: 8px;
   border: var(--bd);
@@ -301,11 +314,12 @@ textarea { resize: vertical; }
 
 .field-row {
   display: flex;
+  flex-wrap: wrap; /* a long Confirm label drops below the input rather than squeezing it */
   align-items: stretch;
   gap: var(--space-1);
 }
 
-.field-row > input { flex: 1 1 auto; min-width: 0; }
+.field-row > input { flex: 1 1 7rem; min-width: 0; }
 
 /* Cells that need checking: colour AND the visible "Confirm"/"Confirmed"
    label on the button (never colour alone). Flat -- no animation. */
@@ -349,7 +363,7 @@ textarea { resize: vertical; }
   background: var(--white);
 }
 
-.card img.preview {
+img.preview { /* trip-mode previews sit outside a .card, so no .card prefix */
   max-width: 100%;
   max-height: 40vh;
   width: auto;
@@ -459,7 +473,9 @@ textarea { resize: vertical; }
   font-size: 0.7rem;
   font-weight: 700;
   color: var(--muted);
-  white-space: nowrap;
+  max-width: 3.6rem; /* four labels plus three lines must fit 320px in every language */
+  text-align: center;
+  line-height: 1.25;
 }
 
 .step-dot.active .step-dot-label { color: var(--ink); font-weight: 900; }
@@ -494,6 +510,7 @@ textarea { resize: vertical; }
 
 .app-nav {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-1);
   padding: var(--space-2);
   max-width: 560px;
@@ -517,6 +534,8 @@ textarea { resize: vertical; }
 
 .app-nav button {
   flex: 1 1 auto;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
 }
 
 .app-nav button.active {
@@ -575,7 +594,7 @@ textarea { resize: vertical; }
 
 .net-earnings-value {
   font-family: var(--display);
-  font-size: var(--fs-600);
+  font-size: clamp(2rem, 11.5vw, var(--fs-600)); /* the figure never outgrows the card at 320px */
   font-weight: 900;
   letter-spacing: -0.03em;
   color: #FFFFFF;
@@ -629,13 +648,14 @@ textarea { resize: vertical; }
 
 .results-row {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: var(--space-2);
   padding: var(--space-1) 0;
   border-bottom: 2px solid var(--ink);
 }
 
-.results-row .label { color: var(--muted); font-weight: 700; }
+.results-row .label { color: var(--muted); font-weight: 700; flex: 1 1 10rem; min-width: 0; }
 .results-row .value {
   font-weight: 900;
   text-align: right;
@@ -650,6 +670,7 @@ textarea { resize: vertical; }
 .deduction-row,
 .line-row {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-1);
   align-items: flex-end;
   margin-bottom: var(--space-1);
@@ -657,7 +678,7 @@ textarea { resize: vertical; }
 
 .deduction-row .field,
 .line-row .field {
-  flex: 1 1 auto;
+  flex: 1 1 6rem;
   min-width: 0; /* the two text/amount fields shrink at 320-360px; the Remove button (global button rule) does not */
   margin-bottom: 0;
 }
@@ -1001,8 +1022,8 @@ label.upload-btn:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(
   margin-bottom: 0.25rem;
 }
 
-.money-chart-label { color: var(--muted); }
-.money-chart-value { color: var(--ink); font-weight: 900; }
+.money-chart-label { color: var(--muted); min-width: 0; }
+.money-chart-value { color: var(--ink); font-weight: 900; flex: 0 0 auto; }
 
 .money-chart-svg {
   display: block;
@@ -1026,3 +1047,166 @@ label.upload-btn:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(
 .money-chart-bar-deductions { fill: var(--error); }
 .money-chart-bar-costs { fill: var(--amber); }
 .money-chart-bar-net { fill: var(--primary); }
+
+/* ---------------------------------------------------------------------
+   Language selector, machine-translation note (stage 1, language setting)
+--------------------------------------------------------------------- */
+
+.lang-select,
+select,
+option {
+  font-family: var(--font);
+}
+
+.lang-select {
+  font-size: var(--fs-100);
+  font-weight: 700;
+  min-height: 36px;
+  max-width: 100%;
+  padding: 0.25rem var(--space-1);
+  border: var(--bd);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--ink);
+  box-shadow: var(--hard-sm);
+}
+
+.lang-field .lang-select {
+  width: 100%;
+  min-height: var(--tap);
+  font-size: var(--fs-200);
+}
+
+.machine-note {
+  margin: 0;
+  padding: 0.4rem var(--space-2);
+  background: var(--highlight);
+  border-bottom: var(--bd);
+  color: var(--ink);
+  font-size: var(--fs-100);
+  font-weight: 700;
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------------
+   Voice input on Ask
+--------------------------------------------------------------------- */
+
+.voice-row {
+  display: flex;
+  gap: var(--space-1);
+  align-items: flex-start;
+}
+
+.voice-row > textarea {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mic-btn {
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+
+.mic-btn[hidden] { display: none; }
+
+.mic-btn.listening {
+  background: var(--amber);
+  animation: micPulse 1.3s ease-out infinite;
+}
+
+@keyframes micPulse {
+  0% { box-shadow: var(--hard-sm), 0 0 0 0 rgba(255, 194, 51, 0.9); }
+  100% { box-shadow: var(--hard-sm), 0 0 0 16px rgba(255, 194, 51, 0); }
+}
+
+.voice-status {
+  margin: var(--space-1) 0 0;
+  font-size: var(--fs-100);
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.voice-status.error-banner { margin-bottom: 0; }
+
+.voice-check {
+  margin: var(--space-1) 0 0;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--fs-100);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mic-btn.listening { animation: none; }
+}
+
+/* ---------------------------------------------------------------------
+   Scripts: each Indic script gets its own system font stack. The heavy
+   Latin display font stays first in --display, so it is used only for
+   Latin letters, digits and the rupee sign; Indic text falls through to
+   the script's own font. Negative letter-spacing breaks conjuncts in
+   these scripts, so it is switched off, and line height is raised for
+   their taller marks.
+--------------------------------------------------------------------- */
+
+:lang(hi) {
+  --font: "Noto Sans Devanagari", "Nirmala UI", "Mangal", system-ui, sans-serif;
+  --display: var(--display-latin), "Noto Sans Devanagari", "Nirmala UI", "Mangal", system-ui, sans-serif;
+}
+:lang(ta) {
+  --font: "Noto Sans Tamil", "Nirmala UI", "Latha", system-ui, sans-serif;
+  --display: var(--display-latin), "Noto Sans Tamil", "Nirmala UI", "Latha", system-ui, sans-serif;
+}
+:lang(te) {
+  --font: "Noto Sans Telugu", "Nirmala UI", "Gautami", system-ui, sans-serif;
+  --display: var(--display-latin), "Noto Sans Telugu", "Nirmala UI", "Gautami", system-ui, sans-serif;
+}
+:lang(kn) {
+  --font: "Noto Sans Kannada", "Nirmala UI", "Tunga", system-ui, sans-serif;
+  --display: var(--display-latin), "Noto Sans Kannada", "Nirmala UI", "Tunga", system-ui, sans-serif;
+}
+:lang(ml) {
+  --font: "Noto Sans Malayalam", "Nirmala UI", "Kartika", system-ui, sans-serif;
+  --display: var(--display-latin), "Noto Sans Malayalam", "Nirmala UI", "Kartika", system-ui, sans-serif;
+}
+
+/* body sets font-family from the variable already; the splash tagline is SVG text with its own font-family attribute. */
+:lang(hi) .bars-tag, :lang(ta) .bars-tag, :lang(te) .bars-tag, :lang(kn) .bars-tag, :lang(ml) .bars-tag {
+  font-family: var(--font);
+}
+
+html:lang(hi) body { line-height: 1.6; }
+html:lang(ta) body, html:lang(te) body, html:lang(kn) body, html:lang(ml) body { line-height: 1.7; }
+
+:is(html:lang(hi), html:lang(ta), html:lang(te), html:lang(kn), html:lang(ml)) :is(h2, h3, h4, .landing-headline) {
+  line-height: 1.4;
+  font-weight: 800;
+}
+
+:is(html:lang(hi), html:lang(ta), html:lang(te), html:lang(kn), html:lang(ml)) :is(h2, h3, h4, p, li, label, button, span, .landing-headline, .landing-subhead):not(.net-earnings-value, .rate-card-value, .brand h1) {
+  letter-spacing: normal !important;
+}
+
+/* Step indicator: the dots are invisible buttons, so the global disabled
+   shadow must not draw a box around a dot and its label. Narrow screens give
+   the labels more room by tightening the row; Indic labels are a little smaller. */
+.step-dot:disabled { box-shadow: none; }
+
+@media (max-width: 400px) {
+  .step-indicator { padding-left: 0.5rem; padding-right: 0.5rem; }
+  .step-line { margin-left: 0.15rem; margin-right: 0.15rem; }
+}
+
+:is(html:lang(hi), html:lang(ta), html:lang(te), html:lang(kn), html:lang(ml)) .step-dot-label {
+  font-size: 0.65rem;
+  max-width: max(4.4rem, calc((100vw - 2.5rem) / 4)); /* wider phones give long words room; at 320px a very long word may still wrap */
+}
+
+/* Indic scripts are wider and taller than Latin at the same size: smaller headings keep them to a few lines. */
+:is(html:lang(hi), html:lang(ta), html:lang(te), html:lang(kn), html:lang(ml)) h2 { font-size: 1.4rem; }
+:is(html:lang(hi), html:lang(ta), html:lang(te), html:lang(kn), html:lang(ml)) h3 { font-size: 1.125rem; }
+:is(html:lang(hi), html:lang(ta), html:lang(te), html:lang(kn), html:lang(ml)) .landing-headline { font-size: 1.6rem; }

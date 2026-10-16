@@ -686,3 +686,29 @@ git status; git log --oneline | Select-Object -First 8
 gcloud run deploy payproof --source . --project payproof-nithin-2026 --region asia-south1 --service-account payproof-run@payproof-nithin-2026.iam.gserviceaccount.com --allow-unauthenticated --max-instances=3 --memory=1Gi --timeout=60 --env-vars-file=deploy/env.yaml --quiet
 ```
 
+
+## Stage 1: language setting and voice input (frontend only) -- built 16 Oct 2026, NOT deployed yet
+
+Rollback points: `v1.0`, `live-before-i18n`, `live-before-i18n-ui` (= 167feaa, the code live before this stage). Nothing in `backend/`, `engine/` or `extraction/` changed. Not pushed.
+
+### What changed
+- `frontend/i18n.js` (new): loads `lang/<code>.json` with `fetch` (no-cache), English always loaded as the fallback, choice kept in `sessionStorage` (code only), sets `<html lang>`, language selectors in the header and on the first screen, "Machine translation, not yet reviewed" note on every screen in the five non-English languages. `frontend/strings.js` removed; every string is a key in `frontend/lang/en.json` (140 docs keys + 22 new, see `docs/translations/NEW_KEYS_STAGE1.md`). `frontend/lang/{hi,ta,te,kn,ml}.json` are byte-identical copies of `docs/translations/`.
+- `frontend/voice.js` (new): Web Speech API mic button on Ask, feature-detected (hidden if unsupported), never auto-submits, no audio to the backend, 15 s cap, stops on second tap, cancels when leaving the screen or switching language.
+- `format.js`: dates use `Intl` only for the month name (digits stay 0-9), assembled as "8 Oct 2026". `api.js`: backend error codes `unsupported_file_type`, `file_too_large`, `service_busy`, `daily_limit_reached`, `missing_token`, `invalid_token` map to translated keys in non-English; English keeps the backend message exactly as in v1.0. All other backend messages stay English.
+- `style.css`: per-script font stacks, wrapping, narrow-width fixes. Pre-existing bug fixed: trip-mode screenshot previews were not width-limited on phones (`.card img.preview` did not match them).
+- `scripts/check_hardcoded_strings.js` (new, not deployed): fails on hard-coded user-visible text, missing keys, or language files drifting from `docs/translations`.
+
+### Verification (real runs)
+- `node --check` on every JS file, `check_ids.js`, `check_nav_graph.js`, `check_translations.js`, `check_hardcoded_strings.js`: all pass. `pytest -q`: 283 passed (needs `--basetemp` outside the locked default temp folder on this machine: `python -m pytest -q --basetemp=$env:TEMP\pt-base`).
+- A throw-away harness (kept outside the repo; Firebase and the API stubbed, no Gemini, no network) drove the real app in headless Edge at 320, 360 and 390 px in all six languages through first screen, trip and weekly review, costs, results, ask, evidence, delete confirm, rejected, reconciliation gate: 540 checks, 1 failure (below), no page errors. It also checked: digits 0-9 only, `<html lang>`, stored language, figures unchanged after switching language, mic states with a fake `SpeechRecognition`.
+- Known: in Malayalam at 320 px three step-indicator labels (Upload, Check, Costs) wrap inside a word. Nothing is clipped or overflowing. Fix is a shorter Malayalam word for those three keys.
+- Not verified: a real microphone, real Android fonts (Edge on Windows used Nirmala UI fallbacks), any translation quality.
+
+### Resume
+```powershell
+cd C:\dev\payproof
+python -m pytest -q --basetemp=$env:TEMP\pt-base
+node scripts/check_hardcoded_strings.js; node scripts/check_translations.js
+# Deploy (frontend only, needs owner "go" because scripts/ and PROGRESS.md also changed):
+firebase deploy --only hosting --project payproof-nithin-2026
+```

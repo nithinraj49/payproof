@@ -3,7 +3,7 @@
 // kind of failure (401, 413, 415, 429, 5xx, network failure, timeout) into a
 // friendly message instead of letting a raw error reach a screen.
 import { getAuth } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { STRINGS } from "./strings.js";
+import { getLanguage, t } from "./i18n.js";
 
 const DEFAULT_TIMEOUT_MS = 20000;
 const EXTRACT_TIMEOUT_MS = 30000;
@@ -17,11 +17,23 @@ export class ApiError extends Error {
   }
 }
 
+// error_code values found in backend/ (auth.py, main.py, usage_limits.py) that
+// already have a translated key. missing_token and invalid_token are 401s and
+// use errors.sessionExpired above. service_busy is a 503 (also errors.busy).
+const TRANSLATED_ERROR_KEYS = {
+  missing_token: "errors.sessionExpired",
+  invalid_token: "errors.sessionExpired",
+  unsupported_file_type: "errors.badType",
+  file_too_large: "errors.tooLarge",
+  service_busy: "errors.busy",
+  daily_limit_reached: "errors.busy",
+};
+
 async function getIdToken() {
   const auth = getAuth();
   const user = auth.currentUser;
   if (!user) {
-    throw new ApiError(STRINGS.errors.notSignedIn, { code: "not_signed_in" });
+    throw new ApiError(t("errors.notSignedIn"), { code: "not_signed_in" });
   }
   return user.getIdToken();
 }
@@ -46,9 +58,9 @@ async function request(path, { method = "GET", jsonBody, formBody, timeoutMs = D
   } catch (err) {
     clearTimeout(timer);
     if (err.name === "AbortError") {
-      throw new ApiError(STRINGS.errors.timeout, { code: "timeout", retryable: true });
+      throw new ApiError(t("errors.timeout"), { code: "timeout", retryable: true });
     }
-    throw new ApiError(STRINGS.errors.network, { code: "network", retryable: true });
+    throw new ApiError(t("errors.network"), { code: "network", retryable: true });
   }
   clearTimeout(timer);
 
@@ -67,22 +79,33 @@ async function request(path, { method = "GET", jsonBody, formBody, timeoutMs = D
   }
 
   const status = response.status;
+  const code = payload?.error_code;
+
+  // Only codes the backend really sends (grep of backend/ for ApiError). In
+  // English the backend's own message is kept as it was in v1.0; in the other
+  // languages these codes use the translated keys. Every other backend message
+  // stays English for now.
+  const translated = getLanguage() !== "en" ? TRANSLATED_ERROR_KEYS[code] : undefined;
+  const messageFor = (fallbackKey) => (translated
+    ? t(translated)
+    : payload?.message || t(fallbackKey));
+
   if (status === 401) {
-    throw new ApiError(STRINGS.errors.sessionExpired, { code: payload?.error_code || "unauthorized", status });
+    throw new ApiError(t("errors.sessionExpired"), { code: code || "unauthorized", status });
   }
   if (status === 413) {
-    throw new ApiError(payload?.message || STRINGS.errors.tooLarge, { code: "file_too_large", status });
+    throw new ApiError(messageFor("errors.tooLarge"), { code: "file_too_large", status });
   }
   if (status === 415) {
-    throw new ApiError(payload?.message || STRINGS.errors.badType, { code: "unsupported_file_type", status });
+    throw new ApiError(messageFor("errors.badType"), { code: "unsupported_file_type", status });
   }
   if (status === 429) {
-    throw new ApiError(payload?.message || STRINGS.errors.busy, { code: "daily_limit_reached", status });
+    throw new ApiError(messageFor("errors.busy"), { code: "daily_limit_reached", status });
   }
   if (status >= 500) {
-    throw new ApiError(STRINGS.errors.busy, { code: "server_error", status, retryable: true });
+    throw new ApiError(t("errors.busy"), { code: "server_error", status, retryable: true });
   }
-  throw new ApiError(payload?.message || STRINGS.errors.generic, { code: payload?.error_code || "error", status });
+  throw new ApiError(messageFor("errors.generic"), { code: code || "error", status });
 }
 
 export const api = {

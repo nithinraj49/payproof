@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PayProof</title>
+  <title data-i18n="app.name"></title>
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="stylesheet" href="style.css" />
@@ -18,10 +18,10 @@
           <text y="7" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="20" fill="#0D1330">&#8377;</text>
         </g>
         <g class="bars-word">
-          <text x="214" y="394" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="46" letter-spacing="-2" fill="#0D1330">PayProof</text>
-          <text x="210" y="390" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="46" letter-spacing="-2" fill="#fff">PayProof</text>
+          <text x="214" y="394" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="46" letter-spacing="-2" fill="#0D1330" data-i18n="app.name"></text>
+          <text x="210" y="390" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="46" letter-spacing="-2" fill="#fff" data-i18n="app.name"></text>
         </g>
-        <text class="bars-tag" x="210" y="420" text-anchor="middle" font-family="Helvetica Neue,Arial,sans-serif" font-weight="700" font-size="14" fill="#D4DAFF">Know what you really earn.</text>
+        <text class="bars-tag" id="splash-tag" data-i18n="splash.tagline" x="210" y="420" text-anchor="middle" font-family="Helvetica Neue,Arial,sans-serif" font-weight="700" font-size="14" fill="#D4DAFF"></text>
       </svg>
     </div>
   </div>
@@ -36,11 +36,15 @@
         <rect class="brand-bar brand-bar-4" x="740" y="250" width="110" height="550" rx="30" fill="#00A896"/>
         <rect x="200" y="830" width="680" height="30" rx="15" fill="#EAF0FF"/>
       </svg>
-      <h1>PayProof</h1>
+      <h1 data-i18n="app.name"></h1>
     </button>
-    <button type="button" id="btn-home" class="small header-home-btn"></button>
-    <p id="auth-status" class="auth-status">Signing in&hellip;</p>
+    <div class="header-controls">
+      <select id="lang-select-header" class="lang-select" data-lang-select data-i18n-aria-label="lang.label"></select>
+      <button type="button" id="btn-home" class="small header-home-btn"></button>
+    </div>
+    <p id="auth-status" class="auth-status" data-i18n="app.signingIn"></p>
   </header>
+  <p id="machine-note" class="machine-note" data-i18n="lang.machineNote" hidden></p>
 
   <div id="step-indicator" class="step-indicator" hidden>
     <button type="button" class="step-dot" id="step-dot-1" disabled><span class="step-dot-num">1</span><span class="step-dot-label" id="step-label-1"></span></button>
@@ -71,6 +75,10 @@
         </svg>
         <p id="landing-headline" class="landing-headline" tabindex="-1"></p>
         <p id="landing-tagline" class="landing-subhead"></p>
+      </div>
+      <div class="field lang-field">
+        <label for="lang-select-landing" data-i18n="lang.label"></label>
+        <select id="lang-select-landing" class="lang-select" data-lang-select></select>
       </div>
       <button id="btn-try-sample" class="primary" type="button"></button>
       <div id="sample-picker" hidden>
@@ -157,7 +165,17 @@
       <div id="ask-suggestions"></div>
       <div class="field">
         <label id="label-ask-question" for="input-ask-question"></label>
-        <textarea id="input-ask-question" rows="3" maxlength="500"></textarea>
+        <div class="voice-row">
+          <textarea id="input-ask-question" rows="3" maxlength="500"></textarea>
+          <button id="btn-voice" class="mic-btn" type="button" aria-pressed="false" hidden>
+            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">
+              <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2Z" fill="currentColor"/>
+            </svg>
+          </button>
+        </div>
+        <p id="voice-status" class="voice-status" role="status" aria-live="polite" hidden></p>
+        <p id="voice-check-note" class="banner voice-check" hidden></p>
+        <p id="voice-privacy" class="hint voice-privacy" hidden></p>
       </div>
       <button id="btn-ask-submit" class="primary" type="button"></button>
       <div id="ask-answer" class="card" hidden>
@@ -187,7 +205,7 @@
   </main>
 
   <div id="lightbox" class="lightbox" hidden>
-    <img id="lightbox-img" alt="Your uploaded screenshot, enlarged" />
+    <img id="lightbox-img" data-i18n-alt="common.lightboxAlt" alt="" />
   </div>
 
   <div id="loading-overlay" class="loading-overlay" hidden>
@@ -204,31 +222,37 @@
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
     import { firebaseConfig } from "./firebase-config.js";
     import { initApp, initSplash } from "./app.js";
-    import { STRINGS } from "./strings.js";
+    import { applyStaticStrings, initI18n } from "./i18n.js";
     import { VERSION } from "./version.js";
 
     // Runs immediately, independent of sign-in -- never delays or blocks it.
     initSplash();
 
+    // Language files load in parallel with sign-in; the language selectors work
+    // before sign-in finishes. Only the app screens wait for the text.
+    const i18nReady = initI18n();
+
     const statusEl = document.getElementById("auth-status");
-    statusEl.textContent = STRINGS.app.signingIn;
-    document.getElementById("version-stamp").textContent = `Build ${VERSION.buildDate} · ${VERSION.shortId}`;
+    document.getElementById("version-stamp").textContent = `Build ${VERSION.buildDate} · ${VERSION.shortId}`; // i18n-ignore: hidden developer stamp
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
 
     let started = false;
-    onAuthStateChanged(auth, (user) => {
+    onAuthStateChanged(auth, async (user) => {
       if (!user || started) {
         return;
       }
       started = true;
+      await i18nReady;
       statusEl.hidden = true;
       initApp();
     });
 
-    signInAnonymously(auth).catch((err) => {
-      statusEl.textContent = STRINGS.app.signInFailed;
+    signInAnonymously(auth).catch(async (err) => {
+      await i18nReady;
+      statusEl.setAttribute("data-i18n", "app.signInFailed");
+      applyStaticStrings();
       console.error(err);
     });
   </script>

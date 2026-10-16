@@ -60,8 +60,25 @@ export function formatPercent(value) {
 }
 
 // Unambiguous "8 Oct 2026" text next to every date value, so day/month can
-// never be misread as the other.
-export function formatDateHuman(isoDate) {
+// never be misread as the other. Always day, month name, year in that order
+// and always digits 0-9 (latn numbering), in every language; only the month
+// name is in the selected language. Locales order the parts differently, so
+// only the month name is taken from Intl and the text is assembled here.
+function localMonthName(month, lang) {
+  try {
+    const formatter = new Intl.DateTimeFormat(`${lang}-IN-u-nu-latn`, {
+      month: "short", numberingSystem: "latn", timeZone: "UTC",
+    });
+    const parts = formatter.formatToParts(new Date(Date.UTC(2026, month - 1, 8)));
+    const name = parts.find((p) => p.type === "month");
+    // Never accept a month name that contains any digit.
+    return name && !/\p{Nd}/u.test(name.value) ? name.value : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+export function formatDateHuman(isoDate, lang = "en") {
   if (!isoDate) {
     return null;
   }
@@ -73,5 +90,6 @@ export function formatDateHuman(isoDate) {
   if (!year || !month || !day || month < 1 || month > 12) {
     return null;
   }
-  return `${day} ${MONTH_NAMES[month - 1]} ${year}`;
+  const name = (lang !== "en" && localMonthName(month, lang)) || MONTH_NAMES[month - 1];
+  return `${day} ${name} ${year}`;
 }

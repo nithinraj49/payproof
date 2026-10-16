@@ -1,10 +1,11 @@
 // Screen controller for PayProof's floor: landing -> review -> costs.
 // Plain DOM manipulation, no framework, no build step (CLAUDE.md / REQUIREMENTS.md section 9).
 import { api, ApiError } from "./api.js";
-import { STRINGS } from "./strings.js";
+import { getLanguage, onLanguageChange, applyStaticStrings, t } from "./i18n.js";
 import { SAMPLE_IMAGES } from "./samples/index.js";
 import { currencySymbol, formatDateHuman, formatMoney, formatRate, formatPercent } from "./format.js";
 import { createBarScene, SPLASH_DURATION } from "./brutalist-bars.js";
+import { initVoice, renderVoiceStrings, stopVoice } from "./voice.js";
 import { BACK_TARGETS, ROOT_SCREEN, STEP_TO_SCREEN } from "./nav-graph.js";
 
 const SPLASH_SESSION_KEY = "payproof_splash_shown";
@@ -81,6 +82,10 @@ const state = {
   askAndEvidenceRendered: false,
   isSampleMode: false,
   lastCosts: null, // { fuel, maintenance, fixedDaily, hoursOnline } as typed, so Back preserves it (item 1a)
+  costsRendered: false,
+  lastSummary: null, // last /api/summary response, so a language change can re-draw Results without a new call
+  tripGate: null, // flagged trip while the trip reconciliation panel is open
+  weekGate: null, // reconciliation response while the weekly panel is open
 };
 
 function resetState() {
@@ -94,6 +99,10 @@ function resetState() {
   state.askAndEvidenceRendered = false;
   state.isSampleMode = false;
   state.lastCosts = null;
+  state.costsRendered = false;
+  state.lastSummary = null;
+  state.tripGate = null;
+  state.weekGate = null;
 }
 
 function makeField(value, confirmed) {
@@ -183,6 +192,9 @@ function showScreen(name, { skipHistory = false } = {}) {
     appNav.hidden = true;
   }
   setStep(SCREEN_TO_STEP[name]);
+  if (name !== "ask") {
+    stopVoice();
+  }
   window.scrollTo(0, 0);
 
   const headingEl = document.getElementById(SCREEN_HEADING_ID[name]);
@@ -206,7 +218,7 @@ function confirmLeaveIfUnsaved() {
   if (!hasUnsavedEdits()) {
     return true;
   }
-  return window.confirm(STRINGS.nav.leaveConfirm);
+  return window.confirm(t("nav.leaveConfirm"));
 }
 
 function goHome() {
@@ -248,7 +260,7 @@ window.addEventListener("popstate", (event) => {
   if (target === currentScreenName()) {
     return;
   }
-  if (hasUnsavedEdits() && !window.confirm(STRINGS.nav.leaveConfirm)) {
+  if (hasUnsavedEdits() && !window.confirm(t("nav.leaveConfirm"))) {
     history.pushState({ screen: currentScreenName() }, "", `#${currentScreenName()}`);
     return;
   }
@@ -262,9 +274,6 @@ function currentScreenName() {
 }
 
 function setupNav() {
-  document.getElementById("nav-results").textContent = STRINGS.nav.results;
-  document.getElementById("nav-ask").textContent = STRINGS.nav.ask;
-  document.getElementById("nav-evidence").textContent = STRINGS.nav.evidence;
   document.getElementById("nav-results").addEventListener("click", () => {
     showScreen("results");
     fetchAndShowResults();
@@ -302,13 +311,13 @@ function createPreviewImage(url) {
   const img = document.createElement("img");
   img.className = "preview";
   img.src = url;
-  img.alt = "Your uploaded screenshot";
+  img.alt = t("review.previewAlt");
   img.addEventListener("click", () => openLightbox(url));
   fragment.appendChild(img);
 
   const hint = document.createElement("p");
   hint.className = "preview-hint";
-  hint.textContent = STRINGS.review.tapToEnlarge;
+  hint.textContent = t("review.tapToEnlarge");
   fragment.appendChild(hint);
 
   return fragment;
@@ -319,7 +328,7 @@ const loadingText = document.getElementById("loading-text");
 
 function setLoading(isLoading, text) {
   loadingOverlay.hidden = !isLoading;
-  loadingText.textContent = text || STRINGS.common.loading;
+  loadingText.textContent = text || t("common.loading");
 }
 
 const toastEl = document.getElementById("toast");
@@ -339,7 +348,7 @@ function describeError(err) {
     return err.message;
   }
   console.error(err);
-  return STRINGS.errors.generic;
+  return t("errors.generic");
 }
 
 // A small, persistent, plain-text technical line (status + error_code, no
@@ -356,7 +365,10 @@ function setupErrorLine() {
 function showApiError(err) {
   showToast(describeError(err));
   if (err instanceof ApiError) {
-    errorLineEl.textContent = STRINGS.errors.technicalLine(err.status, err.code);
+    errorLineEl.textContent = t("errors.technicalLine", {
+      status: err.status !== null && err.status !== undefined ? err.status : "?",
+      code: err.code || "unknown", // i18n-ignore: technical token, not a sentence
+    });
     errorLineEl.hidden = false;
   }
 }
@@ -372,18 +384,47 @@ function clearChildren(el) {
 // ---------------------------------------------------------------------------
 
 function renderLandingStrings() {
-  document.getElementById("landing-headline").textContent = STRINGS.landing.headline;
-  document.getElementById("landing-tagline").textContent = STRINGS.landing.tagline;
-  document.getElementById("btn-try-sample").textContent = STRINGS.landing.trySample;
-  document.getElementById("sample-simulated-note").textContent = STRINGS.landing.simulatedNote;
-  document.getElementById("upload-heading").textContent = STRINGS.landing.upload;
-  document.getElementById("how-it-works-1").textContent = STRINGS.landing.howItWorks1;
-  document.getElementById("how-it-works-2").textContent = STRINGS.landing.howItWorks2;
-  document.getElementById("how-it-works-3").textContent = STRINGS.landing.howItWorks3;
-  document.getElementById("landing-privacy").textContent = STRINGS.landing.privacyNote;
+  document.getElementById("landing-headline").textContent = t("landing.headline");
+  document.getElementById("landing-tagline").textContent = t("landing.tagline");
+  document.getElementById("btn-try-sample").textContent = t("landing.trySample");
+  document.getElementById("sample-simulated-note").textContent = t("landing.simulatedNote");
+  document.getElementById("upload-heading").textContent = t("landing.upload");
+  document.getElementById("how-it-works-1").textContent = t("landing.howItWorks1");
+  document.getElementById("how-it-works-2").textContent = t("landing.howItWorks2");
+  document.getElementById("how-it-works-3").textContent = t("landing.howItWorks3");
+  document.getElementById("landing-privacy").textContent = t("landing.privacyNote");
+  renderSampleCards();
+}
 
+function renderLandingHero() {
   const heroScene = createBarScene(document.getElementById("landing-hero-svg"));
   heroScene.render(SPLASH_DURATION); // static final frame, no animation (item 5)
+}
+
+function renderSampleCards() {
+  const cardsEl = document.getElementById("sample-cards");
+  clearChildren(cardsEl);
+  SAMPLE_IMAGES.forEach((sample) => {
+    const card = document.createElement("div");
+    card.className = "sample-card tilt-card";
+
+    const h4 = document.createElement("h4");
+    h4.textContent = t(sample.labelKey);
+    card.appendChild(h4);
+
+    const p = document.createElement("p");
+    p.textContent = t(sample.descriptionKey);
+    card.appendChild(p);
+
+    const useBtn = document.createElement("button");
+    useBtn.type = "button";
+    useBtn.className = "secondary";
+    useBtn.textContent = t("landing.useThisSample");
+    useBtn.addEventListener("click", () => handleUseSample(sample));
+    card.appendChild(useBtn);
+
+    cardsEl.appendChild(card);
+  });
 }
 
 function setupLanding() {
@@ -393,34 +434,11 @@ function setupLanding() {
     samplePicker.hidden = !samplePicker.hidden;
   });
 
-  const cardsEl = document.getElementById("sample-cards");
-  SAMPLE_IMAGES.forEach((sample) => {
-    const card = document.createElement("div");
-    card.className = "sample-card tilt-card";
-
-    const h4 = document.createElement("h4");
-    h4.textContent = sample.label;
-    card.appendChild(h4);
-
-    const p = document.createElement("p");
-    p.textContent = sample.description;
-    card.appendChild(p);
-
-    const useBtn = document.createElement("button");
-    useBtn.type = "button";
-    useBtn.className = "secondary";
-    useBtn.textContent = STRINGS.landing.useThisSample;
-    useBtn.addEventListener("click", () => handleUseSample(sample));
-    card.appendChild(useBtn);
-
-    cardsEl.appendChild(card);
-  });
-
   const fileInput = document.getElementById("file-input");
   fileInput.addEventListener("change", async () => {
     const files = Array.from(fileInput.files || []);
     if (files.length === 0) {
-      showToast(STRINGS.upload.noFileChosen);
+      showToast(t("upload.noFileChosen"));
       return;
     }
     await handleUpload(files, false);
@@ -430,7 +448,7 @@ function setupLanding() {
 
 async function handleUseSample(sample) {
   try {
-    setLoading(true, STRINGS.common.loading);
+    setLoading(true, t("common.loading"));
     const response = await fetch(sample.url);
     if (!response.ok) {
       throw new Error(`Could not load ${sample.url}`);
@@ -456,10 +474,10 @@ const ALLOWED_UPLOAD_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
 function uploadProblem(file) {
   if (!ALLOWED_UPLOAD_TYPES.includes(file.type)) {
-    return STRINGS.errors.badType;
+    return t("errors.badType");
   }
   if (file.size > MAX_UPLOAD_BYTES) {
-    return STRINGS.errors.tooLarge;
+    return t("errors.tooLarge");
   }
   return null;
 }
@@ -477,7 +495,7 @@ async function handleUpload(files, isSample) {
         continue;
       }
     }
-    setLoading(true, STRINGS.upload.processing(i + 1, files.length));
+    setLoading(true, t("upload.processing", { current: i + 1, total: files.length }));
 
     let result;
     try {
@@ -494,14 +512,14 @@ async function handleUpload(files, isSample) {
     if (result.screen_type === "order_offer" || result.screen_type === "other") {
       state.rejectedInBatch.push({
         fileName: file.name,
-        reason: result.notes || STRINGS.rejected.genericReason,
+        reason: result.notes || t("rejected.genericReason"),
       });
       continue;
     }
 
     if (result.screen_type === "trip_detail" || result.screen_type === "trip_list") {
       if (state.mode === "weekly") {
-        state.rejectedInBatch.push({ fileName: file.name, reason: STRINGS.upload.modeMismatch });
+        state.rejectedInBatch.push({ fileName: file.name, reason: t("upload.modeMismatch") });
         continue;
       }
       state.mode = "trip";
@@ -511,7 +529,7 @@ async function handleUpload(files, isSample) {
 
     if (result.screen_type === "payout_summary") {
       if (state.mode === "trip") {
-        state.rejectedInBatch.push({ fileName: file.name, reason: STRINGS.upload.modeMismatch });
+        state.rejectedInBatch.push({ fileName: file.name, reason: t("upload.modeMismatch") });
         continue;
       }
       state.mode = "weekly";
@@ -521,7 +539,7 @@ async function handleUpload(files, isSample) {
 
     // Defensive fallback: an unrecognised screen_type is treated as rejected,
     // never silently shown as data (REQUIREMENTS.md "no guessing").
-    state.rejectedInBatch.push({ fileName: file.name, reason: STRINGS.rejected.genericReason });
+    state.rejectedInBatch.push({ fileName: file.name, reason: t("rejected.genericReason") });
   }
 
   setLoading(false);
@@ -532,7 +550,7 @@ async function handleUpload(files, isSample) {
   if (!hasTrips && !hasWeek) {
     const reason = state.rejectedInBatch.length > 0
       ? state.rejectedInBatch[state.rejectedInBatch.length - 1].reason
-      : STRINGS.rejected.genericReason;
+      : t("rejected.genericReason");
     renderRejected(reason);
     showScreen("rejected");
     return;
@@ -649,7 +667,7 @@ function createNumberField(labelText, fieldState, onChanged) {
 
   function refresh() {
     wrap.classList.toggle("unconfirmed", !fieldState.confirmed);
-    confirmBtn.textContent = fieldState.confirmed ? STRINGS.review.confirmed : STRINGS.review.confirm;
+    confirmBtn.textContent = fieldState.confirmed ? t("review.confirmed") : t("review.confirm");
     confirmBtn.classList.toggle("is-confirmed", fieldState.confirmed);
   }
 
@@ -678,7 +696,7 @@ function createNumberField(labelText, fieldState, onChanged) {
   if (fieldState.value === null || fieldState.value === undefined) {
     const hint = document.createElement("p");
     hint.className = "hint";
-    hint.textContent = STRINGS.review.blankFieldHint;
+    hint.textContent = t("review.blankFieldHint");
     wrap.appendChild(hint);
   }
 
@@ -690,7 +708,7 @@ function createDateField(fieldState, onChanged) {
   wrap.className = "field";
 
   const label = document.createElement("label");
-  label.textContent = STRINGS.review.date;
+  label.textContent = t("review.date");
   wrap.appendChild(label);
 
   const row = document.createElement("div");
@@ -711,9 +729,9 @@ function createDateField(fieldState, onChanged) {
 
   function refresh() {
     wrap.classList.toggle("unconfirmed", !fieldState.confirmed);
-    confirmBtn.textContent = fieldState.confirmed ? STRINGS.review.dateConfirmed : STRINGS.review.confirmDate;
+    confirmBtn.textContent = fieldState.confirmed ? t("review.dateConfirmed") : t("review.confirmDate");
     confirmBtn.classList.toggle("is-confirmed", fieldState.confirmed);
-    const human = formatDateHuman(fieldState.value);
+    const human = formatDateHuman(fieldState.value, getLanguage());
     humanDate.textContent = human || "";
   }
 
@@ -791,7 +809,7 @@ function createAmountListField(titleText, listState, labelHint, amountHint, addT
       const removeBtn = document.createElement("button");
       removeBtn.type = "button";
       removeBtn.className = "small";
-      removeBtn.textContent = STRINGS.review.removeDeduction;
+      removeBtn.textContent = t("review.removeDeduction");
       removeBtn.addEventListener("click", () => {
         listState.items.splice(index, 1);
         renderRows();
@@ -825,7 +843,7 @@ function createAmountListField(titleText, listState, labelHint, amountHint, addT
     confirmBtn.className = "small confirm-btn";
     function refreshConfirm() {
       wrap.classList.toggle("unconfirmed", !listState.confirmed);
-      confirmBtn.textContent = listState.confirmed ? STRINGS.review.confirmed : STRINGS.review.confirm;
+      confirmBtn.textContent = listState.confirmed ? t("review.confirmed") : t("review.confirm");
       confirmBtn.classList.toggle("is-confirmed", listState.confirmed);
     }
     confirmBtn.addEventListener("click", () => {
@@ -849,42 +867,42 @@ function renderTripCard(group, trip, onChanged) {
   card.className = "card";
 
   const h3 = document.createElement("h3");
-  h3.textContent = STRINGS.review.tripCardTitle;
+  h3.textContent = t("review.tripCardTitle");
   card.appendChild(h3);
 
   if (trip.orderId) {
     const p = document.createElement("p");
     p.className = "readonly-note";
-    p.textContent = `${STRINGS.review.orderId}: ${trip.orderId}`;
+    p.textContent = `${t("review.orderId")}: ${trip.orderId}`;
     card.appendChild(p);
   }
   if (trip.orderType) {
     const p = document.createElement("p");
     p.className = "readonly-note";
-    p.textContent = `${STRINGS.review.orderType}: ${trip.orderType}`;
+    p.textContent = `${t("review.orderType")}: ${trip.orderType}`;
     card.appendChild(p);
   }
 
   card.appendChild(createDateField(trip.date, onChanged));
-  card.appendChild(createNumberField(moneyLabel(STRINGS.review.basePay), trip.basePay, onChanged));
-  card.appendChild(createNumberField(moneyLabel(STRINGS.review.incentive), trip.incentive, onChanged));
-  card.appendChild(createNumberField(moneyLabel(STRINGS.review.tip), trip.tip, onChanged));
-  card.appendChild(createNumberField(moneyLabel(STRINGS.review.totalPayout), trip.totalPayout, onChanged));
-  card.appendChild(createNumberField(STRINGS.review.distanceKm, trip.distanceKm, onChanged));
-  card.appendChild(createNumberField(STRINGS.review.durationMin, trip.durationMin, onChanged));
+  card.appendChild(createNumberField(moneyLabel(t("review.basePay")), trip.basePay, onChanged));
+  card.appendChild(createNumberField(moneyLabel(t("review.incentive")), trip.incentive, onChanged));
+  card.appendChild(createNumberField(moneyLabel(t("review.tip")), trip.tip, onChanged));
+  card.appendChild(createNumberField(moneyLabel(t("review.totalPayout")), trip.totalPayout, onChanged));
+  card.appendChild(createNumberField(t("review.distanceKm"), trip.distanceKm, onChanged));
+  card.appendChild(createNumberField(t("review.durationMin"), trip.durationMin, onChanged));
   card.appendChild(createAmountListField(
-    moneyLabel(STRINGS.review.deductions),
+    moneyLabel(t("review.deductions")),
     trip.deductions,
-    STRINGS.review.deductionLabel,
-    STRINGS.review.deductionAmount,
-    STRINGS.review.addDeduction,
+    t("review.deductionLabel"),
+    t("review.deductionAmount"),
+    t("review.addDeduction"),
     onChanged,
   ));
 
   const removeBtn = document.createElement("button");
   removeBtn.type = "button";
   removeBtn.className = "small";
-  removeBtn.textContent = STRINGS.review.removeTrip;
+  removeBtn.textContent = t("review.removeTrip");
   removeBtn.addEventListener("click", () => {
     group.trips = group.trips.filter((t) => t.id !== trip.id);
     renderReview();
@@ -894,16 +912,26 @@ function renderTripCard(group, trip, onChanged) {
   return card;
 }
 
-function renderReview() {
-  document.getElementById("review-title").textContent = STRINGS.review.title;
-  document.getElementById("reconciliation-gate").hidden = true;
-  document.getElementById("trip-reconciliation-gate").hidden = true;
+// keepGates: a language change re-draws the table but keeps an open
+// reconciliation panel (its text is redrawn in the new language).
+function renderReview({ keepGates = false } = {}) {
+  document.getElementById("review-title").textContent = t("review.title");
+  const openTripGate = keepGates ? state.tripGate : null;
+  const openWeekGate = keepGates ? state.weekGate : null;
+  hideTripReconciliationGate();
+  hideReconciliationGate();
+  if (openTripGate) {
+    showTripReconciliationGate(openTripGate, { scroll: false });
+  }
+  if (openWeekGate) {
+    showReconciliationGate(openWeekGate, { scroll: false });
+  }
 
   const rejectedBlock = document.getElementById("review-rejected-in-batch");
   const rejectedList = document.getElementById("review-rejected-list");
   clearChildren(rejectedList);
   if (state.rejectedInBatch.length > 0) {
-    document.getElementById("review-rejected-in-batch-label").textContent = STRINGS.review.rejectedInBatch;
+    document.getElementById("review-rejected-in-batch-label").textContent = t("review.rejectedInBatch");
     state.rejectedInBatch.forEach((r) => {
       const li = document.createElement("li");
       li.textContent = `${r.fileName}: ${r.reason}`;
@@ -933,7 +961,7 @@ function renderReview() {
       if (group.needsReview) {
         const banner = document.createElement("div");
         banner.className = "banner";
-        banner.textContent = STRINGS.review.needsReviewBanner;
+        banner.textContent = t("review.needsReviewBanner");
         block.appendChild(banner);
       }
 
@@ -947,7 +975,7 @@ function renderReview() {
     const addTripBtn = document.createElement("button");
     addTripBtn.type = "button";
     addTripBtn.className = "secondary";
-    addTripBtn.textContent = STRINGS.review.addTrip;
+    addTripBtn.textContent = t("review.addTrip");
     addTripBtn.addEventListener("click", () => {
       if (state.tripGroups.length === 0 || state.tripGroups[state.tripGroups.length - 1].manual !== true) {
         state.tripGroups.push({ id: uid("group"), previewUrl: null, needsReview: false, notes: null, trips: [], manual: true });
@@ -963,7 +991,7 @@ function renderReview() {
     card.className = "card";
 
     const h3 = document.createElement("h3");
-    h3.textContent = STRINGS.review.weeklyCardTitle;
+    h3.textContent = t("review.weeklyCardTitle");
     card.appendChild(h3);
 
     if (group.previewUrl) {
@@ -973,14 +1001,14 @@ function renderReview() {
     if (group.needsReview) {
       const banner = document.createElement("div");
       banner.className = "banner";
-      banner.textContent = STRINGS.review.needsReviewBanner;
+      banner.textContent = t("review.needsReviewBanner");
       card.appendChild(banner);
     }
 
     const periodField = document.createElement("div");
     periodField.className = "field";
     const periodLabelEl = document.createElement("label");
-    periodLabelEl.textContent = STRINGS.review.periodLabel;
+    periodLabelEl.textContent = t("review.periodLabel");
     periodField.appendChild(periodLabelEl);
     const periodRow = document.createElement("div");
     periodRow.className = "field-row";
@@ -992,7 +1020,7 @@ function renderReview() {
     periodConfirmBtn.className = "small confirm-btn";
     function refreshPeriod() {
       periodField.classList.toggle("unconfirmed", !group.periodLabel.confirmed);
-      periodConfirmBtn.textContent = group.periodLabel.confirmed ? STRINGS.review.confirmed : STRINGS.review.confirm;
+      periodConfirmBtn.textContent = group.periodLabel.confirmed ? t("review.confirmed") : t("review.confirm");
       periodConfirmBtn.classList.toggle("is-confirmed", group.periodLabel.confirmed);
     }
     periodInput.addEventListener("input", () => {
@@ -1016,23 +1044,23 @@ function renderReview() {
     if (group.creditedOn) {
       const p = document.createElement("p");
       p.className = "readonly-note";
-      const human = formatDateHuman(group.creditedOn);
-      p.textContent = `${STRINGS.review.creditedOn}: ${group.creditedOn}${human ? ` (${human})` : ""}`;
+      const human = formatDateHuman(group.creditedOn, getLanguage());
+      p.textContent = `${t("review.creditedOn")}: ${group.creditedOn}${human ? ` (${human})` : ""}`;
       card.appendChild(p);
     }
 
     card.appendChild(createAmountListField(
-      moneyLabel(STRINGS.review.lines), group.lines, STRINGS.review.lineLabel, STRINGS.review.lineAmount, STRINGS.review.addLine, onChanged, "lines",
+      moneyLabel(t("review.lines")), group.lines, t("review.lineLabel"), t("review.lineAmount"), t("review.addLine"), onChanged, "lines",
     ));
     card.appendChild(createAmountListField(
-      moneyLabel(STRINGS.review.deductions), group.deductions, STRINGS.review.deductionLabel, STRINGS.review.deductionAmount, STRINGS.review.addDeduction, onChanged,
+      moneyLabel(t("review.deductions")), group.deductions, t("review.deductionLabel"), t("review.deductionAmount"), t("review.addDeduction"), onChanged,
     ));
-    card.appendChild(createNumberField(moneyLabel(STRINGS.review.totalCredited), group.totalCredited, onChanged));
+    card.appendChild(createNumberField(moneyLabel(t("review.totalCredited")), group.totalCredited, onChanged));
 
     const kmField = document.createElement("div");
     kmField.className = "field";
     const kmLabel = document.createElement("label");
-    kmLabel.textContent = STRINGS.review.kmDriven;
+    kmLabel.textContent = t("review.kmDriven");
     kmField.appendChild(kmLabel);
     const kmInput = document.createElement("input");
     kmInput.type = "number";
@@ -1048,14 +1076,14 @@ function renderReview() {
     kmField.appendChild(kmInput);
     const kmHint = document.createElement("p");
     kmHint.className = "hint";
-    kmHint.textContent = STRINGS.review.kmDrivenWhy;
+    kmHint.textContent = t("review.kmDrivenWhy");
     kmField.appendChild(kmHint);
     card.appendChild(kmField);
 
     const hoursField = document.createElement("div");
     hoursField.className = "field";
     const hoursLabel = document.createElement("label");
-    hoursLabel.textContent = STRINGS.review.hoursOnline;
+    hoursLabel.textContent = t("review.hoursOnline");
     hoursField.appendChild(hoursLabel);
     const hoursInput = document.createElement("input");
     hoursInput.type = "number";
@@ -1071,7 +1099,7 @@ function renderReview() {
     hoursField.appendChild(hoursInput);
     const hoursHint = document.createElement("p");
     hoursHint.className = "hint";
-    hoursHint.textContent = STRINGS.review.hoursOnlineWhy;
+    hoursHint.textContent = t("review.hoursOnlineWhy");
     hoursField.appendChild(hoursHint);
     card.appendChild(hoursField);
 
@@ -1079,8 +1107,6 @@ function renderReview() {
     groupsEl.appendChild(block);
   }
 
-  document.getElementById("btn-review-continue").textContent = STRINGS.review.confirmAndContinue;
-  document.getElementById("review-continue-hint").textContent = STRINGS.review.mustConfirmAll;
   updateContinueButtonState();
 }
 
@@ -1165,7 +1191,7 @@ async function handleTripReviewContinue() {
   const trips = buildTripPayload();
   let recon;
   try {
-    setLoading(true, STRINGS.common.loading);
+    setLoading(true, t("common.loading"));
     recon = await api.getTripReconciliation(trips);
     setLoading(false);
   } catch (err) {
@@ -1182,7 +1208,7 @@ async function handleTripReviewContinue() {
 
 async function saveTripsAndProceed(trips) {
   try {
-    setLoading(true, STRINGS.common.loading);
+    setLoading(true, t("common.loading"));
     await api.putTrips(trips);
     setLoading(false);
     renderCosts();
@@ -1193,18 +1219,22 @@ async function saveTripsAndProceed(trips) {
   }
 }
 
-function showTripReconciliationGate(flagged) {
+function showTripReconciliationGate(flagged, { scroll = true } = {}) {
+  state.tripGate = flagged;
   const gateEl = document.getElementById("trip-reconciliation-gate");
   document.getElementById("trip-reconciliation-gate-text").textContent =
-    STRINGS.review.tripReconciliationWarning(
-      formatMoney(flagged.computed_total, state.currency),
-      formatMoney(flagged.total_payout, state.currency),
-    );
+    t("review.tripReconciliationWarning", {
+      computed: formatMoney(flagged.computed_total, state.currency),
+      credited: formatMoney(flagged.total_payout, state.currency),
+    });
   gateEl.hidden = false;
-  gateEl.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
+  if (scroll) {
+    gateEl.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
+  }
 }
 
 function hideTripReconciliationGate() {
+  state.tripGate = null;
   document.getElementById("trip-reconciliation-gate").hidden = true;
 }
 
@@ -1242,7 +1272,7 @@ async function handleWeeklyReviewContinue() {
   const weekPayload = buildWeekPayload();
   let recon;
   try {
-    setLoading(true, STRINGS.common.loading);
+    setLoading(true, t("common.loading"));
     recon = await api.getWeeklyReconciliation(weekPayload);
     setLoading(false);
   } catch (err) {
@@ -1260,7 +1290,7 @@ async function handleWeeklyReviewContinue() {
 
 async function saveWeekAndProceed(weekPayload) {
   try {
-    setLoading(true, STRINGS.common.loading);
+    setLoading(true, t("common.loading"));
     await api.putWeek(weekPayload);
     setLoading(false);
     renderCosts();
@@ -1271,18 +1301,22 @@ async function saveWeekAndProceed(weekPayload) {
   }
 }
 
-function showReconciliationGate(recon) {
+function showReconciliationGate(recon, { scroll = true } = {}) {
+  state.weekGate = recon;
   const gateEl = document.getElementById("reconciliation-gate");
   const textEl = document.getElementById("reconciliation-gate-text");
-  textEl.textContent = STRINGS.review.reconciliationWarning(
-    formatMoney(recon.net_payout_weekly, state.currency),
-    formatMoney(recon.total_credited, state.currency),
-  );
+  textEl.textContent = t("review.reconciliationWarning", {
+    computed: formatMoney(recon.net_payout_weekly, state.currency),
+    credited: formatMoney(recon.total_credited, state.currency),
+  });
   gateEl.hidden = false;
-  gateEl.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
+  if (scroll) {
+    gateEl.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
+  }
 }
 
 function hideReconciliationGate() {
+  state.weekGate = null;
   document.getElementById("reconciliation-gate").hidden = true;
 }
 
@@ -1316,9 +1350,9 @@ async function handleReconContinueAnyway() {
 
 function renderRejected(reason) {
   state.lastRejectedReason = reason;
-  document.getElementById("rejected-title").textContent = STRINGS.rejected.title;
+  document.getElementById("rejected-title").textContent = t("rejected.title");
   document.getElementById("rejected-reason").textContent = reason;
-  document.getElementById("btn-try-another").textContent = STRINGS.rejected.tryAnother;
+  document.getElementById("btn-try-another").textContent = t("rejected.tryAnother");
 }
 
 function setupRejectedScreen() {
@@ -1333,14 +1367,15 @@ function setupRejectedScreen() {
 // ---------------------------------------------------------------------------
 
 function renderCosts() {
-  document.getElementById("costs-title").textContent = STRINGS.costs.title;
-  document.getElementById("label-fuel").textContent = moneyLabel(STRINGS.costs.fuel);
-  document.getElementById("label-maintenance").textContent = moneyLabel(STRINGS.costs.maintenance);
-  document.getElementById("label-fixed-daily").textContent = moneyLabel(STRINGS.costs.fixedDaily);
-  document.getElementById("hint-fixed-daily").textContent = STRINGS.costs.fixedDailyWhy;
-  document.getElementById("label-hours-online").textContent = STRINGS.costs.hoursOnline;
-  document.getElementById("hint-hours-online").textContent = STRINGS.costs.hoursOnlineWhy;
-  document.getElementById("btn-save-costs").textContent = STRINGS.costs.save;
+  state.costsRendered = true;
+  document.getElementById("costs-title").textContent = t("costs.title");
+  document.getElementById("label-fuel").textContent = moneyLabel(t("costs.fuel"));
+  document.getElementById("label-maintenance").textContent = moneyLabel(t("costs.maintenance"));
+  document.getElementById("label-fixed-daily").textContent = moneyLabel(t("costs.fixedDaily"));
+  document.getElementById("hint-fixed-daily").textContent = t("costs.fixedDailyWhy");
+  document.getElementById("label-hours-online").textContent = t("costs.hoursOnline");
+  document.getElementById("hint-hours-online").textContent = t("costs.hoursOnlineWhy");
+  document.getElementById("btn-save-costs").textContent = t("costs.save");
   document.getElementById("costs-saved-note").hidden = true;
 
   // Sample mode: prefill plausible defaults so there's nothing to type
@@ -1385,7 +1420,7 @@ async function handleSaveCosts() {
   const hoursOnline = document.getElementById("input-hours-online").value;
 
   if (fuel === "" || maintenance === "") {
-    showToast(STRINGS.review.mustConfirmAll);
+    showToast(t("review.mustConfirmAll"));
     return;
   }
 
@@ -1400,9 +1435,9 @@ async function handleSaveCosts() {
   }
 
   try {
-    setLoading(true, STRINGS.common.loading);
+    setLoading(true, t("common.loading"));
     await api.putCosts(body);
-    showToast(STRINGS.costs.saved);
+    showToast(t("costs.saved"));
     await fetchAndShowResults();
   } catch (err) {
     setLoading(false);
@@ -1444,7 +1479,7 @@ function appendNetEarningsFigure(container, valueText) {
   wrap.className = "results-hero";
   const label = document.createElement("p");
   label.className = "net-earnings-label";
-  label.textContent = STRINGS.results.netEarnings;
+  label.textContent = t("results.netEarnings");
   const value = document.createElement("p");
   value.className = "net-earnings-value count-up";
   value.textContent = valueText;
@@ -1511,16 +1546,16 @@ function moneyChartItems(summary) {
   const items =
     summary.mode === "trip"
       ? [
-          { key: "gross", label: STRINGS.results.chartGrossTrip, value: summary.gross_pay },
-          { key: "deductions", label: STRINGS.results.chartDeductions, value: summary.platform_deductions },
-          { key: "costs", label: STRINGS.results.chartCosts, value: summary.worker_costs },
-          { key: "net", label: STRINGS.results.chartNetEarnings, value: summary.net_earnings },
+          { key: "gross", label: t("results.chartGrossTrip"), value: summary.gross_pay },
+          { key: "deductions", label: t("results.chartDeductions"), value: summary.platform_deductions },
+          { key: "costs", label: t("results.chartCosts"), value: summary.worker_costs },
+          { key: "net", label: t("results.chartNetEarnings"), value: summary.net_earnings },
         ]
       : [
-          { key: "gross", label: STRINGS.results.chartGrossWeekly, value: summary.gross_weekly },
-          { key: "deductions", label: STRINGS.results.chartDeductions, value: summary.deductions_weekly },
-          { key: "costs", label: STRINGS.results.chartCosts, value: summary.worker_costs_weekly },
-          { key: "net", label: STRINGS.results.chartNetEarnings, value: summary.net_earnings_weekly },
+          { key: "gross", label: t("results.chartGrossWeekly"), value: summary.gross_weekly },
+          { key: "deductions", label: t("results.chartDeductions"), value: summary.deductions_weekly },
+          { key: "costs", label: t("results.chartCosts"), value: summary.worker_costs_weekly },
+          { key: "net", label: t("results.chartNetEarnings"), value: summary.net_earnings_weekly },
         ];
   return items.filter((item) => item.value !== null && item.value !== undefined);
 }
@@ -1534,7 +1569,7 @@ function renderMoneyChart(container, summary) {
   const section = document.createElement("div");
   section.className = "card money-chart";
   const h3 = document.createElement("h3");
-  h3.textContent = STRINGS.results.chartTitle;
+  h3.textContent = t("results.chartTitle");
   section.appendChild(h3);
 
   const max = Math.max(...items.map((item) => Math.abs(item.value)), 1);
@@ -1604,9 +1639,10 @@ function renderMoneyChart(container, summary) {
 async function fetchAndShowResults() {
   const loggedInHours = state.mode === "trip" ? state.loggedInHoursEntered : undefined;
   try {
-    setLoading(true, STRINGS.common.loading);
+    setLoading(true, t("common.loading"));
     const summary = await api.getSummary(state.mode, loggedInHours);
     setLoading(false);
+    state.lastSummary = summary;
     renderResults(summary);
     if (!state.askAndEvidenceRendered) {
       renderAskScreen();
@@ -1621,7 +1657,7 @@ async function fetchAndShowResults() {
 }
 
 function renderResults(summary) {
-  document.getElementById("results-title").textContent = STRINGS.results.title;
+  document.getElementById("results-title").textContent = t("results.title");
   const body = document.getElementById("results-body");
   clearChildren(body);
 
@@ -1634,30 +1670,30 @@ function renderResults(summary) {
     netEarningsEl = appendNetEarningsFigure(body, formatMoney(summary.net_earnings, currency) ?? "—");
 
     cardsWrap.appendChild(createRateCard(
-      STRINGS.results.perHourOnTrips,
-      formatRate(summary.net_per_engaged_hour, "/ hr", currency) ?? "—",
+      t("results.perHourOnTrips"),
+      formatRate(summary.net_per_engaged_hour, t("results.unitPerHour"), currency) ?? "—",
       null,
       0,
     ));
     if (summary.net_per_logged_in_hour !== null && summary.net_per_logged_in_hour !== undefined) {
       cardsWrap.appendChild(createRateCard(
-        STRINGS.results.perHourOnline,
-        formatRate(summary.net_per_logged_in_hour, "/ hr", currency),
+        t("results.perHourOnline"),
+        formatRate(summary.net_per_logged_in_hour, t("results.unitPerHour"), currency),
         null,
         1,
       ));
     } else {
-      cardsWrap.appendChild(createRateCard(STRINGS.results.perHourOnline, "—", STRINGS.results.noLoggedInHours, 1));
+      cardsWrap.appendChild(createRateCard(t("results.perHourOnline"), "—", t("results.noLoggedInHours"), 1));
     }
     body.appendChild(cardsWrap);
 
     const why = document.createElement("p");
     why.className = "hint why-differ";
-    why.textContent = STRINGS.results.whyTheyDiffer;
+    why.textContent = t("results.whyTheyDiffer");
     body.appendChild(why);
 
-    addResultsRow(body, STRINGS.results.payPerKm, formatRate(summary.net_payout_per_km, "per km", currency) ?? "—");
-    addResultsRow(body, STRINGS.results.deductionShare, formatPercent(summary.deduction_share) ?? "—");
+    addResultsRow(body, t("results.payPerKm"), formatRate(summary.net_payout_per_km, t("results.unitPerKm"), currency) ?? "—");
+    addResultsRow(body, t("results.deductionShare"), formatPercent(summary.deduction_share) ?? "—");
 
     // Persistent amber note: derived from this /api/summary response (the
     // stored trips), so it shows however the worker got here, e.g. via
@@ -1666,21 +1702,23 @@ function renderResults(summary) {
     if (flaggedTrips !== null && flaggedTrips !== undefined && flaggedTrips > 0) {
       const recon = document.createElement("p");
       recon.className = "banner";
-      recon.textContent = STRINGS.results.tripReconciliationNote(flaggedTrips);
+      recon.textContent = (flaggedTrips === 1
+        ? t("results.tripReconciliationNoteOne")
+        : t("results.tripReconciliationNoteMany", { count: flaggedTrips }));
       body.appendChild(recon);
     }
   } else if (summary.mode === "weekly") {
     netEarningsEl = appendNetEarningsFigure(body, formatMoney(summary.net_earnings_weekly, currency) ?? "—");
 
     cardsWrap.appendChild(createRateCard(
-      STRINGS.results.perHourOnTrips,
+      t("results.perHourOnTrips"),
       "—",
       summary.per_hour_on_trips_unavailable,
       0,
     ));
     cardsWrap.appendChild(createRateCard(
-      STRINGS.results.perHourOnline,
-      formatRate(summary.net_per_online_hour, "/ hr", currency) ?? "—",
+      t("results.perHourOnline"),
+      formatRate(summary.net_per_online_hour, t("results.unitPerHour"), currency) ?? "—",
       null,
       1,
     ));
@@ -1688,11 +1726,11 @@ function renderResults(summary) {
 
     const why = document.createElement("p");
     why.className = "hint why-differ";
-    why.textContent = STRINGS.results.perHourOnTripsUnavailableNote;
+    why.textContent = t("results.perHourOnTripsUnavailableNote");
     body.appendChild(why);
 
-    addResultsRow(body, STRINGS.results.payPerKm, formatRate(summary.net_payout_per_km, "per km", currency) ?? "—");
-    addResultsRow(body, STRINGS.results.deductionShare, formatPercent(summary.deduction_share) ?? "—");
+    addResultsRow(body, t("results.payPerKm"), formatRate(summary.net_payout_per_km, t("results.unitPerKm"), currency) ?? "—");
+    addResultsRow(body, t("results.deductionShare"), formatPercent(summary.deduction_share) ?? "—");
 
     // Persistent reconciliation note (step 2, 14 Oct 2026): derived straight
     // from this same /api/summary response -- not from whatever happened at
@@ -1702,7 +1740,7 @@ function renderResults(summary) {
     if (gap !== null && gap !== undefined && Math.abs(gap) > RECONCILIATION_GATE_TOLERANCE) {
       const recon = document.createElement("p");
       recon.className = "banner";
-      recon.textContent = STRINGS.results.reconciliationNote(formatMoney(Math.abs(gap), currency));
+      recon.textContent = t("results.reconciliationNote", { gap: formatMoney(Math.abs(gap), currency) });
       body.appendChild(recon);
     }
   }
@@ -1711,7 +1749,7 @@ function renderResults(summary) {
 
   if (summary.data_quality && summary.data_quality.length > 0) {
     const h3 = document.createElement("h3");
-    h3.textContent = STRINGS.results.dataQualityTitle;
+    h3.textContent = t("results.dataQualityTitle");
     body.appendChild(h3);
     const ul = document.createElement("ul");
     summary.data_quality.forEach((note) => {
@@ -1730,20 +1768,28 @@ function renderResults(summary) {
 // ---------------------------------------------------------------------------
 
 function renderAskScreen() {
-  document.getElementById("ask-title").textContent = STRINGS.ask.title;
-  document.getElementById("label-ask-question").textContent = STRINGS.ask.questionLabel;
-  document.getElementById("btn-ask-submit").textContent = STRINGS.ask.submit;
   document.getElementById("input-ask-question").value = "";
   document.getElementById("ask-answer").hidden = true;
+  document.getElementById("voice-check-note").hidden = true;
+  renderAskStrings();
+}
+
+// Text only: safe to repeat on a language change (keeps the typed question
+// and any answer already shown).
+function renderAskStrings() {
+  document.getElementById("ask-title").textContent = t("ask.title");
+  document.getElementById("label-ask-question").textContent = t("ask.questionLabel");
+  document.getElementById("btn-ask-submit").textContent = t("ask.submit");
+  document.getElementById("ask-verified-badge").textContent = t("ask.verified");
 
   const suggestionsEl = document.getElementById("ask-suggestions");
   clearChildren(suggestionsEl);
   const heading = document.createElement("p");
-  heading.textContent = STRINGS.ask.suggestionsHeading;
+  heading.textContent = t("ask.suggestionsHeading");
   suggestionsEl.appendChild(heading);
 
-  const suggestions = state.mode === "weekly" ? STRINGS.ask.suggestionsWeekly : STRINGS.ask.suggestionsTrip;
-  suggestions.forEach((question) => {
+  const group = state.mode === "weekly" ? "ask.suggestionsWeekly" : "ask.suggestionsTrip";
+  [1, 2, 3].map((n) => t(`${group}.${n}`)).forEach((question) => {
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = "small suggestion-chip";
@@ -1759,15 +1805,15 @@ async function handleAsk(question) {
     return;
   }
   document.getElementById("input-ask-question").value = text;
+  document.getElementById("voice-check-note").hidden = true;
   try {
-    setLoading(true, STRINGS.common.loading);
+    setLoading(true, t("common.loading"));
     const result = await api.ask(text, "en");
     setLoading(false);
     const answerBlock = document.getElementById("ask-answer");
     const badge = document.getElementById("ask-verified-badge");
     const answerText = document.getElementById("ask-answer-text");
     if (result.verified) {
-      badge.textContent = STRINGS.ask.verified;
       badge.hidden = false;
     } else {
       badge.hidden = true;
@@ -1785,17 +1831,21 @@ async function handleAsk(question) {
 // ---------------------------------------------------------------------------
 
 function renderEvidenceScreen() {
-  document.getElementById("evidence-title").textContent = STRINGS.evidence.title;
-  document.getElementById("btn-open-report").textContent = STRINGS.evidence.openReport;
-  document.getElementById("evidence-privacy-note").textContent = STRINGS.evidence.privacyNote;
-  document.getElementById("delete-heading").textContent = STRINGS.evidence.deleteHeading;
-  document.getElementById("delete-explain").textContent = STRINGS.evidence.deleteExplain;
-  document.getElementById("btn-delete-data").textContent = STRINGS.evidence.deleteButton;
-  document.getElementById("delete-confirm-text").textContent = STRINGS.evidence.deleteConfirmText;
-  document.getElementById("btn-delete-confirm-yes").textContent = STRINGS.evidence.deleteConfirmYes;
-  document.getElementById("btn-delete-confirm-cancel").textContent = STRINGS.evidence.deleteConfirmCancel;
   document.getElementById("delete-confirm-panel").hidden = true;
   document.getElementById("btn-delete-data").hidden = false;
+  renderEvidenceStrings();
+}
+
+function renderEvidenceStrings() {
+  document.getElementById("evidence-title").textContent = t("evidence.title");
+  document.getElementById("btn-open-report").textContent = t("evidence.openReport");
+  document.getElementById("evidence-privacy-note").textContent = t("evidence.privacyNote");
+  document.getElementById("delete-heading").textContent = t("evidence.deleteHeading");
+  document.getElementById("delete-explain").textContent = t("evidence.deleteExplain");
+  document.getElementById("btn-delete-data").textContent = t("evidence.deleteButton");
+  document.getElementById("delete-confirm-text").textContent = t("evidence.deleteConfirmText");
+  document.getElementById("btn-delete-confirm-yes").textContent = t("evidence.deleteConfirmYes");
+  document.getElementById("btn-delete-confirm-cancel").textContent = t("evidence.deleteConfirmCancel");
 }
 
 async function handleOpenReport() {
@@ -1833,7 +1883,7 @@ function cancelDeleteConfirm() {
 
 async function handleDeleteConfirmed() {
   try {
-    setLoading(true, STRINGS.common.loading);
+    setLoading(true, t("common.loading"));
     await api.deleteAll();
     setLoading(false);
     resetState();
@@ -1842,7 +1892,7 @@ async function handleDeleteConfirmed() {
     // worker tapped it again) -- send them back to the start instead of
     // leaving a now-stale nav bar up.
     showScreen("landing");
-    showToast(STRINGS.evidence.deleteDone);
+    showToast(t("evidence.deleteDone"));
   } catch (err) {
     setLoading(false);
     cancelDeleteConfirm();
@@ -1855,25 +1905,19 @@ async function handleDeleteConfirmed() {
 // ---------------------------------------------------------------------------
 
 function renderStepLabels() {
-  document.getElementById("step-label-1").textContent = STRINGS.steps.upload;
-  document.getElementById("step-label-2").textContent = STRINGS.steps.check;
-  document.getElementById("step-label-3").textContent = STRINGS.steps.costs;
-  document.getElementById("step-label-4").textContent = STRINGS.steps.results;
+  document.getElementById("step-label-1").textContent = t("steps.upload");
+  document.getElementById("step-label-2").textContent = t("steps.check");
+  document.getElementById("step-label-3").textContent = t("steps.costs");
+  document.getElementById("step-label-4").textContent = t("steps.results");
 }
 
 function setupNavigationControls() {
-  document.getElementById("btn-home").textContent = STRINGS.nav.home;
-  document.getElementById("btn-brand-home").setAttribute("aria-label", STRINGS.nav.brandHomeLabel);
   document.getElementById("btn-brand-home").addEventListener("click", goHome);
   document.getElementById("btn-home").addEventListener("click", goHome);
-  document.getElementById("btn-rejected-home").textContent = STRINGS.nav.home;
   document.getElementById("btn-rejected-home").addEventListener("click", goHome);
 
-  document.getElementById("btn-back-review").textContent = STRINGS.nav.back;
   document.getElementById("btn-back-review").addEventListener("click", () => handleBackButton("review"));
-  document.getElementById("btn-back-costs").textContent = STRINGS.nav.back;
   document.getElementById("btn-back-costs").addEventListener("click", () => handleBackButton("costs"));
-  document.getElementById("btn-back-results").textContent = STRINGS.nav.back;
   document.getElementById("btn-back-results").addEventListener("click", () => handleBackButton("results"));
 
   setupStepDotNavigation();
@@ -1884,9 +1928,51 @@ function setupNavigationControls() {
   history.replaceState({ screen: ROOT_SCREEN }, "", `#${ROOT_SCREEN}`);
 }
 
-export function initApp() {
+// Text that is set once rather than by a screen's own render function. Run at
+// start-up and again whenever the language changes.
+function renderStaticStrings() {
   renderStepLabels();
+  document.getElementById("nav-results").textContent = t("nav.results");
+  document.getElementById("nav-ask").textContent = t("nav.ask");
+  document.getElementById("nav-evidence").textContent = t("nav.evidence");
+  document.getElementById("btn-home").textContent = t("nav.home");
+  document.getElementById("btn-rejected-home").textContent = t("nav.home");
+  document.getElementById("btn-brand-home").setAttribute("aria-label", t("nav.brandHomeLabel"));
+  ["review", "costs", "results"].forEach((name) => {
+    document.getElementById(`btn-back-${name}`).textContent = t("nav.back");
+  });
+  document.getElementById("btn-trip-recon-fix").textContent = t("review.tripReconciliationFix");
+  document.getElementById("btn-trip-recon-continue").textContent = t("review.tripReconciliationContinue");
+  document.getElementById("btn-recon-add-line").textContent = t("review.reconciliationAddLine");
+  document.getElementById("btn-recon-continue-anyway").textContent = t("review.reconciliationContinueAnyway");
+  document.getElementById("review-continue-hint").textContent = t("review.mustConfirmAll");
+  document.getElementById("btn-review-continue").textContent = t("review.confirmAndContinue");
+  document.getElementById("rejected-title").textContent = t("rejected.title");
+  document.getElementById("btn-try-another").textContent = t("rejected.tryAnother");
   renderLandingStrings();
+  renderAskStrings();
+  renderEvidenceStrings();
+  renderVoiceStrings();
+}
+
+// Switching language re-draws whatever text is on screen from the saved state:
+// nothing the worker typed or confirmed is lost, nothing is re-fetched.
+function rerenderForLanguage() {
+  stopVoice();
+  renderStaticStrings();
+  if (state.mode !== null) {
+    renderReview({ keepGates: true });
+  }
+  if (state.costsRendered) {
+    renderCosts();
+  }
+  if (state.lastSummary) {
+    renderResults(state.lastSummary);
+  }
+}
+
+export function initApp() {
+  renderLandingHero();
   setupLanding();
   setupRejectedScreen();
   setupLightbox();
@@ -1894,12 +1980,8 @@ export function initApp() {
   setupNav();
   setupNavigationControls();
   document.getElementById("btn-review-continue").addEventListener("click", handleReviewContinue);
-  document.getElementById("btn-trip-recon-fix").textContent = STRINGS.review.tripReconciliationFix;
-  document.getElementById("btn-trip-recon-continue").textContent = STRINGS.review.tripReconciliationContinue;
   document.getElementById("btn-trip-recon-fix").addEventListener("click", handleTripReconFix);
   document.getElementById("btn-trip-recon-continue").addEventListener("click", () => handleTripReconContinueAnyway());
-  document.getElementById("btn-recon-add-line").textContent = STRINGS.review.reconciliationAddLine;
-  document.getElementById("btn-recon-continue-anyway").textContent = STRINGS.review.reconciliationContinueAnyway;
   document.getElementById("btn-recon-add-line").addEventListener("click", handleReconAddLine);
   document.getElementById("btn-recon-continue-anyway").addEventListener("click", () => handleReconContinueAnyway());
   document.getElementById("btn-save-costs").addEventListener("click", handleSaveCosts);
@@ -1909,5 +1991,14 @@ export function initApp() {
   document.getElementById("btn-delete-data").addEventListener("click", showDeleteConfirm);
   document.getElementById("btn-delete-confirm-yes").addEventListener("click", handleDeleteConfirmed);
   document.getElementById("btn-delete-confirm-cancel").addEventListener("click", cancelDeleteConfirm);
+  initVoice({
+    input: document.getElementById("input-ask-question"),
+    button: document.getElementById("btn-voice"),
+    status: document.getElementById("voice-status"),
+    checkNote: document.getElementById("voice-check-note"),
+    privacyNote: document.getElementById("voice-privacy"),
+  });
+  onLanguageChange(rerenderForLanguage);
+  renderStaticStrings();
   showScreen("landing", { skipHistory: true }); // root state already set via replaceState above
 }
