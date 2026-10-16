@@ -40,6 +40,7 @@ const send = (method, params = {}) => new Promise((resolve, reject) => { const i
 const ev = async (expr) => { const r = await send("Runtime.evaluate", { expression: expr, awaitPromise: true, returnByValue: true }); if (r.exceptionDetails) throw new Error("eval: " + (r.exceptionDetails.exception?.description || r.exceptionDetails.text) + " :: " + expr.slice(0, 120)); return r.result.value; };
 const waitEv = (expr, ms) => until(() => ev(expr), ms);
 await send("Page.enable"); await send("Runtime.enable");
+await send("Emulation.setFocusEmulationEnabled", { enabled: true }); // headless pages are not focused by default; needed so :focus-visible rings exist
 
 // Fake speech recognition + shortened 15 s timer, installed before every page load.
 await send("Page.addScriptToEvaluateOnNewDocument", { source: `
@@ -215,6 +216,8 @@ for (const lang of LANGS) {
         const speechCodes = { en: "en-IN", hi: "hi-IN", ta: "ta-IN", te: "te-IN", kn: "kn-IN", ml: "ml-IN" };
         record(lang, width, "mic transcript in box, check note shown, never auto-submitted", after.text === "what was my net pay per hour" && after.note && !after.listening && counters.ask === asksBeforeVoice && after.privacyShown, JSON.stringify(after));
         record(lang, width, "recognition language", sp.srLang === speechCodes[lang], sp.srLang);
+        const ring = await ev(`(() => { const t = document.getElementById("input-ask-question"), c = getComputedStyle(t); return { focused: document.activeElement === t, style: c.outlineStyle, width: c.outlineWidth, offset: c.outlineOffset }; })()`);
+        record(lang, width, "textarea has its focus ring after a transcript (so the overlap check measures it)", ring.focused && ring.style !== "none" && parseFloat(ring.width) > 0, JSON.stringify(ring));
         await checkOverflow(lang, width, "ask (transcript + notes)");
         for (const [mode, label] of [["denied", "permission refused"], ["nospeech", "no speech"], ["silence", "silence stop"], ["network", "network error"]]) {
           const out = await ev(`(async () => { window.__srMode = ${JSON.stringify(mode)}; window.__say = ""; document.getElementById("btn-voice").click(); await new Promise(r => setTimeout(r, 400)); return { status: document.getElementById("voice-status").textContent, listening: document.getElementById("btn-voice").classList.contains("listening"), shown: !document.getElementById("voice-status").hidden }; })()`);
