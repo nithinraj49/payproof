@@ -18,8 +18,16 @@
   --error-bg: #FDECEA;
 
   --bd: 3px solid var(--ink);
-  --hard: 6px 6px 0 var(--ink);
-  --hard-sm: 4px 4px 0 var(--ink);
+  /* ONE shadow offset drives every hard shadow and every gap that has to clear one.
+     Whatever follows a shadowed element needs at least offset + 8px of space. */
+  --off: 6px;
+  --off-sm: calc(var(--off) * 2 / 3);
+  --gap: calc(var(--off) + 8px); /* between stacked cards, buttons, notes (large shadow) */
+  --gap-sm: calc(var(--off-sm) + 8px); /* between small buttons and chips, and in rows */
+  --ring: 7px; /* keyboard focus ring: 4px outline + 3px offset */
+  --hard: var(--off) var(--off) 0 var(--ink);
+  --hard-sm: var(--off-sm) var(--off-sm) 0 var(--ink);
+  --hard-hover: calc(var(--off) + 2px) calc(var(--off) + 2px) 0 var(--ink);
 
   --display-latin: "Arial Black", "Helvetica Neue", Arial, sans-serif;
   --display: var(--display-latin);
@@ -696,7 +704,7 @@ img.preview { /* trip-mode previews sit outside a .card, so no .card prefix */
   background: var(--ink);
   color: #fff;
   border: var(--bd);
-  box-shadow: 5px 5px 0 var(--amber);
+  box-shadow: var(--off-sm) var(--off-sm) 0 var(--amber);
   padding: var(--space-2);
   border-radius: 8px;
   font-size: var(--fs-100);
@@ -912,7 +920,7 @@ label.upload-btn:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(
 @media (hover: hover) and (pointer: fine) {
   .tilt-card:hover {
     transform: perspective(900px) translateY(-4px) rotateX(0deg) rotateY(0deg);
-    box-shadow: 8px 8px 0 var(--ink);
+    box-shadow: var(--hard-hover);
   }
 }
 
@@ -935,10 +943,10 @@ label.upload-btn:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(
   .app-nav button:hover,
   label.upload-btn:hover {
     transform: translate(-2px, -2px);
-    box-shadow: 8px 8px 0 var(--ink);
+    box-shadow: var(--hard-hover);
   }
   #screen-landing button.small:hover {
-    box-shadow: 6px 6px 0 var(--ink);
+    box-shadow: var(--hard);
   }
 }
 
@@ -1204,3 +1212,53 @@ html:lang(ta) body, html:lang(te) body, html:lang(kn) body, html:lang(ml) body {
 :is(html:lang(hi), html:lang(ta), html:lang(te), html:lang(kn), html:lang(ml)) h2 { font-size: 1.4rem; }
 :is(html:lang(hi), html:lang(ta), html:lang(te), html:lang(kn), html:lang(ml)) h3 { font-size: 1.125rem; }
 :is(html:lang(hi), html:lang(ta), html:lang(te), html:lang(kn), html:lang(ml)) .landing-headline { font-size: 1.6rem; }
+
+/* ---------------------------------------------------------------------
+   Stacking: room for the hard shadows (stage 1.1). Every shadow reaches
+   --off (large) or --off-sm (small) below and to the right of its box, so the
+   next element needs at least offset + 8px: --gap and --gap-sm are derived
+   from the single --off, and nothing below is a per-element exception.
+--------------------------------------------------------------------- */
+
+button.primary,
+button.secondary {
+  margin-bottom: var(--gap);
+}
+
+/* the last button inside a card has the card's own padding below it */
+.card button.primary:last-child,
+.card button.secondary:last-child {
+  margin-bottom: 0;
+}
+
+.tilt-card {
+  margin-bottom: max(var(--space-2), var(--gap));
+}
+
+.suggestion-chip {
+  margin: 0 var(--gap-sm) var(--gap-sm) 0;
+}
+
+.field-row,
+.deduction-row,
+.app-nav,
+.header-controls,
+.voice-row {
+  gap: var(--gap-sm);
+}
+
+.deduction-row,
+.line-row {
+  margin-bottom: var(--gap-sm);
+}
+
+/* room under the dot for its shadow, and the connecting line moves with it */
+.step-dot { gap: var(--gap-sm); }
+.step-line { margin-bottom: calc(1.3rem + 8px); }
+
+/* labels and notes around a text box clear its focus ring */
+.field label { margin-bottom: 0.5rem; }
+.voice-status,
+.voice-check {
+  margin-top: calc(var(--ring) + 8px);
+}

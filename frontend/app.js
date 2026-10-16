@@ -406,7 +406,7 @@ function renderSampleCards() {
   clearChildren(cardsEl);
   SAMPLE_IMAGES.forEach((sample) => {
     const card = document.createElement("div");
-    card.className = "sample-card tilt-card";
+    card.className = "card sample-card tilt-card";
 
     const h4 = document.createElement("h4");
     h4.textContent = t(sample.labelKey);
