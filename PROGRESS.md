@@ -712,3 +712,13 @@ node scripts/check_hardcoded_strings.js; node scripts/check_translations.js
 # Deploy (frontend only, needs owner "go" because scripts/ and PROGRESS.md also changed):
 firebase deploy --only hosting --project payproof-nithin-2026
 ```
+
+## Stage 1.1: Tamil for the new keys, one language selector, spacing -- built 17 Oct 2026, NOT deployed yet
+
+Rollback tags: `live-stage1` (= 5797520, the deployed Stage 1), `live-before-i18n-ui`, `v1.0`. Nothing in `backend/`, `engine/`, `extraction/`, `deploy/` changed (also none in Stage 1). Not pushed.
+
+- Tamil for the 22 stage 1 keys (11 supplied by the owner, 11 translated from `ta.json` vocabulary: need a native check). The 22 keys are now in `docs/translations/en.json` and `frontend/lang/en.json`; hi, te, kn, ml hold the English text as a placeholder (list in `docs/translations/NEW_KEYS_STAGE1.md`).
+- Language selector only in the header (first-screen selector and "Language" label removed).
+- Spacing: one `--off` shadow-offset variable; `--gap` and `--gap-sm` (offset + 8px) space stacked buttons, cards, chips, labels, notes. Cause of the "tall dark bars": sample cards had `tilt-card` (hard shadow) but no `card` box; now `card sample-card tilt-card`.
+- `scripts/browser_check/` (dev-only, not deployed): headless Edge run over a stubbed API (no Gemini, no network). Fails on layout overflow, text-vs-shadow overlap, wrong digits, language-switch problems, mic states. Run: `node scripts/browser_check/run.mjs en,ta 360 1` (set `SHOTS=<folder>` for 360 px screenshots).
+- Overlap hits (EN+TA, 360 px, all screens): 215 before, 0 after.
