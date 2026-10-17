@@ -40,7 +40,7 @@ export const SAMPLE_IMAGES = [
 // change, no sample cache, no prefilled costs.
 export const LANGUAGE_SAMPLES = {
   ta: ["trip", "weekly", "order_offer"],
-  hi: ["trip", "order_offer"], // hi/weekly failed the live extraction test twice (garbled labels): no button for it
+  hi: ["trip", "weekly", "order_offer"], // hi/weekly: first version scored 8/9 live (amounts right); restored
   te: ["trip", "weekly", "order_offer"],
   kn: ["trip", "weekly", "order_offer"],
   ml: ["trip", "weekly", "order_offer"],

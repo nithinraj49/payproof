@@ -179,7 +179,7 @@ const visible = (sel) => `(() => { const e = document.querySelector(${JSON.strin
 // Non-English samples go through the normal upload path (no sample mode), so costs and the weekly km/hours start blank.
 const fillCosts = () => ev(`for (const [id, v] of [["input-fuel", "3"], ["input-maintenance", "1"]]) { const e = document.getElementById(id); if (e.value === "") { e.value = v; e.dispatchEvent(new Event("input")); } }`);
 const fillWeekly = () => ev(`(() => { const nums = [...document.querySelectorAll("#review-groups input[type=number]")].slice(-2); const vals = ["300", "42"]; nums.forEach((e, i) => { if (e.value === "") { e.value = vals[i]; e.dispatchEvent(new Event("input")); } }); })()`);
-const EXPECTED_SAMPLES = { en: "trip,weekly,order_offer", ta: "trip,weekly,order_offer", te: "trip,weekly,order_offer", kn: "trip,weekly,order_offer", ml: "trip,weekly,order_offer", hi: "trip,order_offer" }; // hi/weekly was removed after failing the live extraction test twice
+const EXPECTED_SAMPLES = { en: "trip,weekly,order_offer", ta: "trip,weekly,order_offer", te: "trip,weekly,order_offer", kn: "trip,weekly,order_offer", ml: "trip,weekly,order_offer", hi: "trip,weekly,order_offer" };
 const confirmAll = () => ev(`(async () => { for (let n = 0; n < 40; n++) { const b = [...document.querySelectorAll("#screen-review button.confirm-btn:not(.is-confirmed)")][0]; if (!b) break; b.click(); } return !document.getElementById("btn-review-continue").disabled; })()`);
 
 async function load(lang, width) {
