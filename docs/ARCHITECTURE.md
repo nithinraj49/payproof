@@ -48,21 +48,25 @@ flowchart LR
 
 ## Cost controls
 
-We pay for every Gemini call. Values below are the deployed settings in `deploy/env.yaml`.
+We pay for every Gemini call. Each row names the file and line that backs it (line numbers as of this commit).
 
-| Control | Setting |
-|---|---|
-| Model | `gemini-3.1-flash-lite` for extraction and answers (cheapest of the candidates that met accuracy) |
-| Calls per screenshot | One, with at most one retry on invalid output; a short pause-and-retry on a 429 or 5xx, then a friendly busy message; no loops |
-| Image preparation | Longest side at most 1280 px, JPEG quality 85, metadata stripped, in memory |
-| Upload limit | 8 MB, checked in the browser and on the server |
-| Output caps | 1,500 tokens for extraction, 400 for answers; temperature 0; minimal thinking |
-| Quality gate | Blurry, dark, low-contrast or tiny images are rejected before any model call |
-| Q&A | Compact engine JSON only, never images or histories; at most two model turns per question; the verifier is plain code |
-| Per-user daily limits | 12 extractions and 25 questions, as atomic Firestore counters |
-| Global daily limit | 400 Gemini calls, as an atomic Firestore counter |
-| Caching | In-memory cache by image hash (500 entries per instance); curated sample images (simulated) cached in Firestore, so repeat sample taps cost nothing |
-| Cloud Run | `--max-instances=3`, 1 GiB, 60 s timeout, minimum instances 0 unless changed by the owner |
-| Logging | Token counts and estimated cost per call only |
-| Tests | Mocked Gemini output; evaluation scripts print the call count and estimated cost and wait for approval |
-| Budget alert | Set in Google Cloud billing; it warns but does not stop spending, so the in-app limits are the real guard |
+| Control | Setting | Proof |
+|---|---|---|
+| Model | `gemini-3.1-flash-lite` for extraction and answers | `deploy/env.yaml:12-13` |
+| Calls per screenshot | One call, at most one retry on invalid output, then a safe fallback | `extraction/extract.py:357` |
+| Transient errors | A 429 or 5xx is retried after at most 2 short pauses, then a friendly busy message | `extraction/extract.py:280`, `backend/qa.py:286-293` |
+| Image preparation | Longest side at most 1280 px, JPEG quality 85, metadata stripped, in memory | `deploy/env.yaml:14-15`, `extraction/image_prep.py:11-22`, `backend/main.py:73` |
+| Upload limit | 8 MB, checked in the browser and on the server | `deploy/env.yaml:16`, `backend/main.py:68-70`, `frontend/app.js:487` |
+| Output caps | 1,500 tokens for extraction, 400 for answers | `deploy/env.yaml:17-18`, `extraction/extract.py:318`, `backend/qa.py:258` |
+| Temperature and thinking | Temperature 0 (set for models that support it), `MINIMAL` thinking level | `extraction/extract.py:319,323`, `backend/qa.py:259,263` |
+| Quality gate | Runs before the usage-limit counter and any model call | `backend/main.py:79` (gate) and `:122` (counter), `extraction/image_quality.py:28`, thresholds `deploy/env.yaml:23-27` |
+| Q&A | Compact engine JSON only; draft plus at most one stricter retry; the verifier is plain code | `backend/qa.py:89`, `:808` (retry), `:544` (`verify_numbers`) |
+| Per-user daily limits | 12 extractions and 25 questions, atomic Firestore transaction | `deploy/env.yaml:20-21`, `backend/main.py:122,422`, `backend/usage_limits.py:66` |
+| Global daily limit | 400 Gemini calls | `deploy/env.yaml:22`, `backend/main.py:117` |
+| Image-hash cache | In-memory, first-in-first-out, 500 entries per instance | `backend/extraction_cache.py:11,26`, `backend/main.py:119,137` |
+| Sample cache | Curated simulated samples are cached in Firestore and not charged to the user | `backend/main.py:103-111,135`, `backend/sample_cache.py:18` |
+| Cloud Run size | `--max-instances=3`, 1 GiB, 60 s timeout (deploy command) | `CLAUDE.md:65` |
+| Minimum instances | Deployed value is 0. The owner may raise it to 1 during the judging window | `docs/PHASE6_REPORT.md:9,150` |
+| Logging | Token counts, outcome and estimated cost per call only | `extraction/extract.py:72-76` |
+| Evaluation scripts | Print the call count and estimated cost, then wait for `--go` | `eval/run_extraction_eval.py:7` |
+| Tests | Gemini output is mocked, no network | `tests/test_extraction.py:1` |
