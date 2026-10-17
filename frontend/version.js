@@ -5,5 +5,5 @@
 // committed).
 export const VERSION = {
   buildDate: "2026-10-17",
-  shortId: "51aa5bc",
+  shortId: "27fa33d",
 };
