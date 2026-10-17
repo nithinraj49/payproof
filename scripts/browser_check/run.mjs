@@ -13,6 +13,7 @@ import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
 import { startServer, counters, modes } from "./harness_server.mjs";
+import { INIT_SOURCE } from "./init_script.mjs";
 
 const LANGS = (process.argv[2] || "en,hi,ta,te,kn,ml").split(",");
 const WIDTHS = (process.argv[3] || "320,360,390").split(",").map(Number);
@@ -37,28 +38,6 @@ const send = (method, params = {}) => new Promise((resolve, reject) => {
 });
 const ev = async (expr) => { const r = await send("Runtime.evaluate", { expression: expr, awaitPromise: true, returnByValue: true }); if (r.exceptionDetails) throw new Error("eval: " + (r.exceptionDetails.exception?.description || r.exceptionDetails.text) + " :: " + expr.slice(0, 120)); return r.result.value; };
 const waitEv = (expr, ms) => until(() => ev(expr), ms);
-const INIT_SOURCE = `
-  (() => {
-    const realSetTimeout = window.setTimeout.bind(window);
-    window.setTimeout = (fn, ms, ...a) => realSetTimeout(fn, ms === 15000 ? 400 : ms, ...a);
-    window.__srCreated = 0;
-    window.__srMode = "speak"; // speak | denied | nospeech | silence | network
-    class FakeSR {
-      constructor() { window.__sr = this; window.__srCreated += 1; this.log = []; }
-      start() {
-        this.log.push("start:" + this.lang);
-        if (window.__srMode === "denied") { setTimeout(() => { this.onerror && this.onerror({ error: "not-allowed" }); this.onend && this.onend(); }, 20); return; }
-        if (window.__srMode === "network") { setTimeout(() => { this.onerror && this.onerror({ error: "network" }); this.onend && this.onend(); }, 20); return; }
-        setTimeout(() => this.onstart && this.onstart(), 20);
-        if (window.__srMode === "nospeech") setTimeout(() => { this.onerror && this.onerror({ error: "no-speech" }); this.onend && this.onend(); }, 120);
-        if (window.__srMode === "silence") setTimeout(() => { this.onend && this.onend(); }, 120);
-      }
-      stop() { this.log.push("stop"); setTimeout(() => { if (window.__say) this.onresult && this.onresult({ resultIndex: 0, results: [Object.assign([{ transcript: window.__say }], { isFinal: true })] }); this.onend && this.onend(); }, 10); }
-      abort() { this.log.push("abort"); setTimeout(() => { this.onerror && this.onerror({ error: "aborted" }); this.onend && this.onend(); }, 10); }
-    }
-    window.SpeechRecognition = FakeSR;
-  })();
-`;
 
 async function startBrowser() {
   const profile = mkdtempSync(path.join(os.tmpdir(), "edge-prof-"));
@@ -306,6 +285,20 @@ for (const lang of LANGS) {
         record(lang, width, "rejection screen shows no numbers (order offer)", !rej.digits, rej.reason);
         record(lang, width, "rejection explanation is translated (non-English)", lang === "en" || rej.reason === dict["rejected.orderOffer"], rej.reason.slice(0, 80));
       }
+      await click("#btn-try-another"); await waitEv(visible("#screen-landing"), 4000);
+
+      // rejected: the model says "not a trip or payout screen" (screen_type other, needs_review off)
+      modes.extractType = "other";
+      await click("#btn-try-sample"); await ev(`document.querySelector('[data-sample="trip"] button').click()`);
+      await waitEv(visible("#screen-rejected"), 8000); await checkOverflow(lang, width, "rejected (other)");
+      {
+        const dict2 = JSON.parse(readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "frontend", "lang", `${lang}.json`), "utf8"));
+        const reason = await ev(`document.getElementById("rejected-reason").textContent`);
+        const digits = await ev(`/[0-9]/.test(document.getElementById("screen-rejected").innerText)`);
+        record(lang, width, "rejection (other) shows no numbers", !digits, reason);
+        record(lang, width, "rejection (other) explanation is translated (non-English)", lang === "en" || reason === dict2["rejected.notAScreen"], reason.slice(0, 80));
+      }
+      modes.extractType = null;
       await click("#btn-try-another"); await waitEv(visible("#screen-landing"), 4000);
 
       // reconciliation gate + language switch keeps it open

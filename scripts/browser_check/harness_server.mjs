@@ -6,9 +6,22 @@ import { readFileSync, existsSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "frontend");
+const FRONTEND = process.env.FRONTEND_DIR ? path.resolve(process.env.FRONTEND_DIR) : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "frontend"); // FRONTEND_DIR: test another copy of frontend/ (e.g. an older tag)
 export const counters = { ask: 0, askBodies: [], extract: 0, other: {} };
-export const modes = { reconFlag: false };
+// extractType: null | "other" (model says not a trip or payout screen) | "quality" (image-quality gate) | "err415" | "err400"
+// summaryError: null | { status, code }.  weeklyGap: the weekly reconciliation panel and Results note appear.
+export const modes = { reconFlag: false, extractType: null, summaryError: null, weeklyGap: false };
+export const BACKEND_ENGLISH = [
+  "This is an incoming order offer, not a completed trip.",
+  "This is a welcome or informational screen, not an earnings screen.",
+  "This image looks too blurry to read. Please retake this screenshot in focus.",
+  "Please upload a PNG, JPEG or WebP image.",
+  "BACKEND ENGLISH MESSAGE",
+  "Your net pay per hour was ₹195.58.",
+  "Weekly screenshots do not show trip minutes.",
+  "Trip 1: the amounts add up to ₹147.02, but its screenshot says ₹136.65.",
+  "Distance driven was not provided, so pay per km is not shown.", "Food delivery", "SIM-1001", "Platform fee", "Trip earnings", "Incentives", "5 Oct to 11 Oct 2026",
+]; // texts the stubs return, i.e. what the real backend or extraction would put on screen in English
 
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".jpg": "image/jpeg", ".png": "image/png", ".svg": "image/svg+xml" };
 
@@ -51,6 +64,10 @@ export function startServer(port = 0) {
         counters.extract += 1;
         counters.lastIsSample = (/name="is_sample"\s+(true|false)/.exec(body) || [])[1];
         counters.lastFile = (/filename="([^"]+)"/.exec(body) || [])[1];
+        if (modes.extractType === "other") return send(200, { screen_type: "other", currency: "INR", needs_review: false, trips: [], notes: "This is a welcome or informational screen, not an earnings screen." });
+        if (modes.extractType === "quality") return send(200, { screen_type: "other", needs_review: true, trips: [], payout_summary: null, notes: "This image looks too blurry to read. Please retake this screenshot in focus." });
+        if (modes.extractType === "err415") return send(415, { error_code: "unsupported_file_type", message: "Please upload a PNG, JPEG or WebP image." });
+        if (modes.extractType === "err400") return send(400, { error_code: "unreadable_image", message: "Could not read that image. Please upload a clear screenshot." });
         if (/sample-(?:[a-z]{2}-)?weekly/.test(body)) return send(200, weeklyExtract);
         if (/order[-_]offer/.test(body)) return send(200, offerExtract);
         return send(200, tripExtract);
@@ -58,8 +75,12 @@ export function startServer(port = 0) {
       if (url.pathname === "/api/trip-reconciliation") {
         return send(200, modes.reconFlag ? { flagged_count: 1, flagged: [{ computed_total: 147.02, total_payout: 136.65 }] } : { flagged_count: 0, flagged: [] });
       }
-      if (url.pathname === "/api/weekly-reconciliation") return send(200, { reconciliation_gap: 0, net_payout_weekly: 8200, total_credited: 8200 });
-      if (url.pathname === "/api/summary") return send(200, url.searchParams.get("mode") === "weekly" ? weeklySummary : tripSummary);
+      if (url.pathname === "/api/weekly-reconciliation") return send(200, modes.weeklyGap ? { reconciliation_gap: 200, net_payout_weekly: 8000, total_credited: 8200 } : { reconciliation_gap: 0, net_payout_weekly: 8200, total_credited: 8200 });
+      if (url.pathname === "/api/summary") {
+        if (modes.summaryError) return send(modes.summaryError.status, { error_code: modes.summaryError.code, message: "BACKEND ENGLISH MESSAGE" });
+        const weekly = url.searchParams.get("mode") === "weekly";
+        return send(200, weekly ? { ...weeklySummary, reconciliation_gap: modes.weeklyGap ? 200 : 0, data_quality: modes.weeklyGap ? ["Distance driven was not provided, so pay per km is not shown."] : [] } : tripSummary);
+      }
       if (url.pathname === "/api/ask") { counters.ask += 1; counters.askBodies.push(body); return send(200, { verified: true, text: "Your net pay per hour was ₹195.58." }); }
       if (url.pathname === "/api/report") return send(200, "<p>report</p>", "text/html");
       if (url.pathname.startsWith("/api/err/")) {
