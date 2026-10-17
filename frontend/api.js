@@ -8,32 +8,54 @@ import { getLanguage, t } from "./i18n.js";
 const DEFAULT_TIMEOUT_MS = 20000;
 const EXTRACT_TIMEOUT_MS = 30000;
 
+// An error never stores a finished translated sentence: it keeps the translation KEY (and the
+// backend's own English text) and works out the wording in display(), at the moment it is shown,
+// so a language change re-words an error that is still on screen.
 export class ApiError extends Error {
-  constructor(message, { code = "error", status = null, retryable = false } = {}) {
-    super(message);
+  constructor({ code = "error", status = null, retryable = false, key = null, backendMessage = null } = {}) {
+    super(backendMessage || key || code); // for logs only: the screen uses display()
     this.code = code;
     this.status = status;
     this.retryable = retryable;
+    this.key = key;
+    this.backendMessage = backendMessage;
+  }
+
+  // English keeps the backend's own message (as in v1.0); every other language uses the
+  // translated key. An error with no backend message always uses the key.
+  display() {
+    if (this.key && (getLanguage() !== "en" || !this.backendMessage)) {
+      return t(this.key);
+    }
+    return this.backendMessage || t("errors.generic");
   }
 }
 
-// error_code values found in backend/ (auth.py, main.py, usage_limits.py) that
-// already have a translated key. missing_token and invalid_token are 401s and
-// use errors.sessionExpired above. service_busy is a 503 (also errors.busy).
-const TRANSLATED_ERROR_KEYS = {
+// error_code values the backend can send (grep of backend/: auth.py, main.py, store.py,
+// usage_limits.py, errors.py) -> translation key. invalid_data carries technical English text
+// ("deductions[0] must not be negative"), so other languages show the generic sentence for it.
+const CODE_KEYS = {
   missing_token: "errors.sessionExpired",
   invalid_token: "errors.sessionExpired",
   unsupported_file_type: "errors.badType",
   file_too_large: "errors.tooLarge",
+  unreadable_image: "errors.unreadableImage",
   service_busy: "errors.busy",
-  daily_limit_reached: "errors.busy",
+  daily_limit_reached: "errors.dailyLimit",
+  no_trips: "errors.noTrips",
+  no_weeks: "errors.noWeeks",
+  costs_not_set: "errors.costsNotSet",
+  invalid_data: "errors.generic",
+  unsupported_language: "errors.generic",
+  http_error: "errors.generic",
 };
+const STATUS_KEYS = { 401: "errors.sessionExpired", 413: "errors.tooLarge", 415: "errors.badType", 429: "errors.dailyLimit" };
 
 async function getIdToken() {
   const auth = getAuth();
   const user = auth.currentUser;
   if (!user) {
-    throw new ApiError(t("errors.notSignedIn"), { code: "not_signed_in" });
+    throw new ApiError({ code: "not_signed_in", key: "errors.notSignedIn" }); // i18n-ignore: error code and key, not text
   }
   return user.getIdToken();
 }
@@ -58,9 +80,9 @@ async function request(path, { method = "GET", jsonBody, formBody, timeoutMs = D
   } catch (err) {
     clearTimeout(timer);
     if (err.name === "AbortError") {
-      throw new ApiError(t("errors.timeout"), { code: "timeout", retryable: true });
+      throw new ApiError({ code: "timeout", retryable: true, key: "errors.timeout" }); // i18n-ignore: error code and key, not text
     }
-    throw new ApiError(t("errors.network"), { code: "network", retryable: true });
+    throw new ApiError({ code: "network", retryable: true, key: "errors.network" }); // i18n-ignore: error code and key, not text
   }
   clearTimeout(timer);
 
@@ -80,32 +102,16 @@ async function request(path, { method = "GET", jsonBody, formBody, timeoutMs = D
 
   const status = response.status;
   const code = payload?.error_code;
-
-  // Only codes the backend really sends (grep of backend/ for ApiError). In
-  // English the backend's own message is kept as it was in v1.0; in the other
-  // languages these codes use the translated keys. Every other backend message
-  // stays English for now.
-  const translated = getLanguage() !== "en" ? TRANSLATED_ERROR_KEYS[code] : undefined;
-  const messageFor = (fallbackKey) => (translated
-    ? t(translated)
-    : payload?.message || t(fallbackKey));
-
   if (status === 401) {
-    throw new ApiError(t("errors.sessionExpired"), { code: code || "unauthorized", status });
-  }
-  if (status === 413) {
-    throw new ApiError(messageFor("errors.tooLarge"), { code: "file_too_large", status });
-  }
-  if (status === 415) {
-    throw new ApiError(messageFor("errors.badType"), { code: "unsupported_file_type", status });
-  }
-  if (status === 429) {
-    throw new ApiError(messageFor("errors.busy"), { code: "daily_limit_reached", status });
+    throw new ApiError({ code: code || "unauthorized", status, key: "errors.sessionExpired" }); // i18n-ignore: error code and key, not text
   }
   if (status >= 500) {
-    throw new ApiError(t("errors.busy"), { code: "server_error", status, retryable: true });
+    throw new ApiError({ code: "server_error", status, retryable: true, key: "errors.busy" }); // i18n-ignore: error code and key, not text
   }
-  throw new ApiError(messageFor("errors.generic"), { code: code || "error", status });
+  const key = CODE_KEYS[code] || STATUS_KEYS[status] || "errors.generic";
+  const backendMessage = payload?.message || null;
+  const knownCode = status === 413 ? "file_too_large" : status === 415 ? "unsupported_file_type" : status === 429 ? "daily_limit_reached" : code || "error";
+  throw new ApiError({ code: knownCode, status, key, backendMessage }); // i18n-ignore: error code and key, not text
 }
 
 export const api = {

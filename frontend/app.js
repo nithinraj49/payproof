@@ -76,8 +76,8 @@ const state = {
   currency: "INR",
   tripGroups: [], // trip mode: [{ id, previewUrl, needsReview, notes, trips: [tripRow] }]
   weekGroup: null, // weekly mode: { id, previewUrl, needsReview, notes, periodLabel, creditedOn, lines, deductions, totalCredited, kmDriven, hoursOnline }
-  rejectedInBatch: [], // [{ fileName, reason }]
-  lastRejectedReason: null,
+  rejectedInBatch: [], // [{ fileName, reason }]; reason is a DESCRIPTOR (see reasonText), never a finished sentence
+  lastRejectedReason: null, // a descriptor too
   loggedInHoursEntered: null,
   askAndEvidenceRendered: false,
   isSampleMode: false,
@@ -334,8 +334,13 @@ function setLoading(isLoading, text) {
 const toastEl = document.getElementById("toast");
 let toastTimer = null;
 
-function showToast(message) {
-  toastEl.textContent = message;
+// A toast keeps a function that WORDS it, not the finished text, so it can be re-worded when the
+// language changes while it is still showing. Pass () => t("key") (or a plain string).
+let toastSource = null;
+
+function showToast(source) {
+  toastSource = typeof source === "function" ? source : () => source;
+  toastEl.textContent = toastSource();
   toastEl.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => {
@@ -345,7 +350,7 @@ function showToast(message) {
 
 function describeError(err) {
   if (err instanceof ApiError) {
-    return err.message;
+    return err.display(); // worded now, in the current language
   }
   console.error(err);
   return t("errors.generic");
@@ -362,13 +367,22 @@ function setupErrorLine() {
   });
 }
 
+let errorLineSource = null;
+
+function renderErrorLine() {
+  if (errorLineSource) {
+    errorLineEl.textContent = errorLineSource();
+  }
+}
+
 function showApiError(err) {
-  showToast(describeError(err));
+  showToast(() => describeError(err));
   if (err instanceof ApiError) {
-    errorLineEl.textContent = t("errors.technicalLine", {
+    errorLineSource = () => t("errors.technicalLine", {
       status: err.status !== null && err.status !== undefined ? err.status : "?",
       code: err.code || "unknown", // i18n-ignore: technical token, not a sentence
     });
+    renderErrorLine();
     errorLineEl.hidden = false;
   }
 }
@@ -439,7 +453,7 @@ function setupLanding() {
   fileInput.addEventListener("change", async () => {
     const files = Array.from(fileInput.files || []);
     if (files.length === 0) {
-      showToast(t("upload.noFileChosen"));
+      showToast(() => t("upload.noFileChosen"));
       return;
     }
     await handleUpload(files, false);
@@ -459,7 +473,7 @@ async function handleUseSample(sample) {
     await handleUpload([file], sample.isSample);
   } catch (err) {
     setLoading(false);
-    showToast(describeError(err));
+    showToast(() => describeError(err));
   }
 }
 
@@ -473,25 +487,45 @@ async function handleUseSample(sample) {
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 const ALLOWED_UPLOAD_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
+// Why a screenshot was not used is stored as a DESCRIPTOR and worded by reasonText() each time it is
+// drawn, so switching language re-words it: { kind: "key", key } | { kind: "error", error } |
+// { kind: "extraction", screenType, needsReview, notes }.
+const keyReason = (key) => ({ kind: "key", key });
+
 function uploadProblem(file) {
   if (!ALLOWED_UPLOAD_TYPES.includes(file.type)) {
-    return t("errors.badType");
+    return keyReason("errors.badType");
   }
   if (file.size > MAX_UPLOAD_BYTES) {
-    return t("errors.tooLarge");
+    return keyReason("errors.tooLarge");
   }
   return null;
 }
 
-// Why a screenshot was not used. The backend's own text is English only, so an order offer, which
-// the backend marks with the stable screen_type "order_offer", gets a translated sentence in the
-// other languages (it carries no numbers). In English, and for every other rejection, the
-// backend's text is shown as before, with the translated generic reason as the fallback.
-function rejectionReason(result) {
-  if (result.screen_type === "order_offer" && getLanguage() !== "en") {
+// Words a rejection in the CURRENT language. The backend sends only screen_type and an English note, so:
+//   order_offer             -> translated sentence (no numbers) in the other languages
+//   other, needs_review off -> the model judged "not a trip or payout screen": translated sentence
+//   other, needs_review on  -> image-quality / unreadable rejections have no code, only fixed English
+//                              text: shown as the backend wrote it (listed in docs/translations)
+// English always shows the backend's own text, with the generic key as the fallback.
+function reasonText(reason) {
+  if (!reason) {
+    return t("rejected.genericReason");
+  }
+  if (reason.kind === "key") {
+    return t(reason.key);
+  }
+  if (reason.kind === "error") {
+    return describeError(reason.error);
+  }
+  const english = getLanguage() === "en";
+  if (!english && reason.screenType === "order_offer") {
     return t("rejected.orderOffer");
   }
-  return result.notes || t("rejected.genericReason");
+  if (!english && reason.screenType === "other" && !reason.needsReview) {
+    return t("rejected.notAScreen");
+  }
+  return reason.notes || t("rejected.genericReason");
 }
 
 async function handleUpload(files, isSample) {
@@ -513,7 +547,7 @@ async function handleUpload(files, isSample) {
     try {
       result = await api.extract(file, state.isSampleMode);
     } catch (err) {
-      state.rejectedInBatch.push({ fileName: file.name, reason: describeError(err) });
+      state.rejectedInBatch.push({ fileName: file.name, reason: { kind: "error", error: err } });
       continue;
     }
 
@@ -524,14 +558,14 @@ async function handleUpload(files, isSample) {
     if (result.screen_type === "order_offer" || result.screen_type === "other") {
       state.rejectedInBatch.push({
         fileName: file.name,
-        reason: rejectionReason(result),
+        reason: { kind: "extraction", screenType: result.screen_type, needsReview: !!result.needs_review, notes: result.notes || null },
       });
       continue;
     }
 
     if (result.screen_type === "trip_detail" || result.screen_type === "trip_list") {
       if (state.mode === "weekly") {
-        state.rejectedInBatch.push({ fileName: file.name, reason: t("upload.modeMismatch") });
+        state.rejectedInBatch.push({ fileName: file.name, reason: keyReason("upload.modeMismatch") });
         continue;
       }
       state.mode = "trip";
@@ -541,7 +575,7 @@ async function handleUpload(files, isSample) {
 
     if (result.screen_type === "payout_summary") {
       if (state.mode === "trip") {
-        state.rejectedInBatch.push({ fileName: file.name, reason: t("upload.modeMismatch") });
+        state.rejectedInBatch.push({ fileName: file.name, reason: keyReason("upload.modeMismatch") });
         continue;
       }
       state.mode = "weekly";
@@ -551,7 +585,7 @@ async function handleUpload(files, isSample) {
 
     // Defensive fallback: an unrecognised screen_type is treated as rejected,
     // never silently shown as data (REQUIREMENTS.md "no guessing").
-    state.rejectedInBatch.push({ fileName: file.name, reason: t("rejected.genericReason") });
+    state.rejectedInBatch.push({ fileName: file.name, reason: keyReason("rejected.genericReason") });
   }
 
   setLoading(false);
@@ -562,7 +596,7 @@ async function handleUpload(files, isSample) {
   if (!hasTrips && !hasWeek) {
     const reason = state.rejectedInBatch.length > 0
       ? state.rejectedInBatch[state.rejectedInBatch.length - 1].reason
-      : t("rejected.genericReason");
+      : keyReason("rejected.genericReason");
     renderRejected(reason);
     showScreen("rejected");
     return;
@@ -946,7 +980,7 @@ function renderReview({ keepGates = false } = {}) {
     document.getElementById("review-rejected-in-batch-label").textContent = t("review.rejectedInBatch");
     state.rejectedInBatch.forEach((r) => {
       const li = document.createElement("li");
-      li.textContent = `${r.fileName}: ${r.reason}`;
+      li.textContent = `${r.fileName}: ${reasonText(r.reason)}`;
       rejectedList.appendChild(li);
     });
     rejectedBlock.hidden = false;
@@ -1363,7 +1397,7 @@ async function handleReconContinueAnyway() {
 function renderRejected(reason) {
   state.lastRejectedReason = reason;
   document.getElementById("rejected-title").textContent = t("rejected.title");
-  document.getElementById("rejected-reason").textContent = reason;
+  document.getElementById("rejected-reason").textContent = reasonText(reason);
   document.getElementById("btn-try-another").textContent = t("rejected.tryAnother");
 }
 
@@ -1432,7 +1466,7 @@ async function handleSaveCosts() {
   const hoursOnline = document.getElementById("input-hours-online").value;
 
   if (fuel === "" || maintenance === "") {
-    showToast(t("review.mustConfirmAll"));
+    showToast(() => t("review.mustConfirmAll"));
     return;
   }
 
@@ -1449,7 +1483,7 @@ async function handleSaveCosts() {
   try {
     setLoading(true, t("common.loading"));
     await api.putCosts(body);
-    showToast(t("costs.saved"));
+    showToast(() => t("costs.saved"));
     await fetchAndShowResults();
   } catch (err) {
     setLoading(false);
@@ -1725,7 +1759,8 @@ function renderResults(summary) {
     cardsWrap.appendChild(createRateCard(
       t("results.perHourOnTrips"),
       "—",
-      summary.per_hour_on_trips_unavailable,
+      // the backend sends this sentence in English; other languages use the translated key
+      summary.per_hour_on_trips_unavailable ? (getLanguage() === "en" ? summary.per_hour_on_trips_unavailable : t("results.perHourOnTripsUnavailableNote")) : null,
       0,
     ));
     cardsWrap.appendChild(createRateCard(
@@ -1904,7 +1939,7 @@ async function handleDeleteConfirmed() {
     // worker tapped it again) -- send them back to the start instead of
     // leaving a now-stale nav bar up.
     showScreen("landing");
-    showToast(t("evidence.deleteDone"));
+    showToast(() => t("evidence.deleteDone"));
   } catch (err) {
     setLoading(false);
     cancelDeleteConfirm();
@@ -1980,6 +2015,15 @@ function rerenderForLanguage() {
   }
   if (state.lastSummary) {
     renderResults(state.lastSummary);
+  }
+  if (state.lastRejectedReason) {
+    renderRejected(state.lastRejectedReason);
+  }
+  if (!toastEl.hidden && toastSource) {
+    toastEl.textContent = toastSource();
+  }
+  if (!errorLineEl.hidden) {
+    renderErrorLine();
   }
 }
 
