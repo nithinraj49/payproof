@@ -22,7 +22,7 @@ This is our entry for the Google Cloud AI Builder Cup 2026. Submission closes 18
 
 - **English only for now.** Every screen, label, answer and test is in English. A regional language (Hindi or Tamil, undecided) is a future stretch goal, to be added only after the floor works and only if the owner can check every string.
 - Any mention of `[LANG_1]`, `[LANG_2]`, Hindi, Tamil, Devanagari, a language switcher or non-English numerals in `ROADMAP.md`, `REQUIREMENTS.md` or `.claude/skills/` is **future work: do not build it** until the owner says so.
-- Keep all user-visible text in one strings file (`frontend/strings.js` and `backend/strings.py`), and keep a `language` parameter in the API that defaults to `en`, so a language can be added later without touching the logic.
+- Keep all user-visible text in the language files (`frontend/lang/*.json`, one per language), and keep a `language` parameter in the API that defaults to `en`, so a language can be added later without touching the logic.
 - Extraction should still read screenshots whose labels are in another language (Gemini handles that), but we do not test it until the stretch step.
 
 ## Hard rules (never break these)
