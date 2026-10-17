@@ -39,10 +39,10 @@ The browser talks to Firebase Hosting, which serves the static app and forwards 
 git clone https://github.com/nithinraj49/payproof.git
 cd payproof
 pip install -r requirements.txt
-pytest -q
+pytest -q --basetemp=$env:TEMP\pt-base
 ```
 
-Tests use mocked Gemini output and make no network call. If pytest cannot use the default temporary folder on your machine, add `--basetemp=$env:TEMP\pt-base`.
+Tests use mocked Gemini output and make no network call. On some Windows machines pytest cannot use its default temporary folder (`PermissionError: [WinError 5]` on `AppData\Local\Temp\pytest-of-<user>`), which makes one test error out; `--basetemp` avoids that, so keep it.
 
 Front-end checks (Node):
 
@@ -70,13 +70,13 @@ To run the backend locally, copy `.env.example` to `.env`, fill in your own valu
 - "Confidently wrong" means a wrong value on a screen with no warning at all; it is 0 on every tier, at image level and field level.
 - The hard tier is deliberately degraded past human readability; it tests whether the app refuses to guess. Its answers are not perfectly repeatable at temperature 0, so those counts are indicative.
 - Strict and lenient scoring are identical in every table. Sample sizes are small (30, 10 and 10 images).
-- Q&A grounding evaluation (simulated tool data, 20 questions, 11 answerable and 9 expected refusals): 20 of 20 handled correctly. See `eval/RESULTS.md`, revision 2.
+- Q&A grounding evaluation (simulated tool data, `eval/RESULTS.md`, "Phase 4 grounding evaluation"): revision 1 scored 10 of 10 answerable questions and 8 of 10 expected refusals under the script's strict rule (a refusal must state no number), and **20 of 20 by hand re-scoring** (the two misses were the script's rule being too strict, not the model). Revision 2, with the scoring rule corrected, scored 20 of 20 (11 of 11 answerable, 9 of 9 refusals), but one of its answers was blank and still passed the rule. A code fix for blank answers was covered by mocked tests only and was not re-run against live Gemini.
 
 ## Privacy
 
 - Uploaded images are never stored. They are processed in memory and sent to Gemini on Vertex AI for reading.
 - Only confirmed structured data is stored, under the signed-in user's id. Names, phone numbers and addresses are not extracted.
-- Delete works: the in-app delete removes the user's trips, weeks, costs and answers. Usage counters are kept on purpose so a user cannot reset their own daily limit.
+- Delete works: the "Delete all my data" button on the "Evidence & delete" screen removes the user's trips, weeks, costs and answers. Usage counters are kept on purpose so a user cannot reset their own daily limit.
 - Firestore rules deny all direct client access; all data goes through the backend.
 - PayProof's own application logs contain only endpoint names, status codes, outcomes, token counts and estimated costs. They contain no personal data.
 - Google Cloud's automatic request logs, which PayProof cannot remove, may record the visitor's IP address, browser and the page address.
