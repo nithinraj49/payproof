@@ -8,9 +8,10 @@
 //      A browser call with no answer for 60 s (or nothing finishing for 60 s) is a TIMEOUT failure and the run continues with a fresh browser;
 //      a second timeout after the same screen stops the run (exit 3) and prints the last 20 lines. Exit code 1 if any check fails; overlap hits are counted as checks too.
 import { spawn, spawnSync } from "child_process";
-import { mkdtempSync, writeFileSync, mkdirSync } from "fs";
+import { mkdtempSync, writeFileSync, mkdirSync, readFileSync } from "fs";
 import os from "os";
 import path from "path";
+import { fileURLToPath } from "url";
 import { startServer, counters, modes } from "./harness_server.mjs";
 
 const LANGS = (process.argv[2] || "en,hi,ta,te,kn,ml").split(",");
@@ -296,6 +297,15 @@ for (const lang of LANGS) {
       // rejected
       await click("#btn-try-sample"); await ev(`document.querySelector('[data-sample="order_offer"] button').click()`);
       await waitEv(visible("#screen-rejected"), 8000); await checkOverflow(lang, width, "rejected");
+      {
+        const dict = JSON.parse(readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "frontend", "lang", `${lang}.json`), "utf8"));
+        const en = JSON.parse(readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "frontend", "lang", "en.json"), "utf8"));
+        const rej = await ev(`({ title: document.getElementById("rejected-title").textContent, reason: document.getElementById("rejected-reason").textContent, tryBtn: document.getElementById("btn-try-another").textContent, home: document.getElementById("btn-rejected-home").textContent, digits: /[0-9]/.test(document.getElementById("screen-rejected").innerText) })`);
+        const status = (text, key) => (lang === "en" ? "English (source)" : text === dict[key] && dict[key] !== en[key] ? "translated" : "ENGLISH");
+        if (width === 360) out(`REJECTED ${lang}: heading [${status(rej.title, "rejected.title")}] "${rej.title}" | explanation [${rej.reason === dict["rejected.orderOffer"] && lang !== "en" ? "translated" : lang === "en" ? "English (backend text)" : "ENGLISH"}] "${rej.reason}" | try-another [${status(rej.tryBtn, "rejected.tryAnother")}] "${rej.tryBtn}" | home [${status(rej.home, "nav.home")}] "${rej.home}"`);
+        record(lang, width, "rejection screen shows no numbers (order offer)", !rej.digits, rej.reason);
+        record(lang, width, "rejection explanation is translated (non-English)", lang === "en" || rej.reason === dict["rejected.orderOffer"], rej.reason.slice(0, 80));
+      }
       await click("#btn-try-another"); await waitEv(visible("#screen-landing"), 4000);
 
       // reconciliation gate + language switch keeps it open

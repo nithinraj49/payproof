@@ -483,6 +483,17 @@ function uploadProblem(file) {
   return null;
 }
 
+// Why a screenshot was not used. The backend's own text is English only, so an order offer, which
+// the backend marks with the stable screen_type "order_offer", gets a translated sentence in the
+// other languages (it carries no numbers). In English, and for every other rejection, the
+// backend's text is shown as before, with the translated generic reason as the fallback.
+function rejectionReason(result) {
+  if (result.screen_type === "order_offer" && getLanguage() !== "en") {
+    return t("rejected.orderOffer");
+  }
+  return result.notes || t("rejected.genericReason");
+}
+
 async function handleUpload(files, isSample) {
   resetState();
   state.isSampleMode = !!isSample;
@@ -513,7 +524,7 @@ async function handleUpload(files, isSample) {
     if (result.screen_type === "order_offer" || result.screen_type === "other") {
       state.rejectedInBatch.push({
         fileName: file.name,
-        reason: result.notes || t("rejected.genericReason"),
+        reason: rejectionReason(result),
       });
       continue;
     }
