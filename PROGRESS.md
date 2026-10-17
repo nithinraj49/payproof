@@ -728,3 +728,4 @@ Rollback tags: `live-stage1` (= 5797520, the deployed Stage 1), `live-before-i18
 Machine-translation note removed from the UI by owner decision; translations for hi, te, kn, ml are still unreviewed and must be described as such in README, deck and description.
 
 The key `lang.machineNote` is gone from all language files (161 keys each). To bring the strip back: `git revert` the commit titled "ui: remove the machine-translation note" (a comment in `frontend/index.html` says the same). The deployed Stage 1.1 commit (the rollback point for this change) is 81e7500.
+- Full matrix for Stage 1.3 (te, kn, ml, hi, ta, en at 320/360/390 px): Tamil 360 px voice step timed out once in the full matrix, not reproduced in 3 reruns. Everything else passed, 0 overlap hits.
