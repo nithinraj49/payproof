@@ -85,6 +85,8 @@ const state = {
   costsRendered: false,
   lastSummary: null, // last /api/summary response, so a language change can re-draw Results without a new call
   tripGate: null, // flagged trip while the trip reconciliation panel is open
+  tripGateTripId: null, // id of that trip, so its sum fields can be marked
+  lastTripEdit: null, // { tripId, key } of the sum field the worker typed in last
   weekGate: null, // reconciliation response while the weekly panel is open
 };
 
@@ -687,7 +689,9 @@ function setWeekGroup(file, result) {
 // Screen b: review (shared field-rendering helpers)
 // ---------------------------------------------------------------------------
 
-function createNumberField(labelText, fieldState, onChanged) {
+// meta ({ tripId, key }) is set only for the fields that feed the trip total
+// check (base pay, incentive, tip); it is how the mismatch warning finds them.
+function createNumberField(labelText, fieldState, onChanged, meta) {
   const wrap = document.createElement("div");
   wrap.className = "field";
 
@@ -717,10 +721,17 @@ function createNumberField(labelText, fieldState, onChanged) {
     confirmBtn.classList.toggle("is-confirmed", fieldState.confirmed);
   }
 
+  if (meta) {
+    input.dataset.sumKey = meta.key;
+  }
+
   input.addEventListener("input", () => {
     const raw = input.value;
     fieldState.value = raw === "" ? null : Number(raw);
     fieldState.confirmed = raw !== "";
+    if (meta) {
+      state.lastTripEdit = meta;
+    }
     refresh();
     onChanged();
   });
@@ -805,7 +816,7 @@ function createDateField(fieldState, onChanged) {
   return wrap;
 }
 
-function createAmountListField(titleText, listState, labelHint, amountHint, addText, onChanged, kind) {
+function createAmountListField(titleText, listState, labelHint, amountHint, addText, onChanged, kind, meta) {
   const wrap = document.createElement("div");
   wrap.className = "field";
   wrap.dataset.role = "amount-list";
@@ -846,8 +857,14 @@ function createAmountListField(titleText, listState, labelHint, amountHint, addT
       amountInput.step = "0.01";
       amountInput.placeholder = amountHint;
       amountInput.value = item.amount === null || item.amount === undefined ? "" : item.amount;
+      if (meta) {
+        amountInput.dataset.sumKey = meta.key;
+      }
       amountInput.addEventListener("input", () => {
         item.amount = amountInput.value === "" ? 0 : Number(amountInput.value);
+        if (meta) {
+          state.lastTripEdit = meta;
+        }
         onChanged();
       });
       amountField.appendChild(amountInput);
@@ -911,6 +928,7 @@ function moneyLabel(base) {
 function renderTripCard(group, trip, onChanged) {
   const card = document.createElement("div");
   card.className = "card";
+  card.dataset.tripId = trip.id;
 
   const h3 = document.createElement("h3");
   h3.textContent = t("review.tripCardTitle");
@@ -930,9 +948,9 @@ function renderTripCard(group, trip, onChanged) {
   }
 
   card.appendChild(createDateField(trip.date, onChanged));
-  card.appendChild(createNumberField(moneyLabel(t("review.basePay")), trip.basePay, onChanged));
-  card.appendChild(createNumberField(moneyLabel(t("review.incentive")), trip.incentive, onChanged));
-  card.appendChild(createNumberField(moneyLabel(t("review.tip")), trip.tip, onChanged));
+  card.appendChild(createNumberField(moneyLabel(t("review.basePay")), trip.basePay, onChanged, { tripId: trip.id, key: "basePay" }));
+  card.appendChild(createNumberField(moneyLabel(t("review.incentive")), trip.incentive, onChanged, { tripId: trip.id, key: "incentive" }));
+  card.appendChild(createNumberField(moneyLabel(t("review.tip")), trip.tip, onChanged, { tripId: trip.id, key: "tip" }));
   card.appendChild(createNumberField(moneyLabel(t("review.totalPayout")), trip.totalPayout, onChanged));
   card.appendChild(createNumberField(t("review.distanceKm"), trip.distanceKm, onChanged));
   card.appendChild(createNumberField(t("review.durationMin"), trip.durationMin, onChanged));
@@ -943,6 +961,8 @@ function renderTripCard(group, trip, onChanged) {
     t("review.deductionAmount"),
     t("review.addDeduction"),
     onChanged,
+    undefined,
+    { tripId: trip.id, key: "deductions" },
   ));
 
   const removeBtn = document.createElement("button");
@@ -991,7 +1011,13 @@ function renderReview({ keepGates = false } = {}) {
   const groupsEl = document.getElementById("review-groups");
   clearChildren(groupsEl);
 
-  const onChanged = () => updateContinueButtonState();
+  const onChanged = () => {
+    updateContinueButtonState();
+    if (state.tripGate) {
+      applyTripGateMarks();
+      scheduleTripGateRecheck();
+    }
+  };
 
   if (state.mode === "trip") {
     state.tripGroups.forEach((group) => {
@@ -1154,6 +1180,7 @@ function renderReview({ keepGates = false } = {}) {
   }
 
   updateContinueButtonState();
+  applyTripGateMarks();
 }
 
 function allTripFieldsConfirmed(trip) {
@@ -1267,6 +1294,8 @@ async function saveTripsAndProceed(trips) {
 
 function showTripReconciliationGate(flagged, { scroll = true } = {}) {
   state.tripGate = flagged;
+  const flaggedTrip = state.tripGroups.flatMap((g) => g.trips)[flagged.trip_index || 0];
+  state.tripGateTripId = flaggedTrip ? flaggedTrip.id : null;
   const gateEl = document.getElementById("trip-reconciliation-gate");
   document.getElementById("trip-reconciliation-gate-text").textContent =
     t("review.tripReconciliationWarning", {
@@ -1274,6 +1303,7 @@ function showTripReconciliationGate(flagged, { scroll = true } = {}) {
       credited: formatMoney(flagged.total_payout, state.currency),
     });
   gateEl.hidden = false;
+  applyTripGateMarks();
   if (scroll) {
     gateEl.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
   }
@@ -1281,15 +1311,94 @@ function showTripReconciliationGate(flagged, { scroll = true } = {}) {
 
 function hideTripReconciliationGate() {
   state.tripGate = null;
+  state.tripGateTripId = null;
+  tripRecheckSeq += 1; // drop any recheck still in flight
+  clearTimeout(tripRecheckTimer);
   document.getElementById("trip-reconciliation-gate").hidden = true;
+  applyTripGateMarks();
 }
 
-function handleTripReconFix() {
-  hideTripReconciliationGate();
-  document.getElementById("review-groups").scrollIntoView({
-    behavior: prefersReducedMotion() ? "auto" : "smooth",
-    block: "start",
+// While the mismatch warning is open, every field of the flagged trip that
+// feeds the total (base pay, incentive, tip, each deduction amount) gets an
+// amber dashed outline plus aria-invalid and aria-describedby, so the cue is
+// not colour alone. Nothing here changes a value or a confirmed state.
+function applyTripGateMarks() {
+  document.querySelectorAll("#review-groups [data-sum-key]").forEach((el) => {
+    el.classList.remove("sum-mismatch");
+    el.removeAttribute("aria-invalid");
+    el.removeAttribute("aria-describedby");
   });
+  if (!state.tripGate || !state.tripGateTripId) {
+    return;
+  }
+  document.querySelectorAll("#review-groups [data-trip-id]").forEach((card) => {
+    if (card.dataset.tripId !== state.tripGateTripId) {
+      return;
+    }
+    card.querySelectorAll("[data-sum-key]").forEach((el) => {
+      el.classList.add("sum-mismatch");
+      el.setAttribute("aria-invalid", "true");
+      el.setAttribute("aria-describedby", "trip-reconciliation-gate-text");
+    });
+  });
+}
+
+// When the worker's edit leaves the flagged trip fully confirmed, ask the
+// engine again (the same stateless check as Continue: no browser arithmetic,
+// no Gemini call). If the amounts now add up, the warning and outlines go.
+let tripRecheckTimer = null;
+let tripRecheckSeq = 0;
+function scheduleTripGateRecheck() {
+  clearTimeout(tripRecheckTimer);
+  const seq = ++tripRecheckSeq;
+  tripRecheckTimer = setTimeout(async () => {
+    const allTrips = state.tripGroups.flatMap((g) => g.trips);
+    const trip = allTrips.find((tr) => tr.id === state.tripGateTripId);
+    if (!trip || !(trip.basePay.confirmed && trip.incentive.confirmed && trip.tip.confirmed
+        && trip.totalPayout.confirmed && trip.deductions.confirmed)) {
+      return;
+    }
+    let recon;
+    try {
+      recon = await api.getTripReconciliation(buildTripPayload());
+    } catch (err) {
+      return; // keep the warning; Continue repeats the check anyway
+    }
+    if (seq !== tripRecheckSeq || !state.tripGate) {
+      return;
+    }
+    const still = recon.flagged.find((f) => allTrips[f.trip_index || 0] && allTrips[f.trip_index || 0].id === trip.id);
+    if (still) {
+      showTripReconciliationGate(still, { scroll: false });
+    } else {
+      hideTripReconciliationGate();
+    }
+  }, 500);
+}
+
+// "Fix the numbers" keeps the warning and outlines, scrolls to the field the
+// worker edited last (else the first field in the sum) and selects its
+// content so typing replaces it. It changes no value.
+function handleTripReconFix() {
+  const card = [...document.querySelectorAll("#review-groups [data-trip-id]")]
+    .find((c) => c.dataset.tripId === state.tripGateTripId);
+  if (!card) {
+    document.getElementById("review-groups").scrollIntoView({
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+      block: "start",
+    });
+    return;
+  }
+  const last = state.lastTripEdit;
+  const target = (last && last.tripId === state.tripGateTripId
+    && card.querySelector(`[data-sum-key="${last.key}"]`))
+    || card.querySelector("[data-sum-key]");
+  if (!target) {
+    return;
+  }
+  target.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
+  target.focus({ preventScroll: true });
+  target.select();
 }
 
 async function handleTripReconContinueAnyway() {

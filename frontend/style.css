@@ -1251,3 +1251,13 @@ button.secondary {
 .voice-check {
   margin-top: calc(var(--ring) + 8px);
 }
+
+/* Trip total mismatch: the sum fields get an amber dashed outline (dashes plus aria-invalid, so not colour alone) */
+input.sum-mismatch {
+  outline: 4px dashed var(--amber);
+  outline-offset: 2px;
+}
+input.sum-mismatch:focus-visible {
+  outline: 4px solid var(--ink);
+  outline-offset: 3px;
+}

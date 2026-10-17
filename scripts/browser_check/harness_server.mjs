@@ -10,7 +10,7 @@ const FRONTEND = process.env.FRONTEND_DIR ? path.resolve(process.env.FRONTEND_DI
 export const counters = { ask: 0, askBodies: [], extract: 0, other: {} };
 // extractType: null | "other" (model says not a trip or payout screen) | "quality" (image-quality gate) | "err415" | "err400"
 // summaryError: null | { status, code }.  weeklyGap: the weekly reconciliation panel and Results note appear.
-export const modes = { reconFlag: false, extractType: null, summaryError: null, weeklyGap: false };
+export const modes = { reconDynamic: false, reconFlag: false, extractType: null, summaryError: null, weeklyGap: false };
 export const BACKEND_ENGLISH = [
   "This is an incoming order offer, not a completed trip.",
   "This is a welcome or informational screen, not an earnings screen.",
@@ -32,8 +32,8 @@ const stubApp = `export function initializeApp(){return {}}`;
 
 const tripExtract = {
   screen_type: "trip_detail", currency: "INR", needs_review: false, notes: null,
-  trips: [{ order_id: "SIM-1001", order_type: "Food delivery", trip_date: "2026-10-08", base_pay: 120, incentive: 20, tip: 10,
-    total_payout: 140, distance_km: 6.5, duration_min: 28, deductions: [{ label: "Platform fee", amount: 10 }], low_confidence_fields: [] }],
+  trips: [{ order_id: "SIM-1001", order_type: "Food delivery", trip_date: "2026-10-08", base_pay: 120, incentive: 20, tip: 0,
+    total_payout: 130, distance_km: 6.5, duration_min: 28, deductions: [{ label: "Platform fee", amount: 10 }], low_confidence_fields: [] }],
 };
 const weeklyExtract = {
   screen_type: "payout_summary", currency: "INR", needs_review: false, notes: null,
@@ -73,6 +73,14 @@ export function startServer(port = 0) {
         return send(200, tripExtract);
       }
       if (url.pathname === "/api/trip-reconciliation") {
+        if (modes.reconDynamic) { // the engine's check, mimicked: base + incentive + tip - deductions against the total, tolerance 0.5
+          const flagged = [];
+          (JSON.parse(body).trips || []).forEach((t, trip_index) => {
+            const computed = t.base_pay + t.incentive + t.tip - (t.deductions || []).reduce((n, d) => n + d.amount, 0);
+            if (Math.abs(computed - t.total_payout) > 0.5) flagged.push({ trip_index, computed_total: computed, total_payout: t.total_payout, gap: computed - t.total_payout });
+          });
+          return send(200, { flagged_count: flagged.length, flagged });
+        }
         return send(200, modes.reconFlag ? { flagged_count: 1, flagged: [{ computed_total: 147.02, total_payout: 136.65 }] } : { flagged_count: 0, flagged: [] });
       }
       if (url.pathname === "/api/weekly-reconciliation") return send(200, modes.weeklyGap ? { reconciliation_gap: 200, net_payout_weekly: 8000, total_credited: 8200 } : { reconciliation_gap: 0, net_payout_weekly: 8200, total_credited: 8200 });

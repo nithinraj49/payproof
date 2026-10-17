@@ -174,7 +174,7 @@ async function load(lang, width) {
 for (const lang of LANGS) {
   for (const width of WIDTHS) {
     try {
-      modes.reconFlag = false;
+      modes.reconFlag = false; modes.reconDynamic = false;
       await load(lang, width);
       const info = await ev(`({ htmlLang: document.documentElement.lang, stored: sessionStorage.getItem("payproof_lang"), headerSel: document.getElementById("lang-select-header").value, landingSel: (document.getElementById("lang-select-landing") || {}).value || null, noteGone: document.getElementById("machine-note") === null, font: getComputedStyle(document.body).fontFamily.split(",")[0], headline: document.getElementById("landing-headline").textContent, title: document.title })`);
       record(lang, width, "language state", info.htmlLang === lang && info.stored === lang && info.headerSel === lang && info.landingSel === null && info.noteGone && info.headline.length > 0, JSON.stringify(info));
@@ -312,6 +312,60 @@ for (const lang of LANGS) {
       const gate2 = await ev(`({ open: !document.getElementById("trip-reconciliation-gate").hidden, text: document.getElementById("trip-reconciliation-gate-text").textContent })`);
       record(lang, width, "gate stays open and is re-translated on switch", gate2.open && gate2.text !== gateText1 && /147\.02/.test(gate2.text) && /136\.65/.test(gate2.text), gate2.text.slice(0, 80));
       modes.reconFlag = false;
+
+      // trip total mismatch: sum fields are outlined, Fix selects the field last edited, adding up again clears everything
+      {
+        modes.reconDynamic = true;
+        await load(lang, width);
+        await click("#btn-try-sample"); await ev(`document.querySelector('[data-sample="trip"] button').click()`);
+        await waitEv(visible("#screen-review"), 8000); await confirmAll();
+        const snap = () => ev(`JSON.stringify({ values: [...document.querySelectorAll("#review-groups input")].map((i) => i.value), confirmed: [...document.querySelectorAll("#review-groups button.confirm-btn")].map((b) => b.classList.contains("is-confirmed")) })`);
+        const marks = () => ev(`JSON.stringify({ outlined: [...document.querySelectorAll("#review-groups input.sum-mismatch")].map((i) => i.dataset.sumKey + ":" + i.getAttribute("aria-invalid") + ":" + i.getAttribute("aria-describedby")), anyInvalid: document.querySelectorAll("#review-groups [aria-invalid]").length, totalMarked: !!document.querySelector('#review-groups input[data-sum-key="totalPayout"]') })`);
+        const before = await snap();
+        await ev(`(() => { const e = document.querySelector('#review-groups input[data-sum-key="tip"]'); e.value = "10"; e.dispatchEvent(new Event("input")); })()`);
+        await click("#btn-review-continue");
+        await waitEv(visible("#trip-reconciliation-gate"), 6000);
+        const m1 = JSON.parse(await marks());
+        const want = ["basePay", "incentive", "tip", "deductions"].map((k) => k + ":true:trip-reconciliation-gate-text");
+        record(lang, width, "tip fix: warning shows and base pay, incentive, tip, deduction amount carry outline + aria-invalid + aria-describedby", want.every((w) => m1.outlined.includes(w)) && m1.outlined.length === 4 && !m1.totalMarked, JSON.stringify(m1));
+        const describedOk = await ev(`!!document.getElementById("trip-reconciliation-gate-text") && document.getElementById("trip-reconciliation-gate-text").textContent.length > 0`);
+        record(lang, width, "tip fix: aria-describedby target exists and has text", describedOk);
+        await checkOverflow(lang, width, "trip mismatch warning with outlines");
+
+        // language switch while the warning is open: outline persists, no old-language text remains
+        const other = lang === "hi" ? "ta" : "hi";
+        const dictDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "frontend", "lang");
+        const oldDict = JSON.parse(readFileSync(path.join(dictDir, `${lang}.json`), "utf8")), newDict = JSON.parse(readFileSync(path.join(dictDir, `${other}.json`), "utf8"));
+        await ev(`(() => { const s = document.getElementById("lang-select-header"); s.value = ${JSON.stringify(other)}; s.dispatchEvent(new Event("change")); })()`);
+        await new Promise((r) => setTimeout(r, 500));
+        const m2 = JSON.parse(await marks());
+        const screenText = await ev(`document.getElementById("screen-review").innerText`);
+        const stale = ["review.basePay", "review.incentive", "review.tip", "review.totalPayout", "review.tripReconciliationFix", "review.tripReconciliationContinue", "review.confirm"].filter((k) => oldDict[k] !== newDict[k] && screenText.includes(oldDict[k]));
+        const gateStillOpen = await ev(`!document.getElementById("trip-reconciliation-gate").hidden`);
+        record(lang, width, `tip fix: after switching to ${other} the outline persists, the warning is open and no ${lang} text remains`, gateStillOpen && want.every((w) => m2.outlined.includes(w)) && stale.length === 0, JSON.stringify({ outlined: m2.outlined.length, stale }));
+        await ev(`(() => { const s = document.getElementById("lang-select-header"); s.value = ${JSON.stringify(lang)}; s.dispatchEvent(new Event("change")); })()`);
+        await new Promise((r) => setTimeout(r, 500));
+
+        // Fix: focus in Tip (edited last), content selected, value kept, nothing else changed, warning stays
+        const beforeFix = await snap();
+        await click("#btn-trip-recon-fix");
+        await new Promise((r) => setTimeout(r, 400));
+        const f = await ev(`(() => { const a = document.activeElement; return { key: a && a.dataset ? a.dataset.sumKey : null, value: a ? a.value : null, gateOpen: !document.getElementById("trip-reconciliation-gate").hidden }; })()`);
+        const afterFix = await snap();
+        record(lang, width, "tip fix: Fix puts the cursor in Tip, Tip still holds 10, the warning stays, no value or Confirmed state changed", f.key === "tip" && f.value === "10" && f.gateOpen && afterFix === beforeFix, JSON.stringify(f));
+        await send("Input.insertText", { text: "0" }); // replaces the selection only if Fix selected the content
+        const typed = await ev(`document.activeElement.value`);
+        record(lang, width, "tip fix: typing after Fix replaces the content (it was selected)", typed === "0", typed);
+        await waitEv(`document.getElementById("trip-reconciliation-gate").hidden`, 5000);
+        const m3 = JSON.parse(await marks());
+        const afterOk = await snap();
+        record(lang, width, "tip fix: once the amounts add up the warning and outlines are gone and no other field changed", m3.outlined.length === 0 && m3.anyInvalid === 0 && afterOk === before, JSON.stringify(m3));
+        const ready = await ev(`!document.getElementById("btn-review-continue").disabled`);
+        await click("#btn-review-continue");
+        await waitEv(visible("#screen-costs"), 8000);
+        record(lang, width, "tip fix: Confirm and continue works after the fix", ready);
+        modes.reconDynamic = false;
+      }
     } catch (err) {
       const msg = String(err.message || err).slice(0, 300);
       const timedOut = /timeout/i.test(msg);
