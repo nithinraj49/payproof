@@ -4,6 +4,6 @@
 // deploy (`git rev-parse --short HEAD` for the id, once the change is
 // committed).
 export const VERSION = {
-  buildDate: "2026-10-17",
-  shortId: "5d2297a",
+  buildDate: "2026-10-18",
+  shortId: "58a45fa",
 };
