@@ -1,32 +1,104 @@
 # PayProof
 
-PayProof tells gig workers (delivery and ride-hail) what they really earn per hour after their own costs, from screenshots they already have. Gemini reads and explains; fixed formulas do every calculation.
+Built for the Google Cloud AI Builder Cup 2026 by PayProof Labs.
 
-Built for the Google Cloud AI Builder Cup 2026.
+**Live app:** https://payproof-nithin-2026.web.app
 
-> This README is a stub for Phase 1. Full problem/solution/architecture, local run instructions, evaluation results, limits and privacy notes are written in Phase 7, once the prototype works.
+## The problem
 
-## Status
+Gig workers (delivery and ride-hail) see several hourly figures for the same work and have no easy way to check any of them. What a worker really earns per hour depends on the platform's deductions and on their own costs (fuel, upkeep), and none of that is in one place.
 
-See `PROGRESS.md` for the current build phase.
+## The solution
 
-## Regions and models (current)
+PayProof tells a worker what they really earn per hour after their own costs, from screenshots they already have. Gemini reads the screenshots and explains the results. Fixed formulas in plain Python do every calculation. The model never does arithmetic, and a verifier blocks any number in an answer that the formulas did not produce.
 
-- Cloud Run and Firestore: `asia-south1`.
-- Vertex AI (Gemini): `global` — the extraction model isn't available as a regional endpoint in `asia-south1`, only on `global`/`us`/`eu`.
-- `EXTRACTION_MODEL=gemini-3.1-flash-lite`, confirmed working identically on both the AI Studio and Vertex AI backends. See `PROGRESS.md` for how this was chosen.
+## How it works
 
-## Local development (Windows, PowerShell)
+1. **Upload.** The worker uploads a trip or weekly-payout screenshot, or taps a sample.
+2. **Read.** An image-quality check runs first. Then one Gemini call turns the screenshot into a table. Order-offer and unreadable screens are rejected or left blank, never guessed.
+3. **Check.** The worker compares the table with their own screenshot, shown beside it, and confirms or corrects it. Only confirmed data is kept.
+4. **Calculate.** The worker enters their own costs. The engine computes net pay, pay per hour, pay per km and the platform's deduction share.
+5. **Ask.** The worker can ask questions about their own numbers, typed or by voice. Gemini answers from the engine's results, and a verifier replaces any answer containing a number the engine did not produce. An evidence pack (English only) can be created from the confirmed data.
+
+## How each Google service is used
+
+- **Firebase Hosting and Authentication.** Hosting serves the mobile web app and rewrites `/api/**` to Cloud Run. Authentication signs users in anonymously; the backend takes the user id only from the verified token.
+- **Firestore.** Stores only confirmed structured data under the signed-in user's id, usage counters, and the cached results of the curated sample screenshots.
+- **Cloud Run.** Runs the FastAPI service (`asia-south1`, at most 3 instances) that handles extraction, the pay engine, Q&A and the evidence pack.
+- **Gemini 3.1 Flash-Lite on Vertex AI.** Reads screenshots into structured data and explains results through function calling. Vertex AI runs at the `global` location because the model has no regional endpoint in `asia-south1`.
+
+Details and file locations: [docs/GOOGLE_SERVICES.md](docs/GOOGLE_SERVICES.md).
+
+## Architecture
+
+The browser talks to Firebase Hosting, which serves the static app and forwards `/api/**` to a Cloud Run service. The service checks the Firebase ID token, runs an image-quality gate, makes at most one Gemini call per screenshot on Vertex AI, applies deterministic safeguards to the result, and stores confirmed data in Firestore. Results come from the `engine/` package, which makes no network or model call. Answers pass through a number verifier before they reach the worker. Diagram and cost-control table: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Run the tests locally (Windows, PowerShell)
 
 ```powershell
-Copy-Item .env.example .env
-# fill GEMINI_API_KEY in .env (never commit it)
+git clone https://github.com/nithinraj49/payproof.git
+cd payproof
 pip install -r requirements.txt
-uvicorn backend.main:app --reload
-```
-
-Tests:
-
-```powershell
 pytest -q
 ```
+
+Tests use mocked Gemini output and make no network call. If pytest cannot use the default temporary folder on your machine, add `--basetemp=$env:TEMP\pt-base`.
+
+Front-end checks (Node):
+
+```powershell
+Get-ChildItem frontend\*.js | ForEach-Object { node --check $_.FullName }
+node scripts/check_ids.js; node scripts/check_nav_graph.js
+node scripts/check_translations.js; node scripts/check_hardcoded_strings.js
+```
+
+To run the backend locally, copy `.env.example` to `.env`, fill in your own values (never commit `.env`), and run `uvicorn backend.main:app --reload`.
+
+## Evaluation results (SIMULATED data)
+
+**All data below is simulated:** fictional platforms and screenshots generated by `eval/generate_data.py` with fixed seeds. No real gig-platform data was used. These numbers say nothing about accuracy on real screenshots. Source: [eval/RESULTS.md](eval/RESULTS.md), "Phase 6 re-run on the final code" (15 Oct 2026, `gemini-3.1-flash-lite` on Vertex AI, 50 simulated images: standard 30, moderate 10, hard 10).
+
+| Tier | Correct | Silent gap | Abstained | Failed call | Gate-blocked | Wrong, flagged | Confidently wrong |
+|---|---|---|---|---|---|---|---|
+| Standard (172 fields) | 171 | 1 | 0 | 0 | 0 | 0 | **0** |
+| Moderate (61 fields) | 61 | 0 | 0 | 0 | 0 | 0 | **0** |
+| Hard, as run (56 fields, raw model output) | 0 | 0 | 33 | 0 | 0 | 23 | **0** |
+| Hard, production view (56 fields, gate + safeguards) | 0 | 0 | 29 | 0 | 23 | 4 | **0** |
+
+- Order-offer rejection (N1, 5 images): 5 of 5.
+- The one silent gap is `L3_004` `period_label` (null with `needs_review=false`).
+- "Confidently wrong" means a wrong value on a screen with no warning at all; it is 0 on every tier, at image level and field level.
+- The hard tier is deliberately degraded past human readability; it tests whether the app refuses to guess. Its answers are not perfectly repeatable at temperature 0, so those counts are indicative.
+- Strict and lenient scoring are identical in every table. Sample sizes are small (30, 10 and 10 images).
+- Q&A grounding evaluation (simulated tool data, 20 questions, 11 answerable and 9 expected refusals): 20 of 20 handled correctly. See `eval/RESULTS.md`, revision 2.
+
+## Privacy
+
+- Uploaded images are never stored. They are processed in memory and sent to Gemini on Vertex AI for reading.
+- Only confirmed structured data is stored, under the signed-in user's id. Names, phone numbers and addresses are not extracted.
+- Delete works: the in-app delete removes the user's trips, weeks, costs and answers. Usage counters are kept on purpose so a user cannot reset their own daily limit.
+- Firestore rules deny all direct client access; all data goes through the backend.
+- PayProof's own application logs contain only endpoint names, status codes, outcomes, token counts and estimated costs. They contain no personal data.
+- Google Cloud's automatic request logs, which PayProof cannot remove, may record the visitor's IP address, browser and the page address.
+- Voice input uses the browser's own speech service. No audio goes to PayProof.
+
+## Known limitations
+
+- **Pay-change detector.** It was built, tested on simulated histories, found unreliable, and is disabled. PayProof makes no claim of detecting pay changes.
+- **Real screenshots are untested.** All evaluation is on simulated screenshots. Degraded weekly-payout screens are also untested.
+- **Quality gate.** Its thresholds were tuned on simulated images only.
+- **Dates and fabrications.** Code cannot catch a plausible wrong date or a self-consistent wrong table. The worker checks the table against the screenshot, and a date is used only after the worker confirms it.
+- **Uploads.** An upload near 8 MB takes about 25 seconds through Hosting and can occasionally drop (2 of about 75 test sequences; cause not found).
+- **Cold start.** The first request after idle takes about 4 to 8 seconds.
+- **Verifier.** It treats an amount quoted from a data-quality note as ungrounded and replaces the answer with a refusal. This is a safe failure, not a wrong number.
+- **Languages.** The interface is live in English, Hindi, Tamil, Telugu, Kannada and Malayalam. The Hindi, Telugu, Kannada and Malayalam translations are machine-made and unreviewed. Tamil was tested end to end by the owner (interface, Tamil screenshots, voice).
+  - Three sample screenshots are provided for each non-English language. They go through the normal upload path, which makes a live Gemini call. Costs and weekly km and hours start blank, and the label wording is unreviewed. The Hindi weekly sample leaves the credited-on field blank for the worker to confirm, and some Tamil and Telugu samples leave one date blank.
+  - Language samples count against the limit of 12 extractions per user per day.
+  - The order-offer rejection, the "not a trip or payout screen" rejection and all backend error codes are translated in the five non-English languages. Image-quality messages, data-quality notes, Ask answers, the evidence pack and extracted data such as order ID and deduction labels stay in English.
+  - Answers are in English only. A question asked in another language goes to the same Q&A and was not separately evaluated. Answers are not translated.
+- **Voice input.** On the Ask screen in Chrome and Edge only (browser speech service). The transcript is editable and is never submitted automatically. Listening stops after silence or 15 seconds, and a new transcript replaces the text in the box. One Tamil 360 px voice step timed out once in the browser test harness and did not reproduce in 3 reruns.
+- **Single currency.** Notes and the evidence pack use ₹ with Indian grouping.
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).
