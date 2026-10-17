@@ -159,5 +159,6 @@
   "voice.noSpeech": "We didn't hear anything. Tap the microphone and try again, or type your question.",
   "voice.noMic": "No microphone was found. You can type your question instead.",
   "voice.network": "Your browser's speech service could not be reached. You can type your question instead.",
-  "voice.failed": "Voice input did not work. You can type your question instead."
+  "voice.failed": "Voice input did not work. You can type your question instead.",
+  "rejected.orderOffer": "This looks like an order offer, not a finished trip or a payout, so there is nothing to check yet."
 }
