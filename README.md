@@ -2,7 +2,7 @@
 
 PayProof tells gig workers (delivery and ride-hail) what they really earn per hour after their own costs, from screenshots they already have. Gemini reads and explains; fixed formulas do every calculation.
 
-Built solo for the Google Cloud AI Builder Cup 2026.
+Built for the Google Cloud AI Builder Cup 2026.
 
 > This README is a stub for Phase 1. Full problem/solution/architecture, local run instructions, evaluation results, limits and privacy notes are written in Phase 7, once the prototype works.
 
