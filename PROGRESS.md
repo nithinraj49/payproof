@@ -751,3 +751,6 @@ Rollback tags: `live-before-stage14` (= f2424ca), earlier `live-stage1`, `v1.0`.
 - Base text for the description was the 1,001-character draft in `docs/HANDOVER.md` (the "[PASTE CORRECTED DESCRIPTION]" placeholder was left unfilled); words were trimmed to fit the language and voice clause.
 - Secrets scan of tracked files and all history: only the public Firebase web key in `frontend/firebase-config.js`. `docs/HANDOVER.md` and `assets-src/` are ignored via `.git/info/exclude`; only the seven project skills are tracked.
 - Resume: `git status; git log --oneline | Select-Object -First 8`. The owner pushes and tags.
+
+### Phase 7 fixes (17 Oct 2026, docs only)
+- Submission description now has the corrected result sentence (1,005 characters by `wc -m`). Architecture cost table: every row has a file:line proof; rows without code (budget alert) removed. README: exact delete button label, grounding result with both scores, `pytest -q --basetemp=$env:TEMP\pt-base` (plain `pytest -q` gave 282 passed and 1 error, a Windows temp-folder PermissionError; with `--basetemp` 283 passed). All README commands, including the Node checks, were run and pass.
