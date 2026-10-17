@@ -176,6 +176,10 @@ setInterval(() => {
 async function checkOverflow(lang, width, step) { const bad = await ev(overflowFn); record(lang, width, step + " layout", bad.length === 0, bad.slice(0, 6).join(" | ")); await checkOverlap(lang, width, step); }
 const click = (sel) => ev(`document.querySelector(${JSON.stringify(sel)}).click()`);
 const visible = (sel) => `(() => { const e = document.querySelector(${JSON.stringify(sel)}); return !!e && !e.hidden && !e.closest("[hidden]"); })()`;
+// Non-English samples go through the normal upload path (no sample mode), so costs and the weekly km/hours start blank.
+const fillCosts = () => ev(`for (const [id, v] of [["input-fuel", "3"], ["input-maintenance", "1"]]) { const e = document.getElementById(id); if (e.value === "") { e.value = v; e.dispatchEvent(new Event("input")); } }`);
+const fillWeekly = () => ev(`(() => { const nums = [...document.querySelectorAll("#review-groups input[type=number]")].slice(-2); const vals = ["300", "42"]; nums.forEach((e, i) => { if (e.value === "") { e.value = vals[i]; e.dispatchEvent(new Event("input")); } }); })()`);
+const EXPECTED_SAMPLES = { en: "trip,weekly,order_offer", ta: "trip,weekly,order_offer", te: "trip,weekly,order_offer", kn: "trip,weekly,order_offer", ml: "trip,weekly,order_offer", hi: "trip,order_offer" }; // hi/weekly was removed after failing the live extraction test twice
 const confirmAll = () => ev(`(async () => { for (let n = 0; n < 40; n++) { const b = [...document.querySelectorAll("#screen-review button.confirm-btn:not(.is-confirmed)")][0]; if (!b) break; b.click(); } return !document.getElementById("btn-review-continue").disabled; })()`);
 
 async function load(lang, width) {
@@ -201,10 +205,13 @@ for (const lang of LANGS) {
       const broken = await ev(`[...document.querySelectorAll(".step-dot-label")].filter((el) => { const words = el.textContent.trim().split(/\s+/).length; const lh = parseFloat(getComputedStyle(el).lineHeight) || 14; return Math.round(el.getBoundingClientRect().height / lh) > words; }).map((el) => el.textContent)`);
       record(lang, width, "step labels not broken mid-word", broken.length === 0, broken.join(","));
       await click("#btn-try-sample"); await checkOverflow(lang, width, "first screen + samples");
+      const cards = await ev(`[...document.querySelectorAll("#sample-cards .sample-card")].map((c) => c.dataset.sample).join(",")`);
+      record(lang, width, "sample cards offered for this language", cards === EXPECTED_SAMPLES[lang], cards);
 
       // trip sample -> review -> costs -> results
-      await ev(`document.querySelectorAll("#sample-cards button")[0].click()`);
+      await ev(`document.querySelector('[data-sample="trip"] button').click()`);
       await waitEv(visible("#screen-review"), 8000);
+      record(lang, width, "sample upload mode (English: sample mode; other languages: normal upload, is_sample false, language file)", counters.lastIsSample === (lang === "en" ? "true" : "false") && (lang === "en" || (counters.lastFile || "").startsWith(`sample-${lang}-trip`)), `${counters.lastIsSample} ${counters.lastFile}`);
       const dateTxt = await ev(`document.querySelector(".date-human").textContent`);
       record(lang, width, "date text", /^\d{1,2} \S+ 2026$/.test(dateTxt) && /^[\x20-\x7E\u0900-\u0DFF\u200c\u200d\u0964]+$/.test(dateTxt) && !/[०-९௦-௯౦-౯೦-೯൦-൯]/.test(dateTxt), dateTxt);
       await checkOverflow(lang, width, "review (unconfirmed)");
@@ -212,7 +219,7 @@ for (const lang of LANGS) {
       await checkOverflow(lang, width, "review (confirmed)");
       await click("#btn-review-continue"); await waitEv(visible("#screen-costs"), 8000);
       await checkOverflow(lang, width, "costs");
-      await click("#btn-save-costs"); await waitEv(visible("#screen-results"), 8000);
+      await fillCosts(); await click("#btn-save-costs"); await waitEv(visible("#screen-results"), 8000);
       await new Promise((r) => setTimeout(r, 900));
       const res = await ev(`document.getElementById("results-body").innerText`);
       record(lang, width, "results figures", /₹7,823\.00/.test(res) && /₹195\.58/.test(res) && /₹30\.08/.test(res) && /5\.9%/.test(res), res.replace(/\n/g, " ").slice(0, 160));
@@ -272,26 +279,28 @@ for (const lang of LANGS) {
       await click("#btn-delete-confirm-yes"); await waitEv(visible("#screen-landing"), 5000);
       record(lang, width, "delete returns to first screen", true);
 
-      // weekly sample
-      await click("#btn-try-sample"); await ev(`document.querySelectorAll("#sample-cards button")[1].click()`);
+      // weekly sample (absent for a language whose image failed the live test)
+      if (EXPECTED_SAMPLES[lang].includes("weekly")) {
+      await click("#btn-try-sample"); await ev(`document.querySelector('[data-sample="weekly"] button').click()`);
       await waitEv(visible("#screen-review"), 8000);
       await checkOverflow(lang, width, "review weekly (unconfirmed)");
-      await confirmAll(); await checkOverflow(lang, width, "review weekly (confirmed)");
+      await fillWeekly(); await confirmAll(); await checkOverflow(lang, width, "review weekly (confirmed)");
       await click("#btn-review-continue"); await waitEv(visible("#screen-costs"), 8000);
-      await click("#btn-save-costs"); await waitEv(visible("#screen-results"), 8000); await new Promise((r) => setTimeout(r, 900));
+      await fillCosts(); await click("#btn-save-costs"); await waitEv(visible("#screen-results"), 8000); await new Promise((r) => setTimeout(r, 900));
       await checkOverflow(lang, width, "results weekly");
       await click("#nav-ask"); await waitEv(visible("#screen-ask"), 3000); await checkOverflow(lang, width, "ask weekly");
       await click("#btn-home");  // home
       await waitEv(visible("#screen-landing"), 4000);
+      }
 
       // rejected
-      await click("#btn-try-sample"); await ev(`document.querySelectorAll("#sample-cards button")[2].click()`);
+      await click("#btn-try-sample"); await ev(`document.querySelector('[data-sample="order_offer"] button').click()`);
       await waitEv(visible("#screen-rejected"), 8000); await checkOverflow(lang, width, "rejected");
       await click("#btn-try-another"); await waitEv(visible("#screen-landing"), 4000);
 
       // reconciliation gate + language switch keeps it open
       modes.reconFlag = true;
-      await click("#btn-try-sample"); await ev(`document.querySelectorAll("#sample-cards button")[0].click()`);
+      await click("#btn-try-sample"); await ev(`document.querySelector('[data-sample="trip"] button').click()`);
       await waitEv(visible("#screen-review"), 8000); await confirmAll(); await click("#btn-review-continue");
       await waitEv(visible("#trip-reconciliation-gate"), 6000); await checkOverflow(lang, width, "trip reconciliation gate");
       const gateText1 = await ev(`document.getElementById("trip-reconciliation-gate-text").textContent`);

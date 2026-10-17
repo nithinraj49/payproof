@@ -31,3 +31,32 @@ export const SAMPLE_IMAGES = [
     descriptionKey: "samples.orderOffer.description",
   },
 ];
+
+// Language-specific samples (stage: language sample screenshots). Images live in
+// samples/<lang>/<id>.png, drawn by scripts/make_sample_images.mjs (fictional TrailDash
+// app, same numbers in every language). A language lists only the images that passed the
+// live extraction test; an image missing from the list shows no button for that language.
+// These go through the NORMAL upload path (isSample false): no is_sample flag, no backend
+// change, no sample cache, no prefilled costs.
+export const LANGUAGE_SAMPLES = {
+  ta: ["trip", "weekly", "order_offer"],
+  hi: ["trip", "order_offer"], // hi/weekly failed the live extraction test twice (garbled labels): no button for it
+  te: ["trip", "weekly", "order_offer"],
+  kn: ["trip", "weekly", "order_offer"],
+  ml: ["trip", "weekly", "order_offer"],
+};
+
+// English keeps the existing sample mode untouched. If a language has no images listed,
+// the English samples are shown rather than an empty picker.
+export function samplesFor(lang) {
+  const ids = LANGUAGE_SAMPLES[lang];
+  if (lang === "en" || !ids || ids.length === 0) {
+    return SAMPLE_IMAGES.map((sample) => ({ ...sample, isSample: true }));
+  }
+  return SAMPLE_IMAGES.filter((sample) => ids.includes(sample.id)).map((sample) => ({
+    ...sample,
+    url: `samples/${lang}/${sample.id}.png`,
+    fileName: `sample-${lang}-${sample.id}.png`,
+    isSample: false,
+  }));
+}
