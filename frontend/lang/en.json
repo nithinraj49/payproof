@@ -160,5 +160,11 @@
   "voice.noMic": "No microphone was found. You can type your question instead.",
   "voice.network": "Your browser's speech service could not be reached. You can type your question instead.",
   "voice.failed": "Voice input did not work. You can type your question instead.",
-  "rejected.orderOffer": "This looks like an order offer, not a finished trip or a payout, so there is nothing to check yet."
+  "rejected.orderOffer": "This looks like an order offer, not a finished trip or a payout, so there is nothing to check yet.",
+  "rejected.notAScreen": "This does not look like a trip or payout screen, so there is nothing to check.",
+  "errors.unreadableImage": "Could not read that image. Please upload a clear screenshot.",
+  "errors.noTrips": "No confirmed trips found. Please upload and confirm trip screenshots first.",
+  "errors.noWeeks": "No confirmed weekly summaries found. Please upload and confirm a weekly payout screenshot first.",
+  "errors.costsNotSet": "Please enter your fuel and maintenance costs first.",
+  "errors.dailyLimit": "You have reached today's limit for this. Please try again tomorrow."
 }
