@@ -49,8 +49,10 @@ export function startServer(port = 0) {
       counters.other[name] = (counters.other[name] || 0) + 1;
       if (url.pathname === "/api/extract") {
         counters.extract += 1;
-        if (body.includes("sample-weekly")) return send(200, weeklyExtract);
-        if (body.includes("order-offer")) return send(200, offerExtract);
+        counters.lastIsSample = (/name="is_sample"\s+(true|false)/.exec(body) || [])[1];
+        counters.lastFile = (/filename="([^"]+)"/.exec(body) || [])[1];
+        if (/sample-(?:[a-z]{2}-)?weekly/.test(body)) return send(200, weeklyExtract);
+        if (/order[-_]offer/.test(body)) return send(200, offerExtract);
         return send(200, tripExtract);
       }
       if (url.pathname === "/api/trip-reconciliation") {

@@ -2,7 +2,7 @@
 // Plain DOM manipulation, no framework, no build step (CLAUDE.md / REQUIREMENTS.md section 9).
 import { api, ApiError } from "./api.js";
 import { getLanguage, onLanguageChange, applyStaticStrings, t } from "./i18n.js";
-import { SAMPLE_IMAGES } from "./samples/index.js";
+import { samplesFor } from "./samples/index.js";
 import { currencySymbol, formatDateHuman, formatMoney, formatRate, formatPercent } from "./format.js";
 import { createBarScene, SPLASH_DURATION } from "./brutalist-bars.js";
 import { initVoice, renderVoiceStrings, stopVoice } from "./voice.js";
@@ -404,9 +404,10 @@ function renderLandingHero() {
 function renderSampleCards() {
   const cardsEl = document.getElementById("sample-cards");
   clearChildren(cardsEl);
-  SAMPLE_IMAGES.forEach((sample) => {
+  samplesFor(getLanguage()).forEach((sample) => {
     const card = document.createElement("div");
     card.className = "card sample-card tilt-card";
+    card.dataset.sample = sample.id;
 
     const h4 = document.createElement("h4");
     h4.textContent = t(sample.labelKey);
@@ -455,7 +456,7 @@ async function handleUseSample(sample) {
     }
     const blob = await response.blob();
     const file = new File([blob], sample.fileName, { type: blob.type || "image/jpeg" });
-    await handleUpload([file], true);
+    await handleUpload([file], sample.isSample);
   } catch (err) {
     setLoading(false);
     showToast(describeError(err));
