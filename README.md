@@ -75,7 +75,7 @@ To run the backend locally, copy `.env.example` to `.env`, fill in your own valu
 ## Privacy
 
 - Uploaded images are never stored. They are processed in memory and sent to Gemini on Vertex AI for reading.
-- Only confirmed structured data is stored, under the signed-in user's id. Names, phone numbers and addresses are not extracted.
+- Only confirmed structured data is stored, under the signed-in user's id. The extraction schema (`extraction/schema.py:26-69`) has no name, phone or address field, and the extraction prompt tells the model never to extract them (`extraction/prompt.py:12`).
 - Delete works: the "Delete all my data" button on the "Evidence & delete" screen removes the user's trips, weeks, costs and answers. Usage counters are kept on purpose so a user cannot reset their own daily limit.
 - Firestore rules deny all direct client access; all data goes through the backend.
 - PayProof's own application logs contain only endpoint names, status codes, outcomes, token counts and estimated costs. They contain no personal data.
@@ -91,7 +91,7 @@ To run the backend locally, copy `.env.example` to `.env`, fill in your own valu
 - **Uploads.** An upload near 8 MB takes about 25 seconds through Hosting and can occasionally drop (2 of about 75 test sequences; cause not found).
 - **Cold start.** The first request after idle takes about 4 to 8 seconds.
 - **Verifier.** It treats an amount quoted from a data-quality note as ungrounded and replaces the answer with a refusal. This is a safe failure, not a wrong number.
-- **Languages.** The interface is live in English, Hindi, Tamil, Telugu, Kannada and Malayalam. The Hindi, Telugu, Kannada and Malayalam translations are machine-made and unreviewed. Tamil was tested end to end by the owner (interface, Tamil screenshots, voice).
+- **Languages.** The interface is live in English, Hindi, Tamil, Telugu, Kannada and Malayalam. The Hindi, Telugu, Kannada and Malayalam translations are machine-made and unreviewed. Tamil was tested end to end by the author (interface, Tamil screenshots, voice).
   - Three sample screenshots are provided for each non-English language. They go through the normal upload path, which makes a live Gemini call. Costs and weekly km and hours start blank, and the label wording is unreviewed. The Hindi weekly sample leaves the credited-on field blank for the worker to confirm, and some Tamil and Telugu samples leave one date blank.
   - Language samples count against the limit of 12 extractions per user per day.
   - The order-offer rejection, the "not a trip or payout screen" rejection and all backend error codes are translated in the five non-English languages. Image-quality messages, data-quality notes, Ask answers, the evidence pack and extracted data such as order ID and deduction labels stay in English.

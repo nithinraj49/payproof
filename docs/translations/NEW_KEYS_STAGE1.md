@@ -28,7 +28,7 @@
 | `voice.network` | Your browser's speech service could not be reached. You can type your question instead. | आपके ब्राउज़र की बोली-पहचान सेवा तक नहीं पहुँच सके। आप अपना सवाल टाइप कर सकते हैं। |
 | `voice.failed` | Voice input did not work. You can type your question instead. | आवाज़ से पूछना काम नहीं किया। आप अपना सवाल टाइप कर सकते हैं। |
 
-## Tamil (தமிழ்) -- supplied by the owner (11) and translated from ta.json vocabulary (11)
+## Tamil (தமிழ்) -- supplied by the author (11) and translated from ta.json vocabulary (11)
 
 | Key | English | Translation |
 |---|---|---|
