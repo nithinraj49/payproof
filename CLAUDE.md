@@ -1,7 +1,6 @@
 # PayProof: always-on rules for Claude Code
 
 PayProof tells gig workers (delivery and ride-hail) what they really earn per hour after their own costs, from screenshots they already have. Gemini reads and explains; fixed formulas do every calculation.
-This is our entry for the Google Cloud AI Builder Cup 2026. Submission closes 18 Oct 2026, 11:59 PM IST; we submit on 17 Oct. One person builds it alone, alongside a day job, so time is the scarcest resource.
 
 ## Where things are
 
